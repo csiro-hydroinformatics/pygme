@@ -1,0 +1,10 @@
+*.pyc
+*.so
+*.png
+*.swp
+build
+useme.egg-info
+c_useme_models_gr2m.c
+c_useme_models_gr4j.c
+c_useme_models_lagroute.c
+c_useme_models_utils.c
