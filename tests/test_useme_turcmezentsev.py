@@ -11,7 +11,7 @@ import pandas as pd
 from hyio import csv
 
 from hywafari import wdata
-from hymod.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
+from useme.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
 
 class TurcMezentsevTestCases(unittest.TestCase):
 
@@ -126,6 +126,5 @@ class TurcMezentsevTestCases(unittest.TestCase):
             print('tm.trueparams = {0}'.format(tm.params['n']))
 
         self.assertTrue(ck)
-
 
 

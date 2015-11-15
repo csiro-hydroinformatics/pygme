@@ -4,8 +4,8 @@ import pandas as pd
 
 from hystat import sutils
 
-from hymod.model import Model
-from hymod.calibration import Calibration
+from useme.model import Model
+from useme.calibration import Calibration
 
 import c_useme_models_gr4j
 import c_useme_models_utils
@@ -142,7 +142,7 @@ class CalibrationGR4J(Calibration):
         params = np.array([np.exp(calparams[0]),
                 np.sinh(calparams[1]),
                 np.exp(calparams[2]),
-                0.5+np.exp(calparams[3])])
+                0.49+np.exp(calparams[3])])
 
         return params
 

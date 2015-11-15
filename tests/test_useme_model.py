@@ -5,13 +5,9 @@ import unittest
 from timeit import Timer
 import time
 
-import requests
-import tarfile
 import numpy as np
-import pandas as pd
 
-from hyio import csv
-from hymod.model import Model, Vector, Matrix
+from useme.model import Model, Vector, Matrix
 
 
 class Dummy(Model):
@@ -22,7 +18,7 @@ class Dummy(Model):
             ninputs=2, \
             nparams=2, \
             nstates=2, \
-            noutputs_max=2, 
+            noutputs_max=2,
             inputs_names=['I1', 'I2'], \
             outputs_names=['O1', 'O2'])
 
@@ -33,13 +29,13 @@ class Dummy(Model):
 
     def run(self):
         par1 = self.params['Param1']
-        S = np.repeat(self.states.data.reshape((1, 2)), self.outputs.nval, 0)
+        par2 = self.params['Param2']
 
-        outputs = par1 * np.cumsum(self.inputs.data, 0) + S
-        self.outputs.data = np.append(outputs, \
-            np.zeros((self.outputs.nval, self.outputs.nvar-2)), 1)
+        outputs = par1 + par2 * np.cumsum(self.inputs.data, 0)
+        self.outputs.data = outputs[:, :self.outputs.nvar]
 
-        self.states.data = self.outputs.data[-1, :2]
+        self.states.data = list(self.outputs.data[-1]) \
+                    + [0.] * (2-self.outputs.nvar)
 
     def set_uh(self):
         nuh = self.uh.nval
@@ -59,7 +55,7 @@ class VectorTestCases(unittest.TestCase):
             v.names = ['a', 'b']
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _names'))
+        self.assertTrue(e.message.startswith('Vector test, tried setting _names'))
 
 
     def test_vector2(self):
@@ -70,7 +66,7 @@ class VectorTestCases(unittest.TestCase):
             v.units = ['m2', 'mm/d']
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _units'))
+        self.assertTrue(e.message.startswith('Vector test, tried setting _units'))
 
 
     def test_vector3(self):
@@ -81,32 +77,33 @@ class VectorTestCases(unittest.TestCase):
             v.min = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _min'))
+        self.assertTrue(e.message.startswith('Vector test, tried setting _min'))
 
 
     def test_vector4(self):
         v = Vector('test', 3)
         v.max = [10, 100, 20]
-        self.assertTrue(list(v.max.astype(int)) == [10, 100, 20])
+        self.assertTrue(np.allclose(v.max, [10, 100, 20]))
         try:
             v.max = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _max'))
+        self.assertTrue(e.message.startswith('Vector test, tried setting _max'))
 
 
     def test_vector5(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
+        self.assertTrue(~v.hitbounds)
         v.data = [-100, 50, 2.001]
         self.assertTrue(np.allclose(v.data, [-1, 50, 2.001]))
-        self.assertTrue(np.allclose(v.hitbounds, [1, 0, 0]))
+        self.assertTrue(v.hitbounds)
 
         try:
             v.data = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _data'))
+        self.assertTrue(e.message.startswith('Vector test, tried setting _data'))
 
 
     def test_vector6(self):
@@ -215,11 +212,11 @@ class ModelTestCases(unittest.TestCase):
         dum.inputs.data = inputs
         dum.run()
 
-        expected1 = 10 + params[0] * np.cumsum(inputs[:, 0])
+        expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
         ck1 = np.allclose(expected1, dum.outputs.data[:, 0])
         self.assertTrue(ck1)
 
-        expected2 = params[0] * np.cumsum(inputs[:, 1])
+        expected2 = params[0] + params[1] * np.cumsum(inputs[:, 1])
         ck2 = np.allclose(expected2, dum.outputs.data[:, 1])
         self.assertTrue(ck2)
 
@@ -232,9 +229,9 @@ class ModelTestCases(unittest.TestCase):
         dum.params.data = params
         dum.initialise(states=[10, 0])
         dum.inputs.data = inputs
-     
+
         dum2 = dum.clone()
-        
+
         d1 = dum.inputs.data
         d2 = dum2.inputs.data
 
@@ -250,6 +247,16 @@ class ModelTestCases(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(dum.uh.data)))
 
         dum.params.data = [1., 2.]
- 
+
         self.assertTrue(np.allclose(dum.uh.data, 1.))
+
+    def test_model8(self):
+        inputs = np.random.uniform(0, 1, (1000, 2))
+        params = [0.5, 10.]
+        dum = Dummy()
+        out = dum.fullrun(inputs, params)
+
+        expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
+        ck1 = np.allclose(expected1, out[:, 0])
+        self.assertTrue(ck1)
 

@@ -5,13 +5,10 @@ import unittest
 from timeit import Timer
 import time
 
-import requests
-import tarfile
 import numpy as np
-import pandas as pd
 
-from hymod.model import Model
-from hymod.calibration import Calibration
+from useme.model import Model
+from useme.calibration import Calibration
 
 
 class Dummy(Model):
@@ -128,6 +125,23 @@ class CalibrationTestCases(unittest.TestCase):
        
         start, explo, explo_ofun = calib.explore(iprint=0, nsamples=10)
         final, out, _ = calib.fit(start, iprint=0, ftol=1e-8)
+
+        self.assertTrue(np.allclose(calib.model.params.data, params))
+
+
+    def test_calibration5(self):
+        inputs = np.random.uniform(0, 1, (1000, 2))
+        params = [0.5, 10.]
+        dum = Dummy()
+        dum.allocate(len(inputs), 2)
+        dum.inputs.data = inputs
+
+        dum.params.data = params
+        dum.run()
+        obs = dum.outputs.data[:, 0].copy()
+
+        calib = CalibrationDummy()
+        calib.fullfit(obs, inputs)
 
         self.assertTrue(np.allclose(calib.model.params.data, params))
 

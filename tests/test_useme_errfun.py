@@ -1,16 +1,13 @@
 import os
 import re
+import math
 import unittest
 
 import time
 
-import requests
-import tarfile
 import numpy as np
-import pandas as pd
 
-from hyio import csv
-from hymod import calibration
+from useme import calibration
 
 
 class ErrfunTestCases(unittest.TestCase):
@@ -19,25 +16,33 @@ class ErrfunTestCases(unittest.TestCase):
     def setUp(self):
         print('\t=> ErrfunTestCase')
 
+        nval = 1000
+        self.nval = nval
+        self.obs = np.random.uniform(size=nval)
+        self.sim = np.random.uniform(size=nval)
 
     def test_sse(self):
-        nval = 1000
-        obs = np.random.uniform(size=nval)
-        sim = np.random.uniform(size=nval)
-        err1 = calibration.sse(obs, sim, None)
-        err2 = np.sum((obs-sim)**2)
-        ck = abs(err1-err2) < 1e-10
+        err1 = calibration.sse(self.obs, self.sim, None)
+        err2 = np.sum((self.obs-self.sim)**2)
+        ck = np.allclose(err1, err2)
         self.assertTrue(ck)
 
 
     def test_ssqe_bias(self):
-        nval = 1000
-        obs = np.random.uniform(size=nval)
-        sim = np.random.uniform(size=nval)
-        err1 = calibration.ssqe_bias(obs, sim, None)
-        err2 = np.sum((np.sqrt(obs)-np.sqrt(sim))**2)
-        err2 *= (1+abs(np.mean(obs)-np.mean(sim)))
-        ck = abs(err1-err2) < 1e-10
+        err1 = calibration.ssqe_bias(self.obs, self.sim, None)
+        err2 = np.sum((np.sqrt(self.obs)-np.sqrt(self.sim))**2)
+        err2 *= (1+abs(np.mean(self.obs)-np.mean(self.sim)))
+        ck = np.allclose(err1, err2)
+        self.assertTrue(ck)
+
+
+    def test_sls_llikelihood(self):
+        sigma = [2.]
+        err1 = calibration.sls_llikelihood(self.obs, self.sim, sigma)
+        res = self.obs-self.sim
+        err2 = np.sum(res*res)/2/sigma[0]**2
+        err2 += self.nval * math.log(sigma[0])
+        ck = np.allclose(err1, err2)
         self.assertTrue(ck)
 
 

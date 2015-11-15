@@ -7,7 +7,7 @@ import numpy as np
 
 from scipy.optimize import fmin_powell as fmin
 
-from hymod.model import Vector, Matrix
+from useme.model import Vector, Matrix
 
 
 def sse(obs, sim, errparams):
@@ -34,7 +34,7 @@ def sls_llikelihood(obs, sim, errparams):
     sigma = errparams[0]
     nval = len(obs)
 
-    ll = np.sum(err*err) + sigma + nval * math.log(sigma)
+    ll = np.sum(err*err)/(2*sigma*sigma) + nval * math.log(sigma)
     return ll
 
 
@@ -56,6 +56,8 @@ class Calibration(object):
         self._runtime = np.nan
         self._optimizer = optimizer
         self._initialise_model = initialise_model
+        self._is_fitting = False
+        self._dx_sensitivity = 1e-3
 
         self._observations = None
         self._idx_cal = None
@@ -71,13 +73,26 @@ class Calibration(object):
     def __str__(self):
         str = 'Calibration instance for model {0}\n'.format(self._model.name)
         str += '  ncalparams : {0}\n'.format(self.calparams_means.nval)
-        str += '  ieval      : {0}\n'.format(self._ieval)
+        str += '  ieval      : {0}\n'.format(self.ieval)
         str += '  runtime    : {0}\n'.format(self._runtime)
         str += '  {0}\n'.format(self.calparams_means)
         str += '  {0}\n'.format(self.calparams)
         str += '  {0}\n'.format(self._model.params)
 
         return str
+
+    @property
+    def ieval(self):
+        return self._ieval
+
+    @ieval.setter
+    def ieval(self, value):
+        self._ieval = value
+
+
+    @property
+    def runtime(self):
+        return self._runtime
 
 
     @property
@@ -123,10 +138,10 @@ class Calibration(object):
             self._model._params.data = params
 
             # Exit objectif function if parameters hit bounds
-            if np.sum(self._model._params.hitbounds) > 1e-10:
+            if self._model._params.hitbounds and self._is_fitting:
                 return np.inf
 
-            # Run model with initialisation if needed
+            # Run model initialisation if needed
             if self._initialise_model:
                 self._model.initialise()
 
@@ -217,6 +232,20 @@ class Calibration(object):
             raise ValueError(('model.outputs.nvar({0}) !=' + \
                 ' observations.nvar({1})').format(n1, n2))
 
+        # Check params size
+        ncalparams = self._calparams.nval
+        calparams = np.zeros(ncalparams)
+        params = self.cal2true(calparams)
+        if len(params.shape) != 1:
+            raise ValueError('cal2true does not return a 1D array')
+
+
+        errparams = self.cal2err(calparams)
+        if not errparams is None:
+            if len(errparams.shape) != 1:
+                raise ValueError('cal2err does not return a 1D array')
+
+
 
     def cal2true(self, calparams):
         return calparams
@@ -268,6 +297,7 @@ class Calibration(object):
 
         self.check()
         self._iprint = iprint
+        self._ieval = 0
 
         if nsamples is None:
             ncalparams = self._calparams_means.nval
@@ -292,7 +322,6 @@ class Calibration(object):
             calparams = calparams_explore[i,:]
             ofun = self._objfun(calparams)
             ofun_explore[i] = ofun
-            self._ieval += 1
 
             if self._iprint>0:
                 if self._ieval % self._iprint == 0:
@@ -315,10 +344,11 @@ class Calibration(object):
         return calparams_best, calparams_explore, ofun_explore
 
 
-    def fit(self, calparams_ini, iprint=0, *args, **kwargs):
+    def fit(self, calparams_ini, iprint=0, nfit=2, *args, **kwargs):
 
         self.check()
         self._iprint = iprint
+        self._is_fitting = True
 
         if self._iprint>0:
             ofun_ini = self._objfun(calparams_ini)
@@ -327,19 +357,149 @@ class Calibration(object):
             print('\nFit start: {0:3.3e} {1} ~ {2:.2f} ms\n'.format( \
                     ofun_ini, self._calparams, self._runtime))
 
-        calparams_final = self._optimizer(self._objfun, \
-                    calparams_ini, \
-                    disp=self._iprint>0, *args, **kwargs)
+        # Apply the optimizer several times to ensure convergence
+        ini = calparams_ini
+        for k in range(nfit):
+            final = self._optimizer(self._objfun, \
+                    ini, disp=self._iprint>0, \
+                    *args, **kwargs)
+            ini = final
 
-        ofun_final = self._objfun(calparams_final)
+        ofun_final = self._objfun(final)
         outputs_final = self.model.outputs.data
+        self._calparams.data = final
 
         if self._iprint>0:
-            self._calparams.data = calparams_final
             print('\nFit final: {0:3.3e} {1} ~ {2:.2f} ms\n'.format( \
                     ofun_final, self._calparams, self._runtime))
 
-        self._calparams.data = calparams_final
+        self._is_fitting = False
 
-        return calparams_final, outputs_final, ofun_final
+        return final, outputs_final, ofun_final
+
+
+    def fullfit(self, observations, inputs, \
+            idx_cal=None, \
+            iprint=0, \
+            nsamples=None, \
+            nfit=2):
+
+        self.setup(observations, inputs)
+
+        if idx_cal is None:
+            idx_cal = np.arange(self._observations.nval)
+        self.idx_cal = idx_cal
+
+        start, explo, explo_ofun = self.explore(iprint=iprint, \
+                nsamples=nsamples)
+
+        final, out, out_ofun = self.fit(start, iprint=iprint, \
+                nfit=nfit)
+
+        return final, out, out_ofun
+
+
+    def sensitivity(self, calparams=None, dx=1e-3):
+
+        if calparams is None:
+            calparams = self._calparams.data
+
+        ncalparams = self._calparams.nval
+        sensitivity = np.zeros(ncalparams)
+
+        ofun0 = self._objfun(calparams)
+
+        for k in range(ncalparams):
+            cp = calparams.copy()
+            cp[k] += dx
+            ofun1 = self._objfun(cp)
+            sensitivity[k] = (ofun1-ofun0)/dx
+
+        return sensitivity
+
+
+
+
+class CrossValidation(object):
+
+    def __init__(self, calib,
+            scheme='split', \
+            warmup=0, \
+            leaveout=0, \
+            explore=True):
+
+        self._calib = calib
+        self._scheme = scheme
+        self._warmup = warmup
+        self._explore = explore
+
+        self._calperiods = None
+        self._calparams_ini = None
+
+    def __str__(self):
+        calib = self._calib
+        str = 'Cross-validation instance for model {0}\n'.format(calib._model.name)
+        str += '  scheme     : {0}\n'.format(self._scheme)
+        str += '  explore    : {0}\n'.format(self._explore)
+        str += '  ncalparams : {0}\n'.format(calib.calparams_means.nval)
+        str += '  nperiods   : {0}\n'.format(len(self._calperiods))
+
+        return str
+
+
+    @property
+    def calparams_ini(self):
+        return self._calparams_ini
+
+    @calparams_ini.setter
+    def calparams_ini(self, value):
+        self._calparams_ini = Vector('calparams_ini', \
+                self._calib._calparams.nval)
+
+        self._calparams_ini.data = value
+
+
+    def setup(self):
+        self._calib.check()
+        nval = self._calib.model.inputs.nval
+        warmup = self._warmup
+
+        if self._scheme == 'split':
+            idx_1 = np.arange(warmup, (nval+warmup)/2)
+            idx_2 = np.arange((nval+warmup)/2, nval)
+
+            self._calperiods = [ \
+                    {'id':'PER1', 'idx_cal':idx_1}, \
+                    {'id':'PER2', 'idx_cal':idx_2} \
+            ]
+
+
+    def run(self):
+
+        if self._idx_cals is None:
+            raise ValueError(('No idx_cal for cross-validation of model {0}.' + \
+                ' Please setup').format(self._calib._model.name))
+
+        nper = len(self._calperiods)
+
+        for i in range(nper):
+            per = self._calperiods[i]
+            self._calib.idx_cal = per['idx_cal']
+
+            # Define starting point
+            if self._explore:
+                calparams_ini, _, _ = self._calib.explore()
+            else:
+                calparams_ini = self._calparams_ini.value
+
+            # Perform fit for calibration period
+            final, out, ofun, sensit = self._calib.fit(calparams_ini)
+
+            per['calparams'] = final.copy()
+            per['params'] = self._calib.model.params.data.copy()
+            per['simulation'] = out
+            per['objfun'] = ofun
+
+
+
 

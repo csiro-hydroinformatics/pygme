@@ -140,11 +140,11 @@ int c_lagroute_run(int nval,
         int nstates,
         int noutputs,
         double * config,
-	double * params,
+        double * params,
         double * uh,
-	double * inputs,
+        double * inputs,
         double * statesuh,
-	double * states,
+        double * states,
         double * outputs)
 {
     int ierr=0, i, storage_type;
@@ -160,7 +160,7 @@ int c_lagroute_run(int nval,
     if(nstates < 1)
         return ESIZE_STATES;
 
-    if(nuh > NUHMAXLENGTH)
+    if(nuh > NUHMAXLENGTH || nuh <= 0)
         return ESIZE_STATESUH;
 
     if(noutputs > LAGROUTE_NOUTPUTS)
@@ -203,7 +203,7 @@ int c_lagroute_run(int nval,
     	ierr = c_lagroute_runtimestep(nparams, nuh, ninputs,
                 nstates, noutputs,
                 dt, L, qstar, storage_type,
-    		params,
+                params,
                 uh,
                 &(inputs[ninputs*i]),
                 statesuh,

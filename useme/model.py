@@ -16,7 +16,7 @@ class Vector(object):
         self._min = -np.inf * np.ones(nval).astype(np.float64)
         self._max = np.inf * np.ones(nval).astype(np.float64)
         self._default = np.nan * np.ones(nval).astype(np.float64)
-        self._hitbounds = np.zeros(nval).astype(np.float64)
+        self._hitbounds = False
         self._model2vector = None
 
 
@@ -35,7 +35,7 @@ class Vector(object):
             kx = np.where(name == self._names)[0]
             return self._data[kx]
         else:
-            raise ValueError(('Vector {0}: name {1} not in' + \
+            raise ValueError(('Vector {0}, name {1} not in' + \
                     ' the vector names').format(self._id, name))
 
 
@@ -44,7 +44,7 @@ class Vector(object):
             kx = np.where(name == self._names)[0]
             self._data[kx] = value
         else:
-            raise ValueError(('Vector {0}: name {1} not in' + \
+            raise ValueError(('Vector {0}, name {1} not in' + \
                     ' the vector names').format(self._id, name))
 
 
@@ -55,7 +55,7 @@ class Vector(object):
             _source = _source.astype(np.float64)
 
         if len(_source) != self.nval:
-            raise ValueError(('Vector {0}: tried setting {1}, ' + \
+            raise ValueError(('Vector {0}, tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
                 self._id, target, len(_source), self._nval))
 
@@ -78,12 +78,12 @@ class Vector(object):
     @data.setter
     def data(self, value):
         self.__set_data('_data', value)
-        self._data = np.clip(self._data, self._min, self._max)
 
-        idx = np.abs(self._data-self._min) < 1e-10
-        idx = idx | (np.abs(self._data-self._max) < 1e-10)
-        self._hitbounds[idx] = 1
-        self._hitbounds[~idx] = 0
+        hitb = np.subtract(self.data, self._min) < 0.
+        hitb = hitb | (np.subtract(self._max, self.data) < 0.)
+        self._hitbounds = np.any(hitb)
+
+        self._data = np.clip(self._data, self._min, self._max)
 
         if not self._model2vector is None:
             self._model2vector.post_setter()
@@ -237,7 +237,7 @@ class Matrix(object):
 
 
 class Model2Vector(object):
-    
+
     def __init__(self, model, vector):
         self.model = model
         self.vector = vector
@@ -271,7 +271,10 @@ class Model(object):
         self._params._model2vector = model2vector
 
         self._statesuh = Vector('statesuh', NUHMAXLENGTH)
+        self._statesuh.data = [0.] * NUHMAXLENGTH
+
         self._uh = Vector('uh', NUHMAXLENGTH)
+        self._uh.data = [1.] + [0.] * (NUHMAXLENGTH-1)
 
         self._inputs = None
         self._outputs = None
@@ -393,12 +396,24 @@ class Model(object):
         self._statesuh.data = statesuh
 
 
+    def fullrun(self, inputs, params, noutputs=1, \
+            states=None, statesuh=None):
+
+        inputs_m = Matrix.fromdata('inputs', inputs)
+        self.allocate(inputs_m.nval, noutputs)
+        self._inputs.data = inputs
+        self._params.data = params
+        self.initialise(states, statesuh)
+        self.run()
+
+        return self.outputs.data[:, :noutputs]
+
+
     def run(self):
         pass
 
 
     def clone(self):
-
         model = Model(self._name, \
             self._config.nval, \
             self._ninputs, \

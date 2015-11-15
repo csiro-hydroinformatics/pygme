@@ -4,8 +4,8 @@ import pandas as pd
 
 from hystat import sutils
 
-from hymod.model import Model
-from hymod.calibration import Calibration
+from useme.model import Model
+from useme.calibration import Calibration
 
 import c_useme_models_lagroute
 import c_useme_models_utils
@@ -45,6 +45,8 @@ class LagRoute(Model):
         self.params.min = [0.01, 0.]
         self.params.max = [20., 1.]
         self.params.default = [1., 0.5]
+
+        self.params.reset()
 
 
     def set_uh(self):

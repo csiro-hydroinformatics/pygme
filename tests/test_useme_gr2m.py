@@ -109,7 +109,6 @@ class GR2MTestCases(unittest.TestCase):
         samples = calib.sample(nsamples)
 
         idx_cal = np.arange(12, len(inputs))
-        calib.idx_cal = idx_cal
         
         # loop through parameters
         for i in range(nsamples):
@@ -123,6 +122,7 @@ class GR2MTestCases(unittest.TestCase):
 
             # Calibrate
             calib.setup(obs, inputs)
+            calib.idx_cal = idx_cal
                         
             calparams_ini, _, _ = calib.explore()
             calparams_final, _, _ = calib.fit(calparams_ini, iprint=0)

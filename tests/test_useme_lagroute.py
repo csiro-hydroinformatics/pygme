@@ -10,12 +10,12 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-from hymod.models.lagroute import LagRoute, CalibrationLagRoute
-from hymod import calibration
+from useme.models.lagroute import LagRoute, CalibrationLagRoute
+from useme import calibration
 
 
-import c_hymod_models_utils
-UHEPS = c_hymod_models_utils.uh_getuheps()
+import c_useme_models_utils
+UHEPS = c_useme_models_utils.uh_getuheps()
 
 
 class LagRouteTestCases(unittest.TestCase):
@@ -139,7 +139,7 @@ class LagRouteTestCases(unittest.TestCase):
 
                 t0 = time.time()
 
-                lr.params.dat = [U, alpha]
+                lr.params.data = [U, alpha]
                 lr.initialise()
                 lr.run()
 
@@ -155,9 +155,6 @@ class LagRouteTestCases(unittest.TestCase):
                 B = si - so - v1 - vr + v0
                 ck = abs(B/so) < 1e-10
 
-                if not ck:
-                    import pdb; pdb.set_trace()
-
                 self.assertTrue(ck)
 
             dta /= (len(UU) * len(aa))
@@ -165,7 +162,6 @@ class LagRouteTestCases(unittest.TestCase):
                 theta2, dta))
 
     def test_lagroute_lag(self):
-
         nval = 1000
         q1 = np.exp(np.random.normal(0, 2, size=nval))
         inputs = np.ascontiguousarray(q1[:,None])
@@ -194,4 +190,5 @@ class LagRouteTestCases(unittest.TestCase):
 
             ck = np.max(err) < 1e-10
             self.assertTrue(ck)
+
 

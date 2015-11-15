@@ -7,45 +7,26 @@ import itertools
 import time
 
 import numpy as np
-import pandas as pd
 
-from hyio import csv
-
-from hywafari import wdata
-from hymod.models.ann import ANN, CalibrationANN
-from hymod.models.ann import destandardize, standardize
-from hymod import calibration
-
-# Get test data
-url_testdata = 'https://drive.google.com/file/d/0B9m81HeozSRzcmNkVmdibEpmMTg'
-FOUT = os.path.dirname(os.path.abspath(__file__))
-ftar = '%s/rrtests.tar.gz' % FOUT
-FRR = re.sub('\\.tar\\.gz', '', ftar)
-
-if not os.path.exists(FRR):
-    os.mkdir(FRR)
-    req = requests.get(url_testdata, params={'alt':'media'})
-    tar = tarfile.open(fileobj=req, mode='r:gz')
-    tar.extractall()
-
+from useme.models.ann import ANN, CalibrationANN
+from useme.models.ann import destandardize, standardize
+from useme import calibration
 
 
 class ANNTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> ANNTestCase')
-        FTEST, testfile = os.path.split(__file__)
-        self.FOUT = FTEST
+        filename = os.path.abspath(__file__)
+        self.FHERE = os.path.dirname(filename)
 
 
     def test_print(self):
-
         ann = ANN(2, 2)
         str_ann = '%s' % ann
 
 
     def test_standardize(self):
-
         nval = 10000
         nvar = 5
         for i in range(10):
@@ -65,7 +46,6 @@ class ANNTestCases(unittest.TestCase):
 
 
     def test_run1(self):
-
         n1 = [10, 100, 10000]
         n2 = [1, 2, 50]
         n3 = [1, 2, 10]
@@ -93,22 +73,29 @@ class ANNTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
-
         ninputs = 2
         nneurons = 1
         calib = CalibrationANN(ninputs, nneurons)
         calib.errfun = calibration.sse
 
-        for count in range(1, 11):
-            fd = '%s/rrtest_%2.2d_timeseries.csv' % (FRR, count)
-            d, comment = csv.read_csv(fd, index_col=0, \
-                    parse_dates=True)
-            idx = d['obs']>=0
-            d = d[idx]
-            dm = d.resample('MS', how='sum')
+        for id in range(1, 21):
+            fd = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format(self.FHERE, id)
+            d = np.loadtxt(fd, delimiter=',')
+            idx = d[:, 3] < 0
+            d[idx, 3] = np.nan
 
-            inputs = dm[['rainfall', 'obs']].values
-            obs = dm['obs'].shift(-1).values
+            month = (d[:, 0]*1e-2).astype(int)
+            dm = []
+            month_u = np.unique(month)
+            for m in month_u:
+                idx = month == m
+                sm = np.sum(d[idx, :], 0)
+                sm[0] = m
+                dm.append(sm)
+            dm = np.concatenate(dm).reshape((len(month_u), 5))
+
+            inputs = dm[:, [1, 3]]
+            obs = np.append(dm[1:, 3], np.nan)
 
             # Standardize
             cst = 0.01
@@ -117,7 +104,7 @@ class ANNTestCases(unittest.TestCase):
 
             # Run gr first
             calib.setup(obs_s, inputs_s)
-            calib.idx_cal = pd.notnull(obs_s)
+            calib.idx_cal = np.arange(len(obs_s))
 
             ann = calib.model
             params = np.random.uniform(1, 2, ann.params.nval)
@@ -138,9 +125,10 @@ class ANNTestCases(unittest.TestCase):
             ck = np.max(err) < 1e-4
 
             print('\t\tTEST CALIB %2d : max abs err = %0.5f' % ( \
-                    count, np.max(err)))
+                    id, np.max(err)))
 
             self.assertTrue(ck)
 
-
+if __name__ == '__main__':
+    unittest.main()
 

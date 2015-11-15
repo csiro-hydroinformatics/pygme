@@ -4,39 +4,14 @@ import unittest
 
 import time
 
-import requests
-import tarfile
 import numpy as np
-import pandas as pd
 
-from hyio import csv
-
-has_gr4j_wafari = False
-try:
-    import gr4j as gr4j_wafari
-    has_gr4j_wafari = True
-except ImportError:
-    pass
-
-from hymod import calibration
-from hymod.models.gr4j import GR4J, CalibrationGR4J
+from useme import calibration
+from useme.models.gr4j import GR4J, CalibrationGR4J
 
 
-import c_hymod_models_utils
-UHEPS = c_hymod_models_utils.uh_getuheps()
-
-# Get test data
-url_testdata = 'https://drive.google.com/file/d/0B9m81HeozSRzcmNkVmdibEpmMTg'
-FOUT = os.path.dirname(os.path.abspath(__file__))
-ftar = '%s/rrtests.tar.gz' % FOUT
-FRR = re.sub('\\.tar\\.gz', '', ftar)
-
-if not os.path.exists(FRR):
-    os.mkdir(FRR)
-    req = requests.get(url_testdata, params={'alt':'media'})
-    tar = tarfile.open(fileobj=req, mode='r:gz')
-    tar.extractall()
-
+import c_useme_models_utils
+UHEPS = c_useme_models_utils.uh_getuheps()
 
 
 class GR4JTestCases(unittest.TestCase):
@@ -44,7 +19,8 @@ class GR4JTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> GR4JTestCase')
-        self.FOUT = FOUT
+        filename = os.path.abspath(__file__)
+        self.FHERE = os.path.dirname(filename)
 
 
     def test_print(self):
@@ -115,150 +91,18 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_run2(self):
-        count = 0
-        warmup = 365 * 5
-
-        gr = GR4J()
-
-        gr.params.min = [10, -5, 1, 0.5]
-        gr.params.max = [1500, 10, 500, 10]
-
-        if not has_gr4j_wafari:
-            gr2 = None
-        else:
-            gr2 = gr4j_wafari.GR4J()
-
-        nsamples = 100
-        samples = np.zeros((nsamples, 4))
-        for i in range(nsamples):
-            for k in range(4):
-                u = np.random.uniform(gr.params.min[k], \
-                        gr.params.max[k])
-                samples[i, k] = u
-
-        tam = 0
-        tbm = 0
-        ncatchments = 10
-
-        for count in range(1, ncatchments+1):
-
-            print('\n.. dealing with %3d/%3d ..' % (count, ncatchments))
-            count += 1
-
-            fd = '%s/rrtest_%2.2d_timeseries.csv' % (FRR, count)
-            d, comment = csv.read_csv(fd)
-            d.columns = ['Date', 'P', 'PET', 'TMIN', 'TMAX', 'RAD', \
-                'RH', 'OBS', 'SAC', 'GR4J']
-
-            idx = np.where(pd.notnull(d['PET']))[0]
-            d = d.iloc[idx[0]:idx[-1], :]
-
-            inputs = d.loc[:, ['P', 'PET']].values
-            inputs = np.ascontiguousarray(inputs, np.float64)
-            nval = inputs.shape[0]
-            ny = nval/365
-
-            # Set outputs matrix
-            gr.allocate(len(inputs), 1)
-            gr.inputs.data = inputs
-
-            ee1 = 0.
-            ee2 = 0.
-            bb = 0.
-            dta = 0.
-            dtb = 0.
-
-            for ip in range(nsamples):
-
-                # First run
-                params = samples[ip,:]
-
-                # Run
-                t0 = time.time()
-
-                gr.params.data = params
-                gr.initialise()
-                gr.run()
-                qsim = gr.outputs.data[:,0]
-
-                t1 = time.time()
-                dta += 1000 * (t1-t0)
-
-                # Second run
-                qsim2 = qsim
-                if not gr2 is None:
-                    t0 = time.time()
-                    gr2.X1 = params[0]
-                    gr2.X2 = params[1]
-                    gr2.X3 = params[2]
-                    gr2.X4 = params[3]
-
-                    gr2.init()
-                    gr2.Sp = params[0]/2
-                    gr2.Sr = params[2]/2
-
-                    qsim2 = gr2.run(inputs[:,0], inputs[:,1])
-
-                    t1 = time.time()
-                    dtb += 1000 * (t1-t0)
-
-                # Comparison
-                idx = qsim2[warmup:] < 5.
-                if np.sum(idx) > 0:
-                    e1 = np.abs(qsim2[warmup:][idx] - qsim[warmup:][idx])
-                    if np.max(e1) > ee1:
-                        ee1 = np.max(e1)
-
-                idx = qsim2[warmup:] > 5.
-                if np.sum(idx) > 0:
-                    e2 = np.abs(qsim2[warmup:][idx] - qsim[warmup:][idx])
-                    if np.max(e2) > ee2:
-                        ee2 = np.max(e2)
-
-                b = np.abs(np.mean(qsim2[warmup:]) - np.mean(qsim[warmup:]))
-                b /= np.mean(qsim2[warmup:])
-                if b > bb:
-                    bb = b
-
-
-            fact = 1./nsamples/inputs.shape[0]*365.25
-            ta = dta * fact
-            tam += ta
-
-            if gr2 is None:
-                dtb = dta
-            tb = dtb * fact
-            tbm += tb
-
-            print('  runtime = %0.4fms/yr(C) ~ %0.4fms/yr (F) (%0.1f%%)' % (
-                ta, tb, (ta-tb)/tb*100))
-
-            ck = (ee1 < 3e-3) & (ee2 < 4e-3) & (bb < 1e-4)
-
-            if not ck:
-                print('  failing %s - ee1 = %f / ee2 = %f / bb = %f' % (id,
-                        ee1, ee2, bb))
-
-            self.assertTrue(ck)
-
-        print(('\n  Average runtime = {0:0.4f}ms/yr(C)' + \
-            ' ~ {1:0.4f}ms/yr(F) ({2:0.1f})\n').format( \
-            tam/ncatchments, tbm/ncatchments, (tam-tbm)/tbm * 100))
-
-
-    def test_run3(self):
         warmup = 365 * 5
         gr = GR4J()
 
-        for count in range(1, 11):
+        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
+        params = np.loadtxt(fp, delimiter=',')
 
-            fd = '%s/rrtest_%2.2d_timeseries.csv' % (FRR, count)
-            d, comment = csv.read_csv(fd)
+        for i in range(params.shape[0]):
 
-            fp = '%s/rrtest_%2.2d_grparams.csv' % (FRR, count)
-            params, comment = csv.read_csv(fp)
-
-            inputs = d.loc[:, ['rainfall', 'APET']].values
+            fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',')
+            inputs = data[:, [1, 2]]
             inputs = np.ascontiguousarray(inputs, np.float64)
 
             # Run gr4j
@@ -266,7 +110,7 @@ class GR4JTestCases(unittest.TestCase):
             gr.inputs.data = inputs
             t0 = time.time()
 
-            gr.params.data = params['parvalue']
+            gr.params.data = params[i, [2, 0, 1, 3]]
             gr.initialise()
             gr.run()
             qsim = gr.outputs.data[:,0]
@@ -279,71 +123,72 @@ class GR4JTestCases(unittest.TestCase):
 
             # Compare
             idx = np.arange(len(inputs)) > warmup
-            expected = d['gr4j'].values[idx]
+            expected = data[idx, 4]
+
             err = np.abs(qsim[idx] - expected)
-            err_thresh = 7e-3
+            err_thresh = 5e-2
             ck = np.max(err) < err_thresh
 
             if not ck:
                 print(('\t\tTEST %2d : max abs err = '
-                    '%0.5f < %0.5f ? %s ~ %0.5fms/yr') % (count, \
+                    '%0.5f < %0.5f ? %s ~ %0.5fms/yr') % (i+1, \
                     np.max(err), err_thresh, ck, dta))
             else:
                 print('\t\tTEST %2d : max abs err = %0.5f ~ %0.5fms/yr' % ( \
-                    count, np.max(err), dta))
+                    i+1, np.max(err), dta))
 
             self.assertTrue(ck)
 
 
     def test_calibrate(self):
         gr = GR4J()
-        warmup = 365*5
-        
+        warmup = 365*6
+
         calib = CalibrationGR4J()
         calib.errfun = calibration.ssqe_bias
 
-        for count in range(1, 11):
-            fd = '%s/rrtest_%2.2d_timeseries.csv' % (FRR, count)
-            d, comment = csv.read_csv(fd, index_col=0, \
-                    parse_dates=True)
-            idx = np.where(d['obs']>=0)
-            d = d[np.min(idx)-warmup:]
+        warmup = 365 * 5
 
+        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
+        params = np.loadtxt(fp, delimiter=',')
 
-            fp = '%s/rrtest_%2.2d_grparams.csv' % (FRR, count)
-            params, comment = csv.read_csv(fp)
+        for i in range(params.shape[0]):
 
-            inputs = d.loc[:, ['rainfall', 'APET']].values
+            fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',')
+            inputs = data[:, [1, 2]]
             inputs = np.ascontiguousarray(inputs, np.float64)
             nval = inputs.shape[0]
             idx_cal = np.arange(len(inputs))>=warmup
             idx_cal = np.where(idx_cal)[0]
+            calib.setup(inputs[:,0]*0., inputs)
 
-            nval = inputs.shape[0]
-            gr.allocate(nval, 9)
-            
             # Run gr first
-            gr.params.data = params['parvalue']
+            params_expected = params[i, [2, 0, 1, 3]]
+            gr = calib.model
+            gr.params.data = params_expected
             gr.initialise()
             gr.inputs.data = inputs
             gr.run()
-            obs = gr.outputs.data[:,0]
+            obs = gr.outputs.data[:,0].copy()
 
             # Calibrate
-            calib.setup(obs, inputs)
+            calib.observations.data = obs
             calib.idx_cal = idx_cal
-                        
-            calparams_ini, explo, explo_ofun = calib.explore()
-            calparams_final, _, _ = calib.fit(calparams_ini)
+            
+            ini, explo, explo_ofun = calib.explore()
+            ieval1 = calib.ieval
 
-            err = np.abs(calib.model.params.data - params['parvalue'])
-            ck = np.max(err[[0, 2]]) < 1
-            ck = ck & (err[1] < 1e-1)
-            ck = ck & (err[3] < 1e-2)
+            final, _, _ = calib.fit(ini)
+            ieval2 = calib.ieval
 
-            print('\t\tTEST CALIB %2d : max abs err = %0.5f' % ( \
-                    count, np.max(err)))
+            err = np.abs(calib.model.params.data  \
+                    - params_expected)
+            ck = np.max(err) < 1e-8
+
+            print('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e} neval={2}/{3}'.format( \
+                    i+1, np.max(err), ieval1, ieval2))
 
             self.assertTrue(ck)
-
 
