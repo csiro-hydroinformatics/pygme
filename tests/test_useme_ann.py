@@ -46,7 +46,7 @@ class ANNTestCases(unittest.TestCase):
 
 
     def test_run1(self):
-        n1 = [10, 100, 10000]
+        n1 = [10, 100, 1000]
         n2 = [1, 2, 50]
         n3 = [1, 2, 10]
 
@@ -56,8 +56,15 @@ class ANNTestCases(unittest.TestCase):
 
             # Parameters
             ann = ANN(ninputs, nneurons)
+ 
+            idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
+            params = np.zeros(ann.params.nval)
+            params[idxL1W] = np.random.uniform(0.8, 1.2, len(idxL1W))
+            params[idxL1B] = np.random.uniform(-0.2, 0.2, len(idxL1B))
+            params[idxL2W] = np.random.uniform(0.8, 1.2, len(idxL2W))
+            params[idxL2B] = np.random.uniform(-0.2, 0.2, len(idxL2B))
+            ann.params.data = params
 
-            params = np.random.uniform(-1, 1, ann.params.nval)
             ann.params.data = params
             ann.allocate(len(inputs), 2)
             ann.inputs.data = inputs
@@ -70,6 +77,51 @@ class ANNTestCases(unittest.TestCase):
             Q2 = (np.dot(S2, L2M) + L2C)[:,0]
 
             self.assertTrue(np.allclose(Q1, Q2))
+
+
+    def test_jacobian(self):
+        n1 = [10, 100, 1000]
+        n2 = [1, 2, 50]
+        n3 = [1, 2, 10]
+
+        for nval, ninputs, nneurons in itertools.product(n1, n2, n3):
+
+            inputs = np.random.uniform(-1, 1, (nval, ninputs))
+
+            # Parameters
+            ann = ANN(ninputs, nneurons)
+            
+            idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
+            params = np.zeros(ann.params.nval)
+            params[idxL1W] = np.random.uniform(0.8, 1.2, len(idxL1W))
+            params[idxL1B] = np.random.uniform(-0.2, 0.2, len(idxL1B))
+            params[idxL2W] = np.random.uniform(0.8, 1.2, len(idxL2W))
+            params[idxL2B] = np.random.uniform(-0.2, 0.2, len(idxL2B))
+            ann.params.data = params.copy()
+
+            ann.allocate(len(inputs), 2)
+            ann.inputs.data = inputs
+            ann.run()
+            Q1 = ann.outputs.data[:, 0].copy()
+
+            dx = 1e-6
+            jac = np.zeros((len(Q1), ann.params.nval))
+            for k in range(ann.params.nval):
+                ann.params.data = params
+                ann.params.data[k] = params[k] + dx
+                ann.run()
+                Q2 = ann.outputs.data[:, 0].copy()
+                jac[:, k] = (Q2-Q1)/dx
+
+            jac2 = ann.jacobian()
+
+            err = np.mean(np.abs(jac-jac2)/(1+jac) * 100, axis=0)
+            ck = np.mean(err[idxL1W]) < 1e-3
+            ck = ck & (np.mean(err[idxL1B]) < 1e-4)
+            ck = ck & (np.mean(err[idxL2W]) < 2)
+            ck = ck & (np.mean(err[idxL2B]) < 1e-7)
+           
+            self.assertTrue(ck)
 
 
     def test_calibrate(self):
@@ -107,8 +159,13 @@ class ANNTestCases(unittest.TestCase):
             calib.idx_cal = np.arange(len(obs_s))
 
             ann = calib.model
-            params = np.random.uniform(1, 2, ann.params.nval)
-            ann.params.data = params
+
+            idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
+            params = np.zeros(ann.params.nval)
+            params[idxL1W] = np.random.uniform(0.8, 1.2, len(idxL1W))
+            params[idxL1B] = np.random.uniform(-0.2, 0.2, len(idxL1B))
+            params[idxL2W] = np.random.uniform(0.8, 1.2, len(idxL2W))
+
             ann.run()
 
             obs = ann.outputs.data[:,0].copy()

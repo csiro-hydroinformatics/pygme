@@ -38,6 +38,7 @@ def sls_llikelihood(obs, sim, errparams):
     return ll
 
 
+
 class Calibration(object):
 
     def __init__(self, model, \
@@ -54,7 +55,6 @@ class Calibration(object):
         self._ieval = 0
         self._iprint = 0
         self._runtime = np.nan
-        self._optimizer = optimizer
         self._initialise_model = initialise_model
         self._is_fitting = False
         self._dx_sensitivity = 1e-3
@@ -69,6 +69,15 @@ class Calibration(object):
 
         self.errfun = sse
 
+        # Wrapper around optimizer to do 
+        # post processing of results
+        def _optimizer(objfun, start, *args, **kwargs):
+            final0 = optimizer(objfun, start, *args, **kwargs)
+            final = self.post_fit(final0)
+
+            return final
+            
+        self._optimizer = _optimizer
 
     def __str__(self):
         str = 'Calibration instance for model {0}\n'.format(self._model.name)
@@ -253,6 +262,9 @@ class Calibration(object):
 
     def cal2err(self, calparams):
         return None
+
+    def post_fit(self, calparams):
+        return calparams
 
     def setup(self, observations, inputs):
 

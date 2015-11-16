@@ -124,11 +124,13 @@ class GR2MTestCases(unittest.TestCase):
             calib.setup(obs, inputs)
             calib.idx_cal = idx_cal
                         
-            calparams_ini, _, _ = calib.explore()
-            calparams_final, _, _ = calib.fit(calparams_ini, iprint=0)
+            ini, explo, explo_ofun = calib.explore()
+            final, _, _ = calib.fit(ini, iprint=0)
 
             err = np.abs(gr.params.data-expected)
             ck = np.max(err) < 1e-5
-
+            
             self.assertTrue(ck)
 
+if __name__ == '__main__':
+    unittest.main()

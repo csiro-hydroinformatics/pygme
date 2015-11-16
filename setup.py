@@ -54,7 +54,7 @@ ext_lagroute = Extension(name='c_useme_models_lagroute',
 config = {
     'name': 'useme',
     'version': '0.1',
-    'description': 'Run and calibrate models used in environmental sciences',
+    'description': 'Design, run and calibrate models used in environmental sciences',
     'long_description': read('README.rst'),
     'author': 'Julien Lerat',
     'author_email': 'julien.lerat@gmail.com',
@@ -71,7 +71,18 @@ config = {
         ext_gr4j,
         ext_gr2m,
         ext_lagroute
-    ]
+    ],
+    'test_suite':'nose.collector',
+    'tests_require':['nose'],
+    'classifiers':[
+        'Operating System :: OS Independent', 
+        'Intended Audience :: Developers',
+        'Intended Audience :: Science/Research',
+        'Development Status :: 3 - Alpha',
+        'Programming Language :: Python :: 2.7',
+        'License :: OSI Approved :: MIT License'
+    ],
+ 
 }
 
 setup(**config)

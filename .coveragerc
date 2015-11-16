@@ -1,0 +1,10 @@
+[run]
+branch = True
+include = useme/**
+
+[report]
+include = useme/**
+omit = **/test*
+
+exclude_lines=
+    if __name__ == .__main__.:

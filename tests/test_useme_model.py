@@ -244,7 +244,9 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         dum.allocate(10, 2)
 
-        self.assertTrue(np.all(np.isnan(dum.uh.data)))
+        uh = [1.] + [0.] * (dum.uh.nval-1)
+        uh = np.array(uh)
+        self.assertTrue(np.allclose(dum.uh.data, uh))
 
         dum.params.data = [1., 2.]
 

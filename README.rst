@@ -1,7 +1,7 @@
 useme
 =======
 
-A simple python package to run and calibrate models used in environmental sciences
+A simple python package to design, run and calibrate models used in environmental sciences
 
 What is useme?
 ~~~~~~~~~~~~~~~~

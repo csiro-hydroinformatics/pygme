@@ -49,7 +49,7 @@ class Vector(object):
 
 
     def __set_data(self, target, source):
-        _source = np.atleast_1d(source)
+        _source = np.atleast_1d(source).flat[:]
 
         if not target in ['_names', '_units']:
             _source = _source.astype(np.float64)
