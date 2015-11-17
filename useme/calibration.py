@@ -47,7 +47,8 @@ class Calibration(object):
             minimize=True, \
             optimizer=fmin, \
             initialise_model=True, \
-            timeit=False):
+            timeit=False, \
+            nfit=2):
 
         self._model = model
         self._minimize = minimize
@@ -58,6 +59,7 @@ class Calibration(object):
         self._initialise_model = initialise_model
         self._is_fitting = False
         self._dx_sensitivity = 1e-3
+        self._nfit = nfit
 
         self._observations = None
         self._idx_cal = None
@@ -70,17 +72,17 @@ class Calibration(object):
         self.errfun = sse
 
         # Wrapper around optimizer to do 
-        # post processing of results
-        def _optimizer(objfun, start, *args, **kwargs):
-            final0 = optimizer(objfun, start, *args, **kwargs)
-            final = self.post_fit(final0)
-
+        # send the current calibration object
+        def _optimizer(objfun, start, calib, disp, *args, **kwargs):
+            kwargs['disp'] = disp
+            final = optimizer(objfun, start, *args, **kwargs)
             return final
             
         self._optimizer = _optimizer
 
     def __str__(self):
         str = 'Calibration instance for model {0}\n'.format(self._model.name)
+        str += '  nfit       : {0}\n'.format(self._nfit)
         str += '  ncalparams : {0}\n'.format(self.calparams_means.nval)
         str += '  ieval      : {0}\n'.format(self.ieval)
         str += '  runtime    : {0}\n'.format(self._runtime)
@@ -189,7 +191,6 @@ class Calibration(object):
 
     @idx_cal.setter
     def idx_cal(self, value):
-
         if value.dtype == np.dtype('bool'):
             _idx_cal = np.where(value)[0]
         else:
@@ -205,6 +206,8 @@ class Calibration(object):
 
 
     def check(self):
+        ''' Performs check on calibrated model to ensure that all variables are
+        properly allocated '''
         # Check idx_cal is allocated
         if self._idx_cal is None:
             raise ValueError('No idx_cal data. Please allocate')
@@ -263,8 +266,6 @@ class Calibration(object):
     def cal2err(self, calparams):
         return None
 
-    def post_fit(self, calparams):
-        return calparams
 
     def setup(self, observations, inputs):
 
@@ -356,11 +357,12 @@ class Calibration(object):
         return calparams_best, calparams_explore, ofun_explore
 
 
-    def fit(self, calparams_ini, iprint=0, nfit=2, *args, **kwargs):
+    def fit(self, calparams_ini, iprint=0, *args, **kwargs):
 
         self.check()
         self._iprint = iprint
         self._is_fitting = True
+        nfit = self._nfit
 
         if self._iprint>0:
             ofun_ini = self._objfun(calparams_ini)
@@ -370,12 +372,11 @@ class Calibration(object):
                     ofun_ini, self._calparams, self._runtime))
 
         # Apply the optimizer several times to ensure convergence
-        ini = calparams_ini
         for k in range(nfit):
             final = self._optimizer(self._objfun, \
-                    ini, disp=self._iprint>0, \
+                    calparams_ini, self, disp=self._iprint>0, \
                     *args, **kwargs)
-            ini = final
+            calparams_ini = final
 
         ofun_final = self._objfun(final)
         outputs_final = self.model.outputs.data
@@ -402,11 +403,13 @@ class Calibration(object):
             idx_cal = np.arange(self._observations.nval)
         self.idx_cal = idx_cal
 
-        start, explo, explo_ofun = self.explore(iprint=iprint, \
+        try:
+            start, explo, explo_ofun = self.explore(iprint=iprint, \
                 nsamples=nsamples)
+        except ValueError:
+            start = self.model.params.default
 
-        final, out, out_ofun = self.fit(start, iprint=iprint, \
-                nfit=nfit)
+        final, out, out_ofun = self.fit(start, iprint=iprint)
 
         return final, out, out_ofun
 
