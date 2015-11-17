@@ -396,20 +396,22 @@ class Model(object):
         self._statesuh.data = statesuh
 
 
-    def fullrun(self, inputs, params, noutputs=1, \
-            states=None, statesuh=None):
+    def fullrun(self, inputs, params, \
+            states=None, statesuh=None, \
+            idx_start=None, idx_end=None, \
+            noutputs=1):
 
         inputs_m = Matrix.fromdata('inputs', inputs)
         self.allocate(inputs_m.nval, noutputs)
         self._inputs.data = inputs
         self._params.data = params
         self.initialise(states, statesuh)
-        self.run()
+        self.run(idx_start, idx_end)
 
         return self.outputs.data[:, :noutputs]
 
 
-    def run(self):
+    def run(self, idx_start=None, idx_end=None):
         pass
 
 
