@@ -75,22 +75,24 @@ class ForecastModel(Model):
         self._model = model
         self._nwarmup = nwarmup
         self._nlead = nlead
-         
-        Model.__init__(self, 
+
+        outputs_names = ['F{0:03d}'.format(i) for i in range(nlead)]
+
+        Model.__init__(self,
             name='{0}-forecast'.format(model.name),
             nconfig=1, \
             ninputs=1, \
             nparams=nparams, \
             nstates=1, \
-            noutputs_max = 1, \
+            noutputs_max = nlead, \
             inputs_names = [''], \
-            outputs_names = [''])
+            outputs_names = outputs_names)
 
         self._fcdata = {}
 
 
     def __str__(self):
-        
+
         str = '\n{0} Forecast model implementation\n'.format( \
             self._name)
         str += '  ninputs      = {0}\n'.format(self._model._ninputs)
@@ -137,14 +139,13 @@ class ForecastModel(Model):
 
         # Loop through forecast data
         for k in self._fcdata:
-            states = 
+            states =
         pass
 
 
     def clone(self):
         model_clone = self._model.clone()
 
-        pass
 
 
 

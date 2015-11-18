@@ -156,7 +156,9 @@ class Calibration(object):
             if self._initialise_model:
                 self._model.initialise()
 
-            self._model.run()
+            idx_start = self._idx_cal[0]
+            idx_end = self._idx_cal[-1]
+            self._model.run(idx_start, idx_end)
             self._ieval += 1
 
             if self._timeit:

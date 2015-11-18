@@ -406,12 +406,19 @@ class Model(object):
         self._inputs.data = inputs
         self._params.data = params
         self.initialise(states, statesuh)
+
+        if idx_start is None:
+            idx_start = 0
+
+        if idx_end is None:
+            idx_end = inputs_m.nval - 1
+
         self.run(idx_start, idx_end)
 
         return self.outputs.data[:, :noutputs]
 
 
-    def run(self, idx_start=None, idx_end=None):
+    def run(self, idx_start, idx_end):
         pass
 
 

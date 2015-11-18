@@ -27,19 +27,38 @@ class Dummy(Model):
         self.params.names = ['Param1', 'Param2']
         self.params.units = ['mm', 'mm']
 
-    def run(self):
+    def run(self, idx_start, idx_end):
         par1 = self.params['Param1']
         par2 = self.params['Param2']
 
         outputs = par1 + par2 * np.cumsum(self.inputs.data, 0)
-        self.outputs.data = outputs[:, :self.outputs.nvar]
+        self.outputs.data = outputs[idx_start:idx_end, :self.outputs.nvar]
 
-        self.states.data = list(self.outputs.data[-1]) \
+        self.states.data = list(self.outputs.data[idx_end]) \
                     + [0.] * (2-self.outputs.nvar)
 
     def set_uh(self):
         nuh = self.uh.nval
         self.uh.data = [1.] * nuh
+
+
+class MassiveDummy(Model):
+
+    def __init__(self):
+        Model.__init__(self, 'dummy',
+            nconfig=0,\
+            ninputs=1, \
+            nparams=0, \
+            nstates=0, \
+            noutputs_max=1,
+            inputs_names=[], \
+            outputs_names=['O'])
+
+    def run(self, idx_start, idx_end):
+        nval = self.outputs.data.nval
+        outputs = self.inputs.data + np.random(0, 1, (nval, 1))
+        self.outputs.data = outputs[idx_start:idx_end, :]
+
 
 
 class VectorTestCases(unittest.TestCase):
@@ -210,7 +229,10 @@ class ModelTestCases(unittest.TestCase):
         dum.params.data = params
         dum.initialise(states=[10, 0])
         dum.inputs.data = inputs
-        dum.run()
+
+        idx_start = 0
+        idx_end = 999
+        dum.run(idx_start, idx_end)
 
         expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
         ck1 = np.allclose(expected1, dum.outputs.data[:, 0])
@@ -261,4 +283,14 @@ class ModelTestCases(unittest.TestCase):
         expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
         ck1 = np.allclose(expected1, out[:, 0])
         self.assertTrue(ck1)
+
+    def test_model9(self):
+        inputs = np.random.uniform(0, 1, (1000, 1))
+        dum = MassiveDummy()
+        dum.allocate(len(inputs), 1)
+        dum.params.data = []
+        dum.initialise(states=[])
+        dum.inputs.data = inputs
+        dum.run()
+
 
