@@ -113,10 +113,12 @@ class VectorTestCases(unittest.TestCase):
     def test_vector5(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
-        self.assertTrue(~v.hitbounds)
-        v.data = [-100, 50, 2.001]
-        self.assertTrue(np.allclose(v.data, [-1, 50, 2.001]))
-        self.assertTrue(v.hitbounds)
+        import pdb; pdb.set_trace()
+        self.assertTrue(~v.hitbounds[0])
+        v.data[0] = [-100, 50, 2.001]
+        self.assertTrue(np.allclose(v.data[0], [-1, 50, 2.001]))
+        self.assertTrue(v.hitbounds[0])
+
 
         try:
             v.data = [5, 3]
@@ -294,3 +296,5 @@ class ModelTestCases(unittest.TestCase):
         dum.run()
 
 
+if __name__ == '__main__':
+    unittest.main()

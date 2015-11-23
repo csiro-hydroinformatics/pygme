@@ -7,49 +7,59 @@ NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
 
 class Vector(object):
 
-    def __init__(self, id, nval):
+    def __init__(self, id, nval, nens=1):
         self._id = id
         self._nval = nval
-        self._data = np.nan * np.ones(nval).astype(np.float64)
+
+        self._data = [np.nan * np.ones(nval).astype(np.float64)] * nens
+
         self._names = ['X{0}'.format(i) for i in range(nval)]
         self._units = ['-'] * nval
         self._min = -np.inf * np.ones(nval).astype(np.float64)
         self._max = np.inf * np.ones(nval).astype(np.float64)
         self._default = np.nan * np.ones(nval).astype(np.float64)
-        self._hitbounds = False
+
+        self._hitbounds = [np.zeros(nval).astype(bool)] * nens
+
         self._model2vector = None
 
 
     def __str__(self):
-        str = '{0} : {{'.format(self._id)
+        str = '{0} : ens 0 {{'.format(self._id)
         str += ', '.join(['{0}: {1:3.3e}[{2}]'.format( \
-                self._names[i], self._data[i], self._units[i]) \
+                self._names[i], self._data[0][i], self._units[i]) \
                 for i in range(self._nval)])
         str += '}'
 
         return str
 
 
-    def __getitem__(self, name):
+    def __getitem__(self, name, iens=0):
         if name in self._names:
             kx = np.where(name == self._names)[0]
-            return self._data[kx]
+            return self._data[iens][kx]
         else:
             raise ValueError(('Vector {0}, name {1} not in' + \
                     ' the vector names').format(self._id, name))
 
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name, value, iens=0):
         if name in self._names:
             kx = np.where(name == self._names)[0]
-            self._data[kx] = value
+            self._data[iens][kx] = value
         else:
             raise ValueError(('Vector {0}, name {1} not in' + \
                     ' the vector names').format(self._id, name))
 
 
-    def __set_data(self, target, source):
-        _source = np.atleast_1d(source).flat[:]
+    def __set_attrib(self, target, source):
+
+        if not isinstance(source, np.ndarray):
+            raise ValueError(('Vector {0}, tried setting {1} using ' + \
+                'an object that is not a numpy array').format(\
+                self._id, target))
+
+        _source = np.atleast_1d(source).flatten()
 
         if not target in ['_names', '_units']:
             _source = _source.astype(np.float64)
@@ -76,17 +86,22 @@ class Vector(object):
         return self._data
 
     @data.setter
-    def data(self, value):
-        self.__set_data('_data', value)
+    def data(self, value, iens=0):
+        _value = np.atleast_1d(value).flatten()
 
-        hitb = np.subtract(self.data, self._min) < 0.
-        hitb = hitb | (np.subtract(self._max, self.data) < 0.)
-        self._hitbounds = np.any(hitb)
+        if len(_value) != self.nval:
+            raise ValueError(('Vector {0} / ensemble {1}, tried setting data, ' + \
+                'got wrong size ({2} instead of {3})').format(\
+                self._id, iens, len(_value), self._nval))
 
-        self._data = np.clip(self._data, self._min, self._max)
+        hitb = np.subtract(_value, self._min) < 0.
+        hitb = hitb | (np.subtract(self._max, _value) < 0.)
+        self._hitbounds[iens] = np.any(hitb)
+
+        self._data[iens] = np.clip(_value, self._min, self._max)
 
         if not self._model2vector is None:
-            self._model2vector.post_setter()
+            self._model2vector.post_setter(iens)
 
 
     @property
@@ -95,7 +110,7 @@ class Vector(object):
 
     @min.setter
     def min(self, value):
-        self.__set_data('_min', value)
+        self.__set_attrib('_min', value)
 
 
     @property
@@ -104,7 +119,7 @@ class Vector(object):
 
     @max.setter
     def max(self, value):
-        self.__set_data('_max', value)
+        self.__set_attrib('_max', value)
 
 
     @property
@@ -113,7 +128,7 @@ class Vector(object):
 
     @default.setter
     def default(self, value):
-        self.__set_data('_default', value)
+        self.__set_attrib('_default', value)
         self._default = np.clip(self._default, self._min, self._max)
 
 
@@ -123,7 +138,7 @@ class Vector(object):
 
     @names.setter
     def names(self, value):
-        self.__set_data('_names', value)
+        self.__set_attrib('_names', value)
 
 
     @property
@@ -132,12 +147,12 @@ class Vector(object):
 
     @units.setter
     def units(self, value):
-        self.__set_data('_units', value)
+        self.__set_attrib('_units', value)
 
 
     @property
-    def hitbounds(self):
-        return self._hitbounds
+    def hitbounds(self, iens=0):
+        return self._hitbounds[iens]
 
 
 class Matrix(object):
@@ -242,7 +257,7 @@ class Model2Vector(object):
         self.model = model
         self.vector = vector
 
-    def post_setter(self):
+    def post_setter(self, iens):
         self.model.set_uh()
 
 
