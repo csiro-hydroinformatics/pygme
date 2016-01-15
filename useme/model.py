@@ -5,15 +5,18 @@ import c_hymod_models_utils
 
 NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
 
+
 class Vector(object):
 
     def __init__(self, id, nval, nens=1):
         self._id = id
         self._nval = nval
+        self._nens = nens
+        self._iens = 0
 
         self._data = [np.nan * np.ones(nval).astype(np.float64)] * nens
 
-        self._names = ['X{0}'.format(i) for i in range(nval)]
+        self._names = np.array(['X{0}'.format(i) for i in range(nval)])
         self._units = ['-'] * nval
         self._min = -np.inf * np.ones(nval).astype(np.float64)
         self._max = np.inf * np.ones(nval).astype(np.float64)
@@ -25,39 +28,22 @@ class Vector(object):
 
 
     def __str__(self):
-        str = '{0} : ens 0 {{'.format(self._id)
-        str += ', '.join(['{0}: {1:3.3e}[{2}]'.format( \
-                self._names[i], self._data[0][i], self._units[i]) \
-                for i in range(self._nval)])
+
+        str = 'Vector {0} : nval={1} nens={2} {{'.format( \
+            self._id, self._nval, self._nens)
+        str += ', '.join(self._names)
         str += '}'
 
         return str
 
+    def __checkname(self, name):
 
-    def __getitem__(self, name, iens=0):
-        if name in self._names:
-            kx = np.where(name == self._names)[0]
-            return self._data[iens][kx]
-        else:
-            raise ValueError(('Vector {0}, name {1} not in' + \
-                    ' the vector names').format(self._id, name))
-
-
-    def __setitem__(self, name, value, iens=0):
-        if name in self._names:
-            kx = np.where(name == self._names)[0]
-            self._data[iens][kx] = value
-        else:
-            raise ValueError(('Vector {0}, name {1} not in' + \
+        if not name in self._names:
+            raise ValueError(('Vector {0}: name {1} not in' + \
                     ' the vector names').format(self._id, name))
 
 
     def __set_attrib(self, target, source):
-
-        if not isinstance(source, np.ndarray):
-            raise ValueError(('Vector {0}, tried setting {1} using ' + \
-                'an object that is not a numpy array').format(\
-                self._id, target))
 
         _source = np.atleast_1d(source).flatten()
 
@@ -65,15 +51,32 @@ class Vector(object):
             _source = _source.astype(np.float64)
 
         if len(_source) != self.nval:
-            raise ValueError(('Vector {0}, tried setting {1}, ' + \
+            raise ValueError(('Vector {0}: tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
                 self._id, target, len(_source), self._nval))
 
         setattr(self, target, _source)
 
 
+    def __getitem__(self, name):
+
+        self.__checkname(name)
+
+        kx = np.where(name == self._names)[0]
+        return self._data[self._iens][kx]
+
+
+    def __setitem__(self, name, value):
+
+        self.__checkname(name)
+
+        kx = np.where(name == self._names)[0]
+        data = self._data
+        data[kx] = value
+
+
     def reset(self):
-        self.data = self._default.copy()
+        self.data = [self._default.copy()] * self._nens
 
 
     @property
@@ -82,26 +85,34 @@ class Vector(object):
 
 
     @property
+    def nens(self):
+        return self._nens
+
+
+    @property
     def data(self):
-        return self._data
+        ''' Get data for a given ensemble member set by iens '''
+        return self._data[self._iens]
 
     @data.setter
-    def data(self, value, iens=0):
+    def data(self, value):
+        ''' Set data for a given ensemble member set by iens '''
+
         _value = np.atleast_1d(value).flatten()
 
         if len(_value) != self.nval:
-            raise ValueError(('Vector {0} / ensemble {1}, tried setting data, ' + \
+            raise ValueError(('Vector {0} / ensemble {1}: tried setting data, ' + \
                 'got wrong size ({2} instead of {3})').format(\
-                self._id, iens, len(_value), self._nval))
+                self._id, self._iens, len(_value), self._nval))
 
         hitb = np.subtract(_value, self._min) < 0.
         hitb = hitb | (np.subtract(self._max, _value) < 0.)
-        self._hitbounds[iens] = np.any(hitb)
+        self._hitbounds[self._iens] = np.any(hitb)
 
-        self._data[iens] = np.clip(_value, self._min, self._max)
+        self._data[self._iens] = np.clip(_value, self._min, self._max)
 
         if not self._model2vector is None:
-            self._model2vector.post_setter(iens)
+            self._model2vector.post_setter(self._iens)
 
 
     @property
@@ -151,19 +162,33 @@ class Vector(object):
 
 
     @property
-    def hitbounds(self, iens=0):
-        return self._hitbounds[iens]
+    def hitbounds(self):
+        return self._hitbounds[self._iens]
+
+
+    @property
+    def iens(self):
+        return self._iens
+
+    @iens.setter
+    def iens(self, value):
+        ''' Set the ensemble number. Checks that number is not greater that total number of ensembles '''
+        if value >= self._nens:
+            raise ValueError(('Vector {0}: iens {1} ' \
+                    '>= nens {2}').format(self._id, value, self._nens))
+
+        self._iens = value
 
 
 class Matrix(object):
 
-    def __init__(self, id, nval, nvar, data=None):
+    def __init__(self, id, nval, nvar, nens=1, data=None):
         self._id = id
 
         if nval is not None and nvar is not None:
             self._nval = nval
             self._nvar = nvar
-            self._data = np.nan * np.ones((nval, nvar)).astype(np.float64)
+            self._data = [np.nan * np.ones((nval, nvar)).astype(np.float64)]*nens
 
         elif data is not None:
             _data = np.atleast_2d(data)
@@ -192,8 +217,8 @@ class Matrix(object):
 
 
     def __str__(self):
-        str = '{0} : nval={1} nvar={2} {{'.format( \
-            self._id, self._nval, self._nvar)
+        str = 'Matrix {0} : nval={1} nvar={2} nens={3} {{'.format( \
+            self._id, self._nval, self._nvar, self._nens)
         str += ', '.join(self._names)
         str += '}'
 
@@ -263,13 +288,13 @@ class Model2Vector(object):
 
 class Model(object):
 
-    def __init__(self, name, \
-            nconfig, \
-            ninputs, \
-            nparams, \
-            nstates, \
-            noutputs_max, \
-            inputs_names, \
+    def __init__(self, name,
+            nconfig,
+            ninputs,
+            nparams,
+            nstates,
+            noutputs_max,
+            inputs_names,
             outputs_names):
 
         self._name = name
@@ -300,7 +325,6 @@ class Model(object):
                         len(inputs_names), ninputs))
 
         self._inputs_names = inputs_names
-
 
         if len(outputs_names) != noutputs_max:
             raise ValueError(('Model {0}: len(outputs_names)({1}) != ' + \

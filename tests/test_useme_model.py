@@ -74,7 +74,7 @@ class VectorTestCases(unittest.TestCase):
             v.names = ['a', 'b']
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test, tried setting _names'))
+        self.assertTrue(e.message.startswith('Vector test: tried setting _names'))
 
 
     def test_vector2(self):
@@ -85,7 +85,7 @@ class VectorTestCases(unittest.TestCase):
             v.units = ['m2', 'mm/d']
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test, tried setting _units'))
+        self.assertTrue(e.message.startswith('Vector test: tried setting _units'))
 
 
     def test_vector3(self):
@@ -96,7 +96,7 @@ class VectorTestCases(unittest.TestCase):
             v.min = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test, tried setting _min'))
+        self.assertTrue(e.message.startswith('Vector test: tried setting _min'))
 
 
     def test_vector4(self):
@@ -107,24 +107,22 @@ class VectorTestCases(unittest.TestCase):
             v.max = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test, tried setting _max'))
+        self.assertTrue(e.message.startswith('Vector test: tried setting _max'))
 
 
     def test_vector5(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
-        import pdb; pdb.set_trace()
         self.assertTrue(~v.hitbounds[0])
-        v.data[0] = [-100, 50, 2.001]
-        self.assertTrue(np.allclose(v.data[0], [-1, 50, 2.001]))
+        v.data = [-100, 50, 2.001]
+        self.assertTrue(np.allclose(v.data, [-1, 50, 2.001]))
         self.assertTrue(v.hitbounds[0])
-
 
         try:
             v.data = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test, tried setting _data'))
+        self.assertTrue(e.message.startswith('Vector test: tried setting _data'))
 
 
     def test_vector6(self):
@@ -136,6 +134,23 @@ class VectorTestCases(unittest.TestCase):
         v = Vector('test', 1)
         v.data = 10
         self.assertTrue(v.data.shape == (1, ) and v.data[0] == 10.)
+
+    def test_vector8(self):
+        v = Vector('test', 2, 10)
+        for iens in range(10):
+            v.iens = iens
+            v.data = [iens, np.random.uniform(0, 1)]
+            v['X0'] = iens + 1
+            v['X1'] = np.random.uniform(0, 1)
+
+        for iens in range(10):
+            v.iens = iens
+            import pdb; pdb.set_trace()
+            ck = v.data.shape == (2, )
+            ck = ck and v['X0'] == iens + 1
+            ck = ck and v.data[0] == iens + 1
+            self.assertTrue(ck)
+
 
 
 class MatrixTestCases(unittest.TestCase):
