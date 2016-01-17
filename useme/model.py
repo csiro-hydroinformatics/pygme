@@ -22,7 +22,7 @@ class Vector(object):
         self._max = np.inf * np.ones(nval).astype(np.float64)
         self._default = np.nan * np.ones(nval).astype(np.float64)
 
-        self._hitbounds = [np.zeros(nval).astype(bool)] * nens
+        self._hitbounds = [False] * nens
 
         self._model2vector = None
 
@@ -38,9 +38,12 @@ class Vector(object):
 
     def __checkname(self, name):
 
-        if not name in self._names:
+        try:
+            kx = np.where(name == self._names)[0]
+        except ValueError:
             raise ValueError(('Vector {0}: name {1} not in' + \
                     ' the vector names').format(self._id, name))
+        return kx
 
 
     def __set_attrib(self, target, source):
@@ -60,23 +63,21 @@ class Vector(object):
 
     def __getitem__(self, name):
 
-        self.__checkname(name)
+        kx = self.__checkname(name)
 
-        kx = np.where(name == self._names)[0]
         return self._data[self._iens][kx]
 
 
     def __setitem__(self, name, value):
 
-        self.__checkname(name)
+        kx = self.__checkname(name)
 
-        kx = np.where(name == self._names)[0]
-        data = self._data
+        data = self._data[self._iens]
         data[kx] = value
 
 
     def reset(self):
-        self.data = [self._default.copy()] * self._nens
+        self._data = [self._default.copy()] * self._nens
 
 
     @property
@@ -101,8 +102,8 @@ class Vector(object):
         _value = np.atleast_1d(value).flatten()
 
         if len(_value) != self.nval:
-            raise ValueError(('Vector {0} / ensemble {1}: tried setting data, ' + \
-                'got wrong size ({2} instead of {3})').format(\
+            raise ValueError(('Vector {0} / ensemble {1}: tried setting data ' + \
+                'with vector of wrong size ({2} instead of {3})').format(\
                 self._id, self._iens, len(_value), self._nval))
 
         hitb = np.subtract(_value, self._min) < 0.
@@ -173,9 +174,10 @@ class Vector(object):
     @iens.setter
     def iens(self, value):
         ''' Set the ensemble number. Checks that number is not greater that total number of ensembles '''
-        if value >= self._nens:
+        if value >= self._nens or value < 0:
             raise ValueError(('Vector {0}: iens {1} ' \
-                    '>= nens {2}').format(self._id, value, self._nens))
+                    '>= nens {2} or < 0').format( \
+                                self._id, value, self._nens))
 
         self._iens = value
 

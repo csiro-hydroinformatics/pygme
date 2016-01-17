@@ -113,16 +113,18 @@ class VectorTestCases(unittest.TestCase):
     def test_vector5(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
-        self.assertTrue(~v.hitbounds[0])
+        self.assertTrue(~v.hitbounds)
         v.data = [-100, 50, 2.001]
         self.assertTrue(np.allclose(v.data, [-1, 50, 2.001]))
-        self.assertTrue(v.hitbounds[0])
+        self.assertTrue(v.hitbounds)
 
         try:
             v.data = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _data'))
+
+        self.assertTrue(e.message.startswith('Vector test / ensemble 0:'
+            ' tried setting data with vector of wrong size (2 instead of 3)'))
 
 
     def test_vector6(self):
@@ -145,13 +147,20 @@ class VectorTestCases(unittest.TestCase):
 
         for iens in range(10):
             v.iens = iens
-            import pdb; pdb.set_trace()
             ck = v.data.shape == (2, )
             ck = ck and v['X0'] == iens + 1
             ck = ck and v.data[0] == iens + 1
             self.assertTrue(ck)
 
+    def test_vector9(self):
+        v = Vector('test', 2, 10)
+        v.default = [1., 1.]
+        v.reset()
 
+        for iens in range(10):
+            v.iens = iens
+            ck = np.allclose(v.data, [1., 1.])
+            self.assertTrue(ck)
 
 class MatrixTestCases(unittest.TestCase):
 
