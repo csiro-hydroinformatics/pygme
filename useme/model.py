@@ -186,20 +186,40 @@ class Matrix(object):
 
     def __init__(self, id, nval, nvar, nens=1, data=None):
         self._id = id
+        self._iens = 0
 
-        if nval is not None and nvar is not None:
+        if nval is not None and nvar is not None and nens is not None:
             self._nval = nval
             self._nvar = nvar
+            self._nens = nens
             self._data = [np.nan * np.ones((nval, nvar)).astype(np.float64)]*nens
 
         elif data is not None:
-            _data = np.atleast_2d(data)
-            if _data.shape[0] == 1:
-                _data = _data.T
+
+            if isinstance(data, np.ndarray):
+                data = [data]
+
+            if not isinstance(data, list):
+                raise ValueError('data is not a list or a numpy.ndarray')
+
+            self._nens = len(data)
+
+            _data = []
+            for idx, d in enumerate(data):
+                _d = np.atleast_2d(d)
+                if _d.shape[0] == 1:
+                    _d = _d.T
+                _data.append(_d)
+
+                if idx == 0:
+                    self._nval, self._nvar = _d.shape
+                else:
+                    if _d.shape != (self._nval, self._nvar):
+                        raise ValueError(('Shape of element {0} in data ({1}) ' + \
+                            ' is different from ({2}, {3})'.format( \
+                            idx,  _d.shape, self._nval, self._nvar)))
 
             self._data = _data
-            self._nval = _data.shape[0]
-            self._nvar = _data.shape[1]
 
         else:
             raise ValueError(('{0} matrix, ' + \
@@ -209,13 +229,13 @@ class Matrix(object):
 
 
     @classmethod
-    def fromdims(cls, id, nval, nvar):
-        return cls(id, nval, nvar, None)
+    def fromdims(cls, id, nval, nvar, nens=1):
+        return cls(id, nval, nvar, nens, None)
 
 
     @classmethod
     def fromdata(cls, id, data):
-        return cls(id, None, None, data)
+        return cls(id, None, None, None, data)
 
 
     def __str__(self):
@@ -231,6 +251,10 @@ class Matrix(object):
     def nval(self):
         return self._nval
 
+
+    @property
+    def nens(self):
+        return self._nens
 
     @property
     def nvar(self):
@@ -253,7 +277,7 @@ class Matrix(object):
 
     @property
     def data(self):
-        return self._data
+        return self._data[self._iens]
 
     @data.setter
     def data(self, value):
@@ -274,7 +298,22 @@ class Matrix(object):
                     '({1} instead of {2})').format( \
                     self._id, _value.shape[1], self._nvar))
 
-        self._data = _value
+        self._data[self._iens] = _value
+
+
+    @property
+    def iens(self):
+        return self._iens
+
+    @iens.setter
+    def iens(self, value):
+        ''' Set the ensemble number. Checks that number is not greater that total number of ensembles '''
+        if value >= self._nens or value < 0:
+            raise ValueError(('Vector {0}: iens {1} ' \
+                    '>= nens {2} or < 0').format( \
+                                self._id, value, self._nens))
+
+        self._iens = value
 
 
 

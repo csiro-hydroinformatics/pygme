@@ -210,6 +210,26 @@ class MatrixTestCases(unittest.TestCase):
         self.assertTrue(m2.data.shape == (100, 6))
 
 
+    def test_matrix7(self):
+        nval = 10
+        nvar = 5
+        nens = 20
+        m1 = Matrix.fromdims('test', nval, nvar, nens)
+
+        data = [np.random.uniform(0, 10, (nval, nvar))] * nens
+
+        for iens in range(nens):
+            m1.iens = iens
+            m1.data = data[iens]
+
+        m2 = Matrix.fromdata('test', data)
+        data = []
+        for iens in range(nens):
+            m1.iens = iens
+            m2.iens = iens
+            self.assertTrue(np.allclose(m2.data, m1.data))
+
+
 class ModelTestCases(unittest.TestCase):
 
     def setUp(self):
