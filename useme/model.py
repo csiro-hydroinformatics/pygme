@@ -24,7 +24,7 @@ class Vector(object):
 
         self._hitbounds = [False] * nens
 
-        self._model2vector = None
+        self._model2paramvector = None
 
 
     def __str__(self):
@@ -112,8 +112,8 @@ class Vector(object):
 
         self._data[self._iens] = np.clip(_value, self._min, self._max)
 
-        if not self._model2vector is None:
-            self._model2vector.post_setter(self._iens)
+        if not self._model2paramvector is None:
+            self._model2paramvector.post_setter(self._iens)
 
 
     @property
@@ -237,7 +237,6 @@ class Matrix(object):
     def fromdata(cls, id, data):
         return cls(id, None, None, None, data)
 
-
     def __str__(self):
         str = 'Matrix {0} : nval={1} nvar={2} nens={3} {{'.format( \
             self._id, self._nval, self._nvar, self._nens)
@@ -317,14 +316,14 @@ class Matrix(object):
 
 
 
-class Model2Vector(object):
+class Model2ParamVector(object):
 
     def __init__(self, model, vector):
         self.model = model
         self.vector = vector
 
     def post_setter(self, iens):
-        self.model.set_uh()
+        self.model.set_uh(iens)
 
 
 class Model(object):
@@ -336,26 +335,35 @@ class Model(object):
             nstates,
             noutputs_max,
             inputs_names,
-            outputs_names):
+            outputs_names,
+            nens_inputs=1,
+            nens_params=1,
+            nens_states=1,
+            nens_outputs=1):
 
         self._name = name
         self._ninputs = ninputs
+        self._nens_inputs = nens_inputs
+
         self._nuhlength = 0
         self._noutputs_max = noutputs_max
+        self._nens_outputs = nens_outputs
 
         self._config = Vector('config', nconfig)
-        self._states = Vector('states', nstates)
-        self._params = Vector('params', nparams)
+        self._states = Vector('states', nstates, nens_states)
+        self._params = Vector('params', nparams, nens_params)
         self._params_default = Vector('params_default', nparams)
 
-        model2vector = Model2Vector(self, self._params)
-        self._params._model2vector = model2vector
+        model2paramvector = Model2ParamVector(self, self._params)
+        self._params._model2paramvector = model2paramvector
 
-        self._statesuh = Vector('statesuh', NUHMAXLENGTH)
+        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens_states)
         self._statesuh.data = [0.] * NUHMAXLENGTH
 
-        self._uh = Vector('uh', NUHMAXLENGTH)
-        self._uh.data = [1.] + [0.] * (NUHMAXLENGTH-1)
+        self._uh = Vector('uh', NUHMAXLENGTH, nens_params)
+        for iens in range(nens_params):
+            self._uh.iens = iens
+            self._uh.data = [1.] + [0.] * (NUHMAXLENGTH-1)
 
         self._inputs = None
         self._outputs = None
@@ -401,15 +409,18 @@ class Model(object):
         return self._name
 
 
-    @property
-    def nuhlength(self):
-        return self._nuhlength
-
-
-    @property
-    def ninputs(self):
-        return self._ninputs
-
+    def getdims(self):
+        return {
+                'ninputs':self._ninputs,
+                'nparams':self._nparams,
+                'nstates':self._nstates,
+                'noutputs':self._noutputs,
+                'nuhlength':self._nuh_length,
+                'nens_inputs':self._nens_inputs,
+                'nens_params':self._nens_params,
+                'nens_states':self._nens_states,
+                'nens_outputs':self._nens_outputs
+                }
 
     @property
     def config(self):
@@ -447,44 +458,63 @@ class Model(object):
 
 
     def allocate(self, nval, noutputs=1):
+        ''' We define the number of outputs here to allow more flexible memory allocation '''
+
         if noutputs <= 0:
-            raise ValueError('Number of outputs defined for model {0} should be >0')
+            raise ValueError(('Number of outputs defined' + \
+                ' for model {0} should be >0').format(nval))
 
         if noutputs > self._noutputs_max:
             raise ValueError(('Too many outputs defined for model {0}:' + \
                 ' noutputs({1}) > noutputs_max({2})').format( \
                 self._name, noutputs, self._noutputs_max))
 
-        self._inputs = Matrix.fromdims('inputs', nval, self._ninputs)
+        self._inputs = Matrix.fromdims('inputs',
+                nval, self._ninputs, self._nens_inputs)
+
         self._inputs.names = self._inputs_names
 
-        self._outputs = Matrix.fromdims('outputs', nval, noutputs)
+        # Allocate output matrix with number of final ensemble
+        # being the multiplication of all ensemble numbers
+        nens_final = self._inputs.nens * self._params.nens \
+            * self._states.nens * self._nens_outputs
+
+        self._outputs = Matrix.fromdims('outputs',
+                nval, noutputs, nens_final)
+
         self._outputs.names = self._outputs_names[:noutputs]
 
 
-    def set_uh(self):
+    def set_uh(self, iens):
         pass
 
 
     def initialise(self, states=None, statesuh=None):
+
         if states is None:
-            states = [0.] * self._states.nval
-        self._states.data = states
+            for iens in range(self._nens_states):
+                self._states.iens = iens
+                self._states.data = [0.] * self._states.nval
 
         if statesuh is None:
-            statesuh = [0.] * self._statesuh.nval
-        self._statesuh.data = statesuh
+            for iens in range(self._nens_states):
+                self._states.iens = iens
+                self._statesuh.data = [0.] * self._statesuh.nval
 
 
-    def fullrun(self, inputs, params, \
-            states=None, statesuh=None, \
-            idx_start=None, idx_end=None, \
-            noutputs=1):
+    def fullrun(self, inputs, params, noutputs=1,
+            states=None, statesuh=None,
+            idx_start=None, idx_end=None):
 
+        # Set inputs
         inputs_m = Matrix.fromdata('inputs', inputs)
         self.allocate(inputs_m.nval, noutputs)
         self._inputs.data = inputs
+
+        # Set params
         self._params.data = params
+
+        # Initialise model
         self.initialise(states, statesuh)
 
         if idx_start is None:
@@ -493,23 +523,49 @@ class Model(object):
         if idx_end is None:
             idx_end = inputs_m.nval - 1
 
-        self.run(idx_start, idx_end)
+        # Loop through all possible ensembles
+        nens = np.array([
+            self._inputs.nens,
+            self._params.nens,
+            self._states.nens,
+            self._nens_outputs
+        ])
+
+        for iens_inputs in range(nens[0]):
+            self._inputs.iens = iens_inputs
+
+            for iens_params in range(nens[1]):
+                self._params.iens = iens_params
+
+                for iens_states in range(nens[2]):
+                    self._states.iens = iens_states
+
+                    for iens_outputs in range(nens[3]):
+                        iens_final = iens_inputs * np.prod(nens[:-1]) \
+                            + iens_params * np.prod(nens[1:-1]) \
+                            + iens_states * np.prod(nens[2:-1]) \
+                            + iens_outputs
+
+                        self._outputs.iens = iens_final
+                        self.run1ens(idx_start, idx_end)
 
         return self.outputs.data[:, :noutputs]
 
 
-    def run(self, idx_start, idx_end):
+    def run1ens(self, idx_start, idx_end):
         pass
 
 
     def clone(self):
-        model = Model(self._name, \
-            self._config.nval, \
-            self._ninputs, \
-            self._params.nval, \
-            self._states.nval, \
-            self._noutputs_max, \
-            self._inputs_names, \
+
+        model = Model(
+            self._name,
+            self._config.nval,
+            self._ninputs,
+            self._params.nval,
+            self._states.nval,
+            self._noutputs_max,
+            self._inputs_names,
             self._outputs_names)
 
         model._params.data = self._params.data.copy()
