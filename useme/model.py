@@ -24,7 +24,7 @@ class Vector(object):
 
         self._hitbounds = [False] * nens
 
-        self._model2paramvector = None
+        self._model2params = None
 
 
     def __str__(self):
@@ -76,8 +76,19 @@ class Vector(object):
         data[kx] = value
 
 
-    def reset(self):
-        self._data = [self._default.copy()] * self._nens
+    def reset(self, value=None, iens=None):
+        nens = self._nens
+        nval = self._nval
+
+        if value is None:
+            default = self._default
+        else:
+            default = np.array([value] * nval).astype(np.float64)
+
+        if iens is None:
+            self._data = [default.copy() for i in range(nens)]
+        else:
+            self._data[iens] = default.copy()
 
 
     @property
@@ -112,8 +123,10 @@ class Vector(object):
 
         self._data[self._iens] = np.clip(_value, self._min, self._max)
 
-        if not self._model2paramvector is None:
-            self._model2paramvector.post_setter(self._iens)
+        # This is used to set up UH ordinates when
+        # model parameters change
+        if not self._model2params is None:
+            self._model2params.post_setter()
 
 
     @property
@@ -315,15 +328,34 @@ class Matrix(object):
         self._iens = value
 
 
+    def reset(self, value=0., iens=None):
+        nens = self._nens
+        nval = self._nval
+        nvar = self._nvar
 
-class Model2ParamVector(object):
+        default = (value * np.ones((nval, nvar))).astype(np.float64)
 
-    def __init__(self, model, vector):
+        if iens is None:
+            self._data = [default.copy() for i in range(nens)]
+        else:
+            self._data[iens] = default.copy()
+
+
+
+class Model2Params(object):
+
+    def __init__(self, model, params, uh):
         self.model = model
-        self.vector = vector
+        self.params = params
+        self.uh = uh
 
-    def post_setter(self, iens):
-        self.model.set_uh(iens)
+    def post_setter(self):
+        # Link the parameter ensemble number with the
+        # uh ordinates ensemble numbers
+        self.uh.iens = self.params.iens
+
+        # Update uh ordinates
+        self.model.set_uh()
 
 
 class Model(object):
@@ -349,21 +381,30 @@ class Model(object):
         self._noutputs_max = noutputs_max
         self._nens_outputs = nens_outputs
 
+        self._nens_states = nens_states
+
         self._config = Vector('config', nconfig)
-        self._states = Vector('states', nstates, nens_states)
         self._params = Vector('params', nparams, nens_params)
         self._params_default = Vector('params_default', nparams)
 
-        model2paramvector = Model2ParamVector(self, self._params)
-        self._params._model2paramvector = model2paramvector
-
-        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens_states)
-        self._statesuh.data = [0.] * NUHMAXLENGTH
-
+        # UH ordinates. Number of ensembles is same than nens_params
         self._uh = Vector('uh', NUHMAXLENGTH, nens_params)
+
+        # Initialize UH to [1, 0, 0, .., 0] (neutral UH)
         for iens in range(nens_params):
             self._uh.iens = iens
             self._uh.data = [1.] + [0.] * (NUHMAXLENGTH-1)
+
+        # This code is used to change UH ordinates when
+        # model parameters are changed
+        model2params = Model2Params(self, self._params, self._uh)
+        self._params._model2params = model2params
+
+        # Number of states depends on number of inputs and parameters
+        nens_states_final = nens_states * nens_inputs * nens_params
+        self._states = Vector('states', nstates, nens_states_final)
+
+        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens_states_final)
 
         self._inputs = None
         self._outputs = None
@@ -387,19 +428,14 @@ class Model(object):
     def __str__(self):
         str = '\n{0} model implementation\n'.format( \
             self._name)
-        str += '  ninputs      = {0}\n'.format(self._ninputs)
+        str += '  ninputs      = {0} [{1} ens]\n'.format(
+                    self._ninputs, self.inputs.nens)
+        str += '  nparams      = {0} [{1} ens]\n'.format(
+                    self.params.nval, self.params.nens)
+        str += '  nstates      = {0} [{1} ens]\n'.format(
+                    self.states.nval, self.states.nens)
         str += '  nuhmaxlength = {0}\n'.format(self._statesuh.nval)
-        str += '  nuhlength    = {0}\n'.format(self._nuhlength)
-
-        str += '  {0}\n'.format(self._config)
-        str += '  {0}\n'.format(self._states)
-        str += '  {0}\n'.format(self._params)
-
-        if not self._inputs is None:
-            str += '  {0}\n'.format(self._inputs)
-
-        if not self._outputs is None:
-            str += '  {0}\n'.format(self._outputs)
+        str += '  nuhlength    = {0} [{1} ens]\n'.format(self._nuhlength)
 
         return str
 
@@ -408,19 +444,6 @@ class Model(object):
     def name(self):
         return self._name
 
-
-    def getdims(self):
-        return {
-                'ninputs':self._ninputs,
-                'nparams':self._nparams,
-                'nstates':self._nstates,
-                'noutputs':self._noutputs,
-                'nuhlength':self._nuh_length,
-                'nens_inputs':self._nens_inputs,
-                'nens_params':self._nens_params,
-                'nens_states':self._nens_states,
-                'nens_outputs':self._nens_outputs
-                }
 
     @property
     def config(self):
@@ -457,6 +480,25 @@ class Model(object):
         return self._outputs
 
 
+    def getens(self, iens):
+        ''' Compute ensemble indexes from overall ensemble index '''
+
+        if iens < 0 or iens > self.outputs.nens:
+            raise ValueError('iens({0}) <0 or >self.outputs.nens').format(
+                    iens, self.outputs.nens))
+
+        nens_inputs = self.inputs.nens
+        nens_params = self.params.nens
+        nens_states = self._nens_states
+        nens_outputs = self._nens_outputs
+
+        n1 = nens_inputs * nens_params * nens_states * nens_outputs
+        n1 = nens_inputs * nens_params * nens_states * nens_outputs
+
+
+        return iens_inputs, iens_params, iens_states, iens_outputs
+
+
     def allocate(self, nval, noutputs=1):
         ''' We define the number of outputs here to allow more flexible memory allocation '''
 
@@ -485,19 +527,18 @@ class Model(object):
         self._outputs.names = self._outputs_names[:noutputs]
 
 
-    def set_uh(self, iens):
+    def set_uh(self):
         pass
 
 
     def initialise(self, states=None, statesuh=None):
 
-        if states is None:
-            for iens in range(self._nens_states):
+        for iens in range(self._nens_states):
+            if states is None:
                 self._states.iens = iens
                 self._states.data = [0.] * self._states.nval
 
-        if statesuh is None:
-            for iens in range(self._nens_states):
+            if statesuh is None:
                 self._states.iens = iens
                 self._statesuh.data = [0.] * self._statesuh.nval
 
@@ -523,31 +564,20 @@ class Model(object):
         if idx_end is None:
             idx_end = inputs_m.nval - 1
 
-        # Loop through all possible ensembles
-        nens = np.array([
-            self._inputs.nens,
-            self._params.nens,
-            self._states.nens,
-            self._nens_outputs
-        ])
+        # Loop through all ensembles
+        nens = self.outputs.nens
+        for iens in range(nens):
 
-        for iens_inputs in range(nens[0]):
-            self._inputs.iens = iens_inputs
+            iens_inputs =
+            iens_params
 
-            for iens_params in range(nens[1]):
-                self._params.iens = iens_params
+            iens_final = iens_inputs * np.prod(nens[:-1]) \
+                + iens_params * np.prod(nens[1:-1]) \
+                + iens_states * np.prod(nens[2:-1]) \
+                + iens_outputs
 
-                for iens_states in range(nens[2]):
-                    self._states.iens = iens_states
-
-                    for iens_outputs in range(nens[3]):
-                        iens_final = iens_inputs * np.prod(nens[:-1]) \
-                            + iens_params * np.prod(nens[1:-1]) \
-                            + iens_states * np.prod(nens[2:-1]) \
-                            + iens_outputs
-
-                        self._outputs.iens = iens_final
-                        self.run1ens(idx_start, idx_end)
+            self._outputs.iens = iens_final
+            self.run1ens(idx_start, idx_end)
 
         return self.outputs.data[:, :noutputs]
 
@@ -566,17 +596,21 @@ class Model(object):
             self._states.nval,
             self._noutputs_max,
             self._inputs_names,
-            self._outputs_names)
+            self._outputs_names,
+            self._inputs.nens,
+            self._params.nens,
+            self._states.nens,
+            self._nens_outputs)
 
-        model._params.data = self._params.data.copy()
-        model._states.data = self._states.data.copy()
-        model._statesuh.data = self._statesuh.data.copy()
+        model._params.data = [p.copy() for p in self._params.data]
+        model._states.data = [s.copy() for s in self._states.data]
+        model._statesuh.data = [u.copy() for u in self._statesuh.data]
         model._config.data = self._config.data.copy()
 
         if not self._inputs is None:
             model.allocate(self._inputs.nval, self._outputs.nvar)
-            model._inputs.data = self._inputs.data.copy()
-            model._outputs.data = self._outputs.data.copy()
+            model._inputs.data = [i.copy() for i in self._inputs.data]
+            model._outputs.data = [o.copy() for o in self._outputs.data]
 
         return model
 

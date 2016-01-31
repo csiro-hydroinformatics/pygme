@@ -38,8 +38,7 @@ class Dummy(Model):
                     + [0.] * (2-self.outputs.nvar)
 
     def set_uh(self):
-        nuh = self.uh.nval
-        self.uh.data = [1.] * nuh
+        self.uh.data = np.array([1.] * self.uh.nval)
 
 
 class MassiveDummy(Model):
@@ -154,13 +153,29 @@ class VectorTestCases(unittest.TestCase):
 
     def test_vector9(self):
         v = Vector('test', 2, 10)
-        v.default = [1., 1.]
+        default = [1., 1.]
+        v.default = default
         v.reset()
+        default[0] = 2
 
         for iens in range(10):
             v.iens = iens
             ck = np.allclose(v.data, [1., 1.])
             self.assertTrue(ck)
+
+        v.reset(10)
+
+        for iens in range(10):
+            v.iens = iens
+            ck = np.allclose(v.data, [10., 10.])
+            self.assertTrue(ck)
+
+        v.reset(11., 2)
+        v.iens = 2
+        ck = np.allclose(v.data, [11., 11.])
+        self.assertTrue(ck)
+
+
 
 class MatrixTestCases(unittest.TestCase):
 
@@ -228,6 +243,31 @@ class MatrixTestCases(unittest.TestCase):
             m1.iens = iens
             m2.iens = iens
             self.assertTrue(np.allclose(m2.data, m1.data))
+
+
+    def test_matrix8(self):
+        nval = 10
+        nvar = 5
+        nens = 20
+        m1 = Matrix.fromdims('test', nval, nvar, nens)
+
+        test = np.ones((nval, nvar)).astype(np.float64)
+
+        m1.reset(2.)
+        for iens in range(nens):
+            m1.iens = iens
+            ck = np.allclose(m1.data, 2.*test)
+            self.assertTrue(ck)
+
+        iens = 15
+        m1.reset(3., iens)
+        m1.iens = iens
+        ck = np.allclose(m1.data, 3.*test)
+        self.assertTrue(ck)
+
+        m1.iens = iens+1
+        ck = np.allclose(m1.data, 2.*test)
+        self.assertTrue(ck)
 
 
 class ModelTestCases(unittest.TestCase):
