@@ -24,7 +24,8 @@ class Vector(object):
 
         self._hitbounds = [False] * nens
 
-        self._model2params = None
+        self._setter_decorator = None
+        self._iens_decorator = None
 
 
     def __str__(self):
@@ -123,10 +124,10 @@ class Vector(object):
 
         self._data[self._iens] = np.clip(_value, self._min, self._max)
 
-        # This is used to set up UH ordinates when
-        # model parameters change
-        if not self._model2params is None:
-            self._model2params.post_setter()
+        # Run all methods from the post setter object
+        # (e.g. to change UH ordinates when a parameter vector changes)
+        if not self._setter_decorator is None:
+            self._setter_decorator.run()
 
 
     @property
@@ -186,6 +187,9 @@ class Vector(object):
 
     @iens.setter
     def iens(self, value):
+        self.set_iens(value)
+
+    def set_iens(self, value):
         ''' Set the ensemble number. Checks that number is not greater that total number of ensembles '''
         if value >= self._nens or value < 0:
             raise ValueError(('Vector {0}: iens {1} ' \
@@ -193,6 +197,51 @@ class Vector(object):
                                 self._id, value, self._nens))
 
         self._iens = value
+
+        if not self._iens_decorator is None:
+            self._iens_decorator.run()
+
+
+class VectorDecorator(object):
+    ''' Object used to decorate a vector with method from external objects '''
+
+    def __init__(self, vector):
+        self.vector = vector
+        self.args = {}
+
+
+    def add_method(self, obj, method):
+        ''' Add a method from an external object to the decorator '''
+        self.args[(obj, method)] = None
+
+
+    def set_args(self, obj, method, args):
+        ''' Set argument for the method. Caution: args should a dict, e.g. (3.4, )'''
+
+        key = (obj, method)
+        if not key in self.args:
+            raise ValueError(('Key (Object {0}, Method {1}) not in the list' +
+                ' of defined methods').format(obj, method))
+        else:
+            self.args[key] = args
+
+
+    def run(self):
+        ''' Run all defined methods with arguments '''
+
+        for key in self.args:
+            # get method
+            obj = key[0]
+            methodname = key[1]
+            method = getattr(obj, methodname)
+
+            # Run method
+            args = self.args[key]
+            if args is None:
+                method()
+            else:
+                method(*args)
+
 
 
 class Matrix(object):
@@ -342,22 +391,6 @@ class Matrix(object):
 
 
 
-class Model2Params(object):
-
-    def __init__(self, model, params, uh):
-        self.model = model
-        self.params = params
-        self.uh = uh
-
-    def post_setter(self):
-        # Link the parameter ensemble number with the
-        # uh ordinates ensemble numbers
-        self.uh.iens = self.params.iens
-
-        # Update uh ordinates
-        self.model.set_uh()
-
-
 class Model(object):
 
     def __init__(self, name,
@@ -368,20 +401,18 @@ class Model(object):
             noutputs_max,
             inputs_names,
             outputs_names,
-            nens_inputs=1,
             nens_params=1,
-            nens_states=1,
-            nens_outputs=1):
+            nens_states_generated=1,
+            nens_outputs_generated=1):
 
         self._name = name
         self._ninputs = ninputs
-        self._nens_inputs = nens_inputs
 
         self._nuhlength = 0
         self._noutputs_max = noutputs_max
         self._nens_outputs = nens_outputs
 
-        self._nens_states = nens_states
+        self._nens_states_generated = nens_states_generated
 
         self._config = Vector('config', nconfig)
         self._params = Vector('params', nparams, nens_params)
@@ -397,8 +428,17 @@ class Model(object):
 
         # This code is used to change UH ordinates when
         # model parameters are changed
-        model2params = Model2Params(self, self._params, self._uh)
-        self._params._model2params = model2params
+        setter_dec = VectorDecorator(self._params)
+        setter_dec.add_method(self, 'set_uh')
+        self._params._setter_decorator = setter_dec
+
+        # This code is used to link ensemble number between parameters
+        # and UH
+        iens_dec = VectorDecorator(self._params)
+        iens_dec.add_method(self._uh, 'set_iens')
+        iens_dec.set_args(self._uh, 'set_iens', self._params.iens)
+        # DOES NOT WORK !!!!
+        self._params._iens_decorator = iens_dec
 
         # Number of states depends on number of inputs and parameters
         nens_states_final = nens_states * nens_inputs * nens_params
@@ -479,24 +519,15 @@ class Model(object):
     def outputs(self):
         return self._outputs
 
+    @property
+    def iens_params(self):
+        return self._params.iens
 
-    def getens(self, iens):
-        ''' Compute ensemble indexes from overall ensemble index '''
-
-        if iens < 0 or iens > self.outputs.nens:
-            raise ValueError('iens({0}) <0 or >self.outputs.nens').format(
-                    iens, self.outputs.nens))
-
-        nens_inputs = self.inputs.nens
-        nens_params = self.params.nens
-        nens_states = self._nens_states
-        nens_outputs = self._nens_outputs
-
-        n1 = nens_inputs * nens_params * nens_states * nens_outputs
-        n1 = nens_inputs * nens_params * nens_states * nens_outputs
-
-
-        return iens_inputs, iens_params, iens_states, iens_outputs
+    @iens_params.setter
+    def iens_params(self, value):
+        ''' Set the parameter ensemble number '''
+        self._params.iens = value
+        self._uh.iens = value
 
 
     def allocate(self, nval, noutputs=1):
@@ -568,8 +599,8 @@ class Model(object):
         nens = self.outputs.nens
         for iens in range(nens):
 
-            iens_inputs =
-            iens_params
+            #iens_inputs =
+            #iens_params
 
             iens_final = iens_inputs * np.prod(nens[:-1]) \
                 + iens_params * np.prod(nens[1:-1]) \
