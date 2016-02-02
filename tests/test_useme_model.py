@@ -6,56 +6,67 @@ from timeit import Timer
 import time
 
 import numpy as np
+np.seterr(all='print')
 
 from useme.model import Model, Vector, Matrix
 
 
 class Dummy(Model):
 
-    def __init__(self):
+    def __init__(self,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
+
         Model.__init__(self, 'dummy',
             nconfig=1,\
             ninputs=2, \
             nparams=2, \
             nstates=2, \
             noutputs_max=2,
-            inputs_names=['I1', 'I2'], \
-            outputs_names=['O1', 'O2'])
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
+
 
         self.config.names = 'Config1'
-        self.states.names = ['State1', 'State2']
-        self.params.names = ['Param1', 'Param2']
-        self.params.units = ['mm', 'mm']
 
-    def run(self, idx_start, idx_end):
-        par1 = self.params['Param1']
-        par2 = self.params['Param2']
+    def run(self, idx_start, idx_end, iens_inputs=0, iens_params=0):
+        par1 = self.params[0]
+        par2 = self.params[1]
 
-        outputs = par1 + par2 * np.cumsum(self.inputs.data, 0)
-        self.outputs.data = outputs[idx_start:idx_end, :self.outputs.nvar]
+        outputs = par1 + par2 * np.cumsum(self.inputs, 0)
+        nvar = self.outputs.shape[1]
+        self.outputs[idx_start:idx_end+1, :] = outputs[idx_start:idx_end+1, :nvar]
 
-        self.states.data = list(self.outputs.data[idx_end]) \
-                    + [0.] * (2-self.outputs.nvar)
+        self.states = list(self.outputs[idx_end, :]) \
+                    + [0.] * (2-self.outputs.shape[1])
 
     def set_uh(self):
-        self.uh.data = np.array([1.] * self.uh.nval)
+        self.uh = np.array([1.] * len(self.uh))
 
 
 class MassiveDummy(Model):
 
-    def __init__(self):
+    def __init__(self,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
+
         Model.__init__(self, 'dummy',
-            nconfig=0,\
-            ninputs=1, \
-            nparams=0, \
-            nstates=0, \
+            nconfig=0,
+            ninputs=1,
+            nparams=0,
+            nstates=0,
             noutputs_max=1,
-            inputs_names=[], \
-            outputs_names=['O'])
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
+
 
     def run(self, idx_start, idx_end):
-        nval = self.outputs.data.nval
-        outputs = self.inputs.data + np.random(0, 1, (nval, 1))
+        nval = self.outputs.shape[0]
+        outputs = self.inputs.data + np.random.uniform(0, 1, (nval, 1))
         self.outputs.data = outputs[idx_start:idx_end, :]
 
 
@@ -294,7 +305,7 @@ class ModelTestCases(unittest.TestCase):
         params = [0.5, 10.]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
-        dum.params.data = params
+        dum.params = params
 
 
     def test_model4(self):
@@ -302,9 +313,9 @@ class ModelTestCases(unittest.TestCase):
         params = [0.5, 10.]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
-        dum.params.data = params
+        dum.params = params
         dum.initialise(states=[10, 0])
-        dum.inputs.data = inputs
+        dum.inputs = inputs
 
 
     def test_model5(self):
@@ -312,7 +323,7 @@ class ModelTestCases(unittest.TestCase):
         params = [0.5, 10.]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
-        dum.params.data = params
+        dum.params = params
         dum.initialise(states=[10, 0])
         dum.inputs.data = inputs
 
@@ -321,11 +332,11 @@ class ModelTestCases(unittest.TestCase):
         dum.run(idx_start, idx_end)
 
         expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
-        ck1 = np.allclose(expected1, dum.outputs.data[:, 0])
+        ck1 = np.allclose(expected1, dum.outputs[:, 0])
         self.assertTrue(ck1)
 
         expected2 = params[0] + params[1] * np.cumsum(inputs[:, 1])
-        ck2 = np.allclose(expected2, dum.outputs.data[:, 1])
+        ck2 = np.allclose(expected2, dum.outputs[:, 1])
         self.assertTrue(ck2)
 
 
@@ -334,17 +345,18 @@ class ModelTestCases(unittest.TestCase):
         params = [0.5, 10.]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
-        dum.params.data = params
+        dum.params = params
         dum.initialise(states=[10, 0])
-        dum.inputs.data = inputs
+        dum.inputs = inputs
 
         dum2 = dum.clone()
 
-        d1 = dum.inputs.data
-        d2 = dum2.inputs.data
+        d1 = dum.inputs
+        d2 = dum2.inputs
 
         self.assertTrue(np.allclose(d1, d2))
 
+        # Check that inputs were copied and not pointing to same object
         d2[0, 0] += 1
         self.assertTrue(np.allclose(d1[0, 0]+1, d2[0, 0]))
 
@@ -352,32 +364,53 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         dum.allocate(10, 2)
 
-        uh = [1.] + [0.] * (dum.uh.nval-1)
+        uh = [1.] + [0.] * (len(dum.uh)-1)
         uh = np.array(uh)
-        self.assertTrue(np.allclose(dum.uh.data, uh))
+        self.assertTrue(np.allclose(dum.uh, uh))
 
-        dum.params.data = [1., 2.]
-
-        self.assertTrue(np.allclose(dum.uh.data, 1.))
+        dum.params = [1., 2.]
+        self.assertTrue(np.allclose(dum.uh, 1.))
 
     def test_model8(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10.]
-        dum = Dummy()
-        out = dum.fullrun(inputs, params)
-
-        expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
-        ck1 = np.allclose(expected1, out[:, 0])
-        self.assertTrue(ck1)
-
-    def test_model9(self):
         inputs = np.random.uniform(0, 1, (1000, 1))
         dum = MassiveDummy()
+        dum.params = []
         dum.allocate(len(inputs), 1)
-        dum.params.data = []
         dum.initialise(states=[])
-        dum.inputs.data = inputs
-        dum.run()
+        dum.inputs = inputs
+        dum.run(0, len(inputs))
+
+
+    def test_model9(self):
+        dum = Dummy(nens_params=3,
+            nens_states_random=4,
+            nens_outputs_random=5)
+
+        nval = 1000
+        noutputs = 2
+        dum.allocate(nval, noutputs, nens_inputs = 2)
+
+        dum.initialise(states=[])
+
+        dims = dum.getdims()
+        expected = {
+            'states': {'nens_states_random': 4, 'nens': 24, 'nval': 2},
+            'inputs': {'nvar': 2, 'nens': 2, 'nval': 1000},
+            'params': {'nuhlengthmax': 300, 'nens': 3, 'nval': 2},
+            'outputs': {'nvar': 2, 'noutputs_max': 2, 'nens_outputs_random': 5, 'nens': 120, 'nval': 1000}
+        }
+        self.assertTrue(dims == expected)
+
+        for iens1 in range(dims['inputs']['nens']):
+            dum.iens_inputs = iens1
+            inputs = np.random.uniform(0, 1, (nval, dum.ninputs))
+            dum.inputs = inputs
+
+            for iens2 in range(dims['params']['nens']):
+                dum.iens_params = iens2
+
+                # TODO
+
 
 
 if __name__ == '__main__':

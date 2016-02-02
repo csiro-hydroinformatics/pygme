@@ -8,15 +8,15 @@ NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
 
 class Vector(object):
 
-    def __init__(self, id, nval, nens=1):
-        self._id = id
-        self._nval = nval
-        self._nens = nens
+    def __init__(self, id, nval, nens=1, prefix='X'):
+        self.id = id
+        self.nval = nval
+        self.nens = nens
         self._iens = 0
 
         self._data = [np.nan * np.ones(nval).astype(np.float64)] * nens
 
-        self._names = np.array(['X{0}'.format(i) for i in range(nval)])
+        self._names = np.array(['{0}{1}'.format(prefix, i) for i in range(nval)])
         self._units = ['-'] * nval
         self._min = -np.inf * np.ones(nval).astype(np.float64)
         self._max = np.inf * np.ones(nval).astype(np.float64)
@@ -24,14 +24,11 @@ class Vector(object):
 
         self._hitbounds = [False] * nens
 
-        self._setter_decorator = None
-        self._iens_decorator = None
-
 
     def __str__(self):
 
         str = 'Vector {0} : nval={1} nens={2} {{'.format( \
-            self._id, self._nval, self._nens)
+            self.id, self.nval, self.nens)
         str += ', '.join(self._names)
         str += '}'
 
@@ -43,7 +40,7 @@ class Vector(object):
             kx = np.where(name == self._names)[0]
         except ValueError:
             raise ValueError(('Vector {0}: name {1} not in' + \
-                    ' the vector names').format(self._id, name))
+                    ' the vector names').format(self.id, name))
         return kx
 
 
@@ -57,7 +54,7 @@ class Vector(object):
         if len(_source) != self.nval:
             raise ValueError(('Vector {0}: tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
-                self._id, target, len(_source), self._nval))
+                self.id, target, len(_source), self.nval))
 
         setattr(self, target, _source)
 
@@ -78,8 +75,8 @@ class Vector(object):
 
 
     def reset(self, value=None, iens=None):
-        nens = self._nens
-        nval = self._nval
+        nens = self.nens
+        nval = self.nval
 
         if value is None:
             default = self._default
@@ -90,16 +87,6 @@ class Vector(object):
             self._data = [default.copy() for i in range(nens)]
         else:
             self._data[iens] = default.copy()
-
-
-    @property
-    def nval(self):
-        return self._nval
-
-
-    @property
-    def nens(self):
-        return self._nens
 
 
     @property
@@ -116,18 +103,13 @@ class Vector(object):
         if len(_value) != self.nval:
             raise ValueError(('Vector {0} / ensemble {1}: tried setting data ' + \
                 'with vector of wrong size ({2} instead of {3})').format(\
-                self._id, self._iens, len(_value), self._nval))
+                self.id, self._iens, len(_value), self.nval))
 
         hitb = np.subtract(_value, self._min) < 0.
         hitb = hitb | (np.subtract(self._max, _value) < 0.)
         self._hitbounds[self._iens] = np.any(hitb)
 
         self._data[self._iens] = np.clip(_value, self._min, self._max)
-
-        # Run all methods from the post setter object
-        # (e.g. to change UH ordinates when a parameter vector changes)
-        if not self._setter_decorator is None:
-            self._setter_decorator.run()
 
 
     @property
@@ -187,73 +169,28 @@ class Vector(object):
 
     @iens.setter
     def iens(self, value):
-        self.set_iens(value)
-
-    def set_iens(self, value):
         ''' Set the ensemble number. Checks that number is not greater that total number of ensembles '''
-        if value >= self._nens or value < 0:
+
+        value = int(value)
+        if value >= self.nens or value < 0:
             raise ValueError(('Vector {0}: iens {1} ' \
                     '>= nens {2} or < 0').format( \
-                                self._id, value, self._nens))
+                                self.id, value, self.nens))
 
         self._iens = value
-
-        if not self._iens_decorator is None:
-            self._iens_decorator.run()
-
-
-class VectorDecorator(object):
-    ''' Object used to decorate a vector with method from external objects '''
-
-    def __init__(self, vector):
-        self.vector = vector
-        self.args = {}
-
-
-    def add_method(self, obj, method):
-        ''' Add a method from an external object to the decorator '''
-        self.args[(obj, method)] = None
-
-
-    def set_args(self, obj, method, args):
-        ''' Set argument for the method. Caution: args should a dict, e.g. (3.4, )'''
-
-        key = (obj, method)
-        if not key in self.args:
-            raise ValueError(('Key (Object {0}, Method {1}) not in the list' +
-                ' of defined methods').format(obj, method))
-        else:
-            self.args[key] = args
-
-
-    def run(self):
-        ''' Run all defined methods with arguments '''
-
-        for key in self.args:
-            # get method
-            obj = key[0]
-            methodname = key[1]
-            method = getattr(obj, methodname)
-
-            # Run method
-            args = self.args[key]
-            if args is None:
-                method()
-            else:
-                method(*args)
 
 
 
 class Matrix(object):
 
-    def __init__(self, id, nval, nvar, nens=1, data=None):
-        self._id = id
+    def __init__(self, id, nval, nvar, nens=1, data=None, prefix='V'):
+        self.id = id
         self._iens = 0
 
         if nval is not None and nvar is not None and nens is not None:
-            self._nval = nval
-            self._nvar = nvar
-            self._nens = nens
+            self.nval = nval
+            self.nvar = nvar
+            self.nens = nens
             self._data = [np.nan * np.ones((nval, nvar)).astype(np.float64)]*nens
 
         elif data is not None:
@@ -264,7 +201,7 @@ class Matrix(object):
             if not isinstance(data, list):
                 raise ValueError('data is not a list or a numpy.ndarray')
 
-            self._nens = len(data)
+            self.nens = len(data)
 
             _data = []
             for idx, d in enumerate(data):
@@ -274,52 +211,38 @@ class Matrix(object):
                 _data.append(_d)
 
                 if idx == 0:
-                    self._nval, self._nvar = _d.shape
+                    self.nval, self.nvar = _d.shape
                 else:
-                    if _d.shape != (self._nval, self._nvar):
+                    if _d.shape != (self.nval, self.nvar):
                         raise ValueError(('Shape of element {0} in data ({1}) ' + \
                             ' is different from ({2}, {3})'.format( \
-                            idx,  _d.shape, self._nval, self._nvar)))
+                            idx,  _d.shape, self.nval, self.nvar)))
 
             self._data = _data
 
         else:
             raise ValueError(('{0} matrix, ' + \
-                    'Wrong arguments to Matrix.__init__').format(self._id))
+                    'Wrong arguments to Matrix.__init__').format(self.id))
 
-        self._names = ['V{0}'.format(i) for i in range(self._nvar)]
+        self._names = ['{0}{1}'.format(prefix, i) for i in range(self.nvar)]
 
 
     @classmethod
-    def fromdims(cls, id, nval, nvar, nens=1):
+    def fromdims(cls, id, nval, nvar, nens=1, prefix='V'):
         return cls(id, nval, nvar, nens, None)
 
 
     @classmethod
     def fromdata(cls, id, data):
-        return cls(id, None, None, None, data)
+        return cls(id, None, None, None, data, prefix='V')
 
     def __str__(self):
         str = 'Matrix {0} : nval={1} nvar={2} nens={3} {{'.format( \
-            self._id, self._nval, self._nvar, self._nens)
+            self.id, self.nval, self.nvar, self.nens)
         str += ', '.join(self._names)
         str += '}'
 
         return str
-
-
-    @property
-    def nval(self):
-        return self._nval
-
-
-    @property
-    def nens(self):
-        return self._nens
-
-    @property
-    def nvar(self):
-        return self._nvar
 
 
     @property
@@ -330,10 +253,10 @@ class Matrix(object):
     def names(self, value):
         self._names = np.atleast_1d(value)
 
-        if len(self._names) != self._nvar:
+        if len(self._names) != self.nvar:
             raise ValueError(('{0} matrix: tried setting _names, ' + \
                 'got wrong size ({1} instead of {2})').format(\
-                self._id, len(self._names), self._nvar))
+                self.id, len(self._names), self.nvar))
 
 
     @property
@@ -347,17 +270,17 @@ class Matrix(object):
         if _value.shape[0] == 1:
             _value = _value.T
 
-        if _value.shape[0] != self._nval:
+        if _value.shape[0] != self.nval:
             raise ValueError(('{0} matrix: tried setting _data,' + \
                     ' got wrong number of values ' + \
                     '({1} instead of {2})').format( \
-                    self._id, _value.shape[0], self._nval))
+                    self.id, _value.shape[0], self.nval))
 
-        if _value.shape[1] != self._nvar:
+        if _value.shape[1] != self.nvar:
             raise ValueError(('{0} matrix: tried setting _data,' + \
                     ' got wrong number of variables ' + \
                     '({1} instead of {2})').format( \
-                    self._id, _value.shape[1], self._nvar))
+                    self.id, _value.shape[1], self.nvar))
 
         self._data[self._iens] = _value
 
@@ -369,18 +292,20 @@ class Matrix(object):
     @iens.setter
     def iens(self, value):
         ''' Set the ensemble number. Checks that number is not greater that total number of ensembles '''
-        if value >= self._nens or value < 0:
+
+        value = int(value)
+        if value >= self.nens or value < 0:
             raise ValueError(('Vector {0}: iens {1} ' \
                     '>= nens {2} or < 0').format( \
-                                self._id, value, self._nens))
+                                self.id, value, self.nens))
 
         self._iens = value
 
 
     def reset(self, value=0., iens=None):
-        nens = self._nens
-        nval = self._nval
-        nvar = self._nvar
+        nens = self.nens
+        nval = self.nval
+        nvar = self.nvar
 
         default = (value * np.ones((nval, nvar))).astype(np.float64)
 
@@ -399,24 +324,28 @@ class Model(object):
             nparams,
             nstates,
             noutputs_max,
-            inputs_names,
-            outputs_names,
             nens_params=1,
-            nens_states_generated=1,
-            nens_outputs_generated=1):
+            nens_states_random=1,
+            nens_outputs_random=1):
 
-        self._name = name
-        self._ninputs = ninputs
+        self.name = name
+        self.ninputs = ninputs
 
-        self._nuhlength = 0
-        self._noutputs_max = noutputs_max
-        self._nens_outputs = nens_outputs
+        self.nuhlength = 0
+        self.noutputs_max = noutputs_max
 
-        self._nens_states_generated = nens_states_generated
+        # Random ensemble
+        self._iens_outputs_random = 0
+        self.nens_outputs_random = nens_outputs_random
 
-        self._config = Vector('config', nconfig)
-        self._params = Vector('params', nparams, nens_params)
-        self._params_default = Vector('params_default', nparams)
+        self._iens_states_random = 0
+        self.nens_states_random = nens_states_random
+
+        # Config vector
+        self.config = Vector('config', nconfig)
+
+        # Param vector
+        self._params = Vector('params', nparams, nens_params, prefix='X')
 
         # UH ordinates. Number of ensembles is same than nens_params
         self._uh = Vector('uh', NUHMAXLENGTH, nens_params)
@@ -426,98 +355,71 @@ class Model(object):
             self._uh.iens = iens
             self._uh.data = [1.] + [0.] * (NUHMAXLENGTH-1)
 
-        # This code is used to change UH ordinates when
-        # model parameters are changed
-        setter_dec = VectorDecorator(self._params)
-        setter_dec.add_method(self, 'set_uh')
-        self._params._setter_decorator = setter_dec
-
-        # This code is used to link ensemble number between parameters
-        # and UH
-        iens_dec = VectorDecorator(self._params)
-        iens_dec.add_method(self._uh, 'set_iens')
-        iens_dec.set_args(self._uh, 'set_iens', self._params.iens)
-        # DOES NOT WORK !!!!
-        self._params._iens_decorator = iens_dec
-
-        # Number of states depends on number of inputs and parameters
-        nens_states_final = nens_states * nens_inputs * nens_params
-        self._states = Vector('states', nstates, nens_states_final)
-
-        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens_states_final)
+        self.nstates = nstates
+        self._states = None
+        self._statesuh = None
 
         self._inputs = None
         self._outputs = None
 
-        if len(inputs_names) != ninputs:
-            raise ValueError(('Model {0}: len(inputs_names)({1}) != ' + \
-                    'ninputs ({2})').format(self._name, \
-                        len(inputs_names), ninputs))
-
-        self._inputs_names = inputs_names
-
-        if len(outputs_names) != noutputs_max:
-            raise ValueError(('Model {0}: len(outputs_names)({1}) != ' + \
-                    'noutputs_max ({2})').format(self._name, \
-                        len(outputs_names), \
-                        noutputs_max))
-
-        self._outputs_names = outputs_names
-
 
     def __str__(self):
         str = '\n{0} model implementation\n'.format( \
-            self._name)
-        str += '  ninputs      = {0} [{1} ens]\n'.format(
-                    self._ninputs, self.inputs.nens)
+            self.name)
+
+        nens = 0
+        ninputs = 0
+        if not self._inputs is None:
+            ninputs = self._inputs.nvar
+            nens = self._inputs.nens
+        str += '  ninputs      = {0} [{1} ens]\n'.format(ninputs, nens)
+
         str += '  nparams      = {0} [{1} ens]\n'.format(
-                    self.params.nval, self.params.nens)
-        str += '  nstates      = {0} [{1} ens]\n'.format(
-                    self.states.nval, self.states.nens)
-        str += '  nuhmaxlength = {0}\n'.format(self._statesuh.nval)
-        str += '  nuhlength    = {0} [{1} ens]\n'.format(self._nuhlength)
+                    self._params.nval, self._params.nens)
+
+        if not self._states is None:
+            str += '  nstates      = {0} [{1} ens]\n'.format(
+                    self._states.nval, self.nens_states_random)
+
+        str += '  noutputs = {0} (max) [{1} ens]\n'.format(self.noutputs_max,
+                    self.nens_outputs_random)
+
+        str += '  nuhlengthmax    = {0}\n'.format(self._uh.nval)
 
         return str
 
 
     @property
-    def name(self):
-        return self._name
+    def inputs(self):
+        return self._inputs.data
+
+    @inputs.setter
+    def inputs(self, value):
+        self._inputs.data = value
 
 
     @property
-    def config(self):
-        return self._config
+    def iens_inputs(self):
+        return self._inputs.iens
 
-
-    @property
-    def uh(self):
-        return self._uh
-
-
-    @property
-    def statesuh(self):
-        return self._statesuh
-
-
-    @property
-    def states(self):
-        return self._states
+    @iens_inputs.setter
+    def iens_inputs(self, value):
+        self._inputs.iens = value
 
 
     @property
     def params(self):
-        return self._params
+        return self._params.data
 
 
-    @property
-    def inputs(self):
-        return self._inputs
+    @params.setter
+    def params(self, value):
+        self._params.data = value
 
+        # When setting params, check uh are in sync
+        self._uh.iens = self._params.iens
+        self.set_uh()
 
-    @property
-    def outputs(self):
-        return self._outputs
 
     @property
     def iens_params(self):
@@ -525,37 +427,170 @@ class Model(object):
 
     @iens_params.setter
     def iens_params(self, value):
-        ''' Set the parameter ensemble number '''
+        ''' Set the parameter parameter ensemble number '''
         self._params.iens = value
         self._uh.iens = value
 
 
-    def allocate(self, nval, noutputs=1):
+    @property
+    def uh(self):
+        return self._uh.data
+
+    @uh.setter
+    def uh(self, value):
+        ''' Set UH values '''
+        self._uh.data = value
+
+
+    @property
+    def states(self):
+        # Code needed to sync input/params ensemble with states
+        self.iens_states_random = self.iens_states_random
+        return self._states.data
+
+    @states.setter
+    def states(self, value):
+        self._states.data = value
+
+
+    @property
+    def statesuh(self):
+        # Code needed to sync input/params ensemble with states
+        self.iens_states_random = self.iens_states_random
+        return self._statesuh.data
+
+    @statesuh.setter
+    def statesuh(self, value):
+        self._statesuh.data = value
+
+
+    @property
+    def iens_states_random(self):
+        return self._iens_states_random
+
+    @iens_states_random.setter
+    def iens_states_random(self, value):
+        ''' Set the states vector ensemble number '''
+
+        value = int(value)
+        if value >= self.nens_states_random or value < 0:
+            raise ValueError(('Model {0}: iens_states_random {1} ' \
+                    '>= nens {2} or < 0').format( \
+                                self.name, value, self.nens_states_random))
+
+        # Determines the state ensemble number given the input ensemble and the parameter ensemble
+        # It is assumed that the loop will go first on inputs then on parameters
+        # and finally on random states ensembles
+        n1 = self._params.nens
+        n2 = self.nens_states_random
+        iens = n1 * n2  * self._inputs.iens
+        iens += n2 * self._params.iens
+        iens += value
+
+        # Set ensemble number
+        self._iens_states_random = value
+        self._states.iens = iens
+        self._statesuh.iens = iens
+
+
+    @property
+    def outputs(self):
+        return self._outputs.data
+
+    @outputs.setter
+    def outputs(self, value):
+        self._outputs.data = value
+
+
+    @property
+    def iens_outputs_random(self):
+        return self._iens_outputs_random
+
+    @iens_outputs_random.setter
+    def iens_outputs_random(self, value):
+        ''' Set the outputs vector ensemble number '''
+
+        if value >= self.nens_outputs_random or value < 0:
+            raise ValueError(('Model {0}: iens_outputs_random {1} ' \
+                    '>= nens {2} or < 0').format( \
+                                self.name, value, self.nens_outputs_random))
+
+        # Determines the state ensemble number given the input ensemble and the parameter ensemble
+        # It is assumed that the loop will go first on inputs then on parameters
+        # and finally on random states ensembles
+        n1 = self._params.nens
+        n2 = self.nens_states_random
+        n3 = self.nens_outputs_random
+        iens = n1 * n2  * n3 * self.inputs.iens
+        iens += n2 * n3 * self.params.iens
+        iens += n3 * self._iens_states_random
+        iens += value
+
+        # Set ensemble number
+        self._outputs_states_random = value
+
+
+    def getdims(self):
+        nens = 0
+        nval = 0
+        nvar = 0
+        if not self._inputs is None:
+            nvar = self._inputs.nvar
+            nval = self._inputs.nval
+            nens = self._inputs.nens
+        dims = {'inputs':{'nens':nens, 'nval':nval, 'nvar':nvar}}
+
+        nens = self._params.nens
+        nval = self._params.nval
+        dims['params'] = {'nens':nens, 'nval':nval,
+            'nuhlengthmax':self._uh.nval}
+
+        nens = 0
+        nval = 0
+        if not self._states is None:
+            nens = self._states.nens
+            nval = self._states.nval
+        dims['states'] = {'nens':nens, 'nval':nval,
+            'nens_states_random':self.nens_states_random}
+
+        nens = 0
+        nval = 0
+        nvar = 0
+        if not self._outputs is None:
+            nvar = self._outputs.nvar
+            nval = self._outputs.nval
+            nens = self._outputs.nens
+        dims['outputs'] = {'nens':nens, 'nval':nval, 'nvar':nvar,
+            'noutputs_max':self.noutputs_max,
+            'nens_outputs_random':self.nens_outputs_random}
+
+        return dims
+
+
+    def allocate(self, nval, noutputs=1, nens_inputs=1):
         ''' We define the number of outputs here to allow more flexible memory allocation '''
 
         if noutputs <= 0:
             raise ValueError(('Number of outputs defined' + \
                 ' for model {0} should be >0').format(nval))
 
-        if noutputs > self._noutputs_max:
+        if noutputs > self.noutputs_max:
             raise ValueError(('Too many outputs defined for model {0}:' + \
                 ' noutputs({1}) > noutputs_max({2})').format( \
-                self._name, noutputs, self._noutputs_max))
+                self.name, noutputs, self.noutputs_max))
 
         self._inputs = Matrix.fromdims('inputs',
-                nval, self._ninputs, self._nens_inputs)
+                nval, self.ninputs, nens_inputs, prefix='I')
 
-        self._inputs.names = self._inputs_names
+        # Allocate state vectors with number of ensemble
+        nens = self._params.nens * self._inputs.nens * self.nens_states_random
+        self._states = Vector('states', self.nstates, nens, prefix='S')
+        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens, prefix='SUH')
 
         # Allocate output matrix with number of final ensemble
-        # being the multiplication of all ensemble numbers
-        nens_final = self._inputs.nens * self._params.nens \
-            * self._states.nens * self._nens_outputs
-
+        nens *= self.nens_outputs_random
         self._outputs = Matrix.fromdims('outputs',
-                nval, noutputs, nens_final)
-
-        self._outputs.names = self._outputs_names[:noutputs]
+                nval, noutputs, nens, prefix='O')
 
 
     def set_uh(self):
@@ -564,7 +599,7 @@ class Model(object):
 
     def initialise(self, states=None, statesuh=None):
 
-        for iens in range(self._nens_states):
+        for iens in range(self._states.nens):
             if states is None:
                 self._states.iens = iens
                 self._states.data = [0.] * self._states.nval
@@ -574,74 +609,52 @@ class Model(object):
                 self._statesuh.data = [0.] * self._statesuh.nval
 
 
-    def fullrun(self, inputs, params, noutputs=1,
-            states=None, statesuh=None,
-            idx_start=None, idx_end=None):
-
-        # Set inputs
-        inputs_m = Matrix.fromdata('inputs', inputs)
-        self.allocate(inputs_m.nval, noutputs)
-        self._inputs.data = inputs
-
-        # Set params
-        self._params.data = params
-
-        # Initialise model
-        self.initialise(states, statesuh)
-
-        if idx_start is None:
-            idx_start = 0
-
-        if idx_end is None:
-            idx_end = inputs_m.nval - 1
-
-        # Loop through all ensembles
-        nens = self.outputs.nens
-        for iens in range(nens):
-
-            #iens_inputs =
-            #iens_params
-
-            iens_final = iens_inputs * np.prod(nens[:-1]) \
-                + iens_params * np.prod(nens[1:-1]) \
-                + iens_states * np.prod(nens[2:-1]) \
-                + iens_outputs
-
-            self._outputs.iens = iens_final
-            self.run1ens(idx_start, idx_end)
-
-        return self.outputs.data[:, :noutputs]
-
-
-    def run1ens(self, idx_start, idx_end):
+    def run(self, idx_start, idx_end,
+        iens_param=0, iens_inputs=0):
         pass
 
 
     def clone(self):
 
-        model = Model(
-            self._name,
-            self._config.nval,
-            self._ninputs,
+        model = Model(self.name,
+            self.config.nval,
+            self.ninputs,
             self._params.nval,
-            self._states.nval,
-            self._noutputs_max,
-            self._inputs_names,
-            self._outputs_names,
-            self._inputs.nens,
+            self.nstates,
+            self.noutputs_max,
             self._params.nens,
-            self._states.nens,
-            self._nens_outputs)
+            self.nens_states_random,
+            self.nens_outputs_random)
 
-        model._params.data = [p.copy() for p in self._params.data]
-        model._states.data = [s.copy() for s in self._states.data]
-        model._statesuh.data = [u.copy() for u in self._statesuh.data]
-        model._config.data = self._config.data.copy()
+        model.config.data = self.config.data.copy()
+
+        for iens in range(self._params.nens):
+            self._params.iens = iens
+            model._params.iens = iens
+            model._params.data = self._params.data.copy()
+
 
         if not self._inputs is None:
-            model.allocate(self._inputs.nval, self._outputs.nvar)
-            model._inputs.data = [i.copy() for i in self._inputs.data]
-            model._outputs.data = [o.copy() for o in self._outputs.data]
+            model.allocate(self._inputs.nval, self._outputs.nvar,
+                    self._inputs.nens)
+
+            for iens in range(self._states.nens):
+                self._states.iens = iens
+                model._states.iens = iens
+                model._states.data = self._states.data.copy()
+
+                model._statesuh.iens = iens
+                model._statesuh.data = self._statesuh.data.copy()
+
+            for iens in range(self._inputs.nens):
+                self._inputs.iens = iens
+                model._inputs.iens = iens
+                model._inputs.data = self._inputs.data.copy()
+
+            for iens in range(self._outputs.nens):
+                self._outputs.iens = iens
+                model._outputs.iens = iens
+                model._outputs.data = self._outputs.data.copy()
 
         return model
 
