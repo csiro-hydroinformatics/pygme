@@ -1,28 +1,42 @@
-import math
+import math, itertools
 import numpy as np
 
 import c_hymod_models_utils
 
 NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
 
-
 class Vector(object):
 
-    def __init__(self, id, nval, nens=1, prefix='X'):
+    def __init__(self, id, nval, nens=1, prefix='X',
+            has_minmax = True,
+            has_weights = False):
+
         self.id = id
         self.nval = nval
         self.nens = nens
+        self.has_minmax = has_minmax
+        self.has_weights = has_weights
+
         self._iens = 0
 
         self._data = [np.nan * np.ones(nval).astype(np.float64)] * nens
 
         self._names = np.array(['{0}{1}'.format(prefix, i) for i in range(nval)])
-        self._units = ['-'] * nval
-        self._min = -np.inf * np.ones(nval).astype(np.float64)
-        self._max = np.inf * np.ones(nval).astype(np.float64)
         self._default = np.nan * np.ones(nval).astype(np.float64)
 
-        self._hitbounds = [False] * nens
+        if has_minmax:
+            self._min = -np.inf * np.ones(nval).astype(np.float64)
+            self._max = np.inf * np.ones(nval).astype(np.float64)
+            self._hitbounds = [False] * nens
+        else:
+            self._min = None
+            self._max = None
+            self._hitbounds = None
+
+        if has_weights:
+            self._weights = [np.nan] * nens
+        else:
+            self._weights = None
 
 
     def __str__(self):
@@ -46,15 +60,27 @@ class Vector(object):
 
     def __set_attrib(self, target, source):
 
+        if target == '_weights' and not self.has_weights:
+            raise ValueError(('Vector {0}: Cannot set weights, '
+                'vector do not have them').format(self.id))
+
+        if target in ['_min', '_max'] and not self.has_minmax:
+            raise ValueError(('Vector {0}: Cannot set min or max, '
+                'vector do not have them').format(self.id))
+
         _source = np.atleast_1d(source).flatten()
 
-        if not target in ['_names', '_units']:
+        if not target in ['_names']:
             _source = _source.astype(np.float64)
 
-        if len(_source) != self.nval:
+        ntarget = self.nval
+        if target == '_weights':
+            ntarget = self.nens
+
+        if len(_source) != ntarget:
             raise ValueError(('Vector {0}: tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
-                self.id, target, len(_source), self.nval))
+                self.id, target, len(_source), ntarget))
 
         setattr(self, target, _source)
 
@@ -89,6 +115,22 @@ class Vector(object):
             self._data[iens] = default.copy()
 
 
+    def resample(self):
+        ''' Resample vector component based on weights. Method used in particle filter '''
+
+        if not self.has_weights:
+            raise ValueError(('Vector {0}: Cannot resample if '
+                'vector does not have weights').format(self.id))
+
+        sweight = np.sum(self._weights)
+        probabilities = np.array(self._weights)/sweight
+
+        idx = np.random.choice(np.arange(self.nens),
+                (self.nens, ), p=probabilities)
+
+        self._data = [self._data[k] for k in idx]
+
+
     @property
     def data(self):
         ''' Get data for a given ensemble member set by iens '''
@@ -105,12 +147,26 @@ class Vector(object):
                 'with vector of wrong size ({2} instead of {3})').format(\
                 self.id, self._iens, len(_value), self.nval))
 
-        hitb = np.subtract(_value, self._min) < 0.
-        hitb = hitb | (np.subtract(self._max, _value) < 0.)
-        self._hitbounds[self._iens] = np.any(hitb)
+        if self.has_minmax:
+            # Avoids raising a warning with NaN substraction
+            with np.errstate(invalid='ignore'):
+                hitb = np.subtract(_value, self._min) < 0.
+                hitb = hitb | (np.subtract(self._max, _value) < 0.)
 
-        self._data[self._iens] = np.clip(_value, self._min, self._max)
+            self._hitbounds[self._iens] = np.any(hitb)
+            self._data[self._iens] = np.clip(_value, self._min, self._max)
 
+        else:
+            self._data[self._iens] = _value
+
+
+    @property
+    def weights(self):
+        return self._weights
+
+    @weights.setter
+    def weights(self, value):
+        self.__set_attrib('_weights', value)
 
     @property
     def min(self):
@@ -119,6 +175,7 @@ class Vector(object):
     @min.setter
     def min(self, value):
         self.__set_attrib('_min', value)
+
 
 
     @property
@@ -137,7 +194,9 @@ class Vector(object):
     @default.setter
     def default(self, value):
         self.__set_attrib('_default', value)
-        self._default = np.clip(self._default, self._min, self._max)
+
+        if self.has_minmax:
+            self._default = np.clip(self._default, self._min, self._max)
 
 
     @property
@@ -147,15 +206,6 @@ class Vector(object):
     @names.setter
     def names(self, value):
         self.__set_attrib('_names', value)
-
-
-    @property
-    def units(self):
-        return self._units
-
-    @units.setter
-    def units(self, value):
-        self.__set_attrib('_units', value)
 
 
     @property
@@ -584,8 +634,11 @@ class Model(object):
 
         # Allocate state vectors with number of ensemble
         nens = self._params.nens * self._inputs.nens * self.nens_states_random
-        self._states = Vector('states', self.nstates, nens, prefix='S')
-        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens, prefix='SUH')
+        self._states = Vector('states', self.nstates, nens,
+                                prefix='S', has_minmax=False)
+
+        self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens,
+                                prefix='SUH', has_minmax=False)
 
         # Allocate output matrix with number of final ensemble
         nens *= self.nens_outputs_random
@@ -609,12 +662,42 @@ class Model(object):
                 self._statesuh.data = [0.] * self._statesuh.nval
 
 
-    def run(self, idx_start, idx_end,
-        iens_param=0, iens_inputs=0):
+    def run(self, idx_start, idx_end):
         pass
+
+    def run_ens(self, idx_start, idx_end,
+            ens_inputs = None,
+            ens_params = None,
+            ens_states_random = None,
+            ens_outputs_random = None):
+        ''' Run the model with selected ensembles '''
+
+        if ens_inputs is None:
+            ens_inputs = range(self._inputs.nens)
+
+        if ens_params is None:
+            ens_params = range(self._params.nens)
+
+        if ens_states_random is None:
+            ens_states_random = range(self.nens_states_random)
+
+        if ens_outputs_random is None:
+            ens_outputs_random = range(self.nens_outputs_random)
+
+        for i_inputs, i_params, i_states, i_outputs in \
+                itertools.product(ens_inputs, ens_params,
+                        ens_states_random, ens_outputs_random):
+
+            self.iens_inputs = i_inputs
+            self.iens_params = i_params
+            self.iens_states_random = i_states
+            self.iens_outputs_random = i_outputs
+
+            self.run(idx_start, idx_end)
 
 
     def clone(self):
+        ''' Clone the current object model '''
 
         model = Model(self.name,
             self.config.nval,

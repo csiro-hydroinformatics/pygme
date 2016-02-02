@@ -21,22 +21,26 @@ class Dummy(Model):
         Model.__init__(self, 'dummy',
             nconfig=1,\
             ninputs=2, \
-            nparams=2, \
+            nparams=3, \
             nstates=2, \
             noutputs_max=2,
             nens_params=nens_params,
             nens_states_random=nens_states_random,
             nens_outputs_random=nens_outputs_random)
 
+        self._params.default = [0., 1., 0.]
 
         self.config.names = 'Config1'
 
     def run(self, idx_start, idx_end, iens_inputs=0, iens_params=0):
         par1 = self.params[0]
         par2 = self.params[1]
+        par3 = self.params[2]
+
+        nval, nvar = self.outputs.shape
 
         outputs = par1 + par2 * np.cumsum(self.inputs, 0)
-        nvar = self.outputs.shape[1]
+        outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(nval, ))
         self.outputs[idx_start:idx_end+1, :] = outputs[idx_start:idx_end+1, :nvar]
 
         self.states = list(self.outputs[idx_end, :]) \
@@ -84,21 +88,10 @@ class VectorTestCases(unittest.TestCase):
             v.names = ['a', 'b']
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _names'))
+        self.assertTrue(str(e).startswith('Vector test: tried setting _names'))
 
 
     def test_vector2(self):
-        v = Vector('test', 3)
-        v.units = ['m2', 'mm/d', 'GL']
-        self.assertTrue(list(v.units) == ['m2', 'mm/d', 'GL'])
-        try:
-            v.units = ['m2', 'mm/d']
-        except ValueError as e:
-            pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _units'))
-
-
-    def test_vector3(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
         self.assertTrue(list(v.min.astype(int)) == [-1, 10, 2])
@@ -106,10 +99,10 @@ class VectorTestCases(unittest.TestCase):
             v.min = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _min'))
+        self.assertTrue(str(e).startswith('Vector test: tried setting _min'))
 
 
-    def test_vector4(self):
+    def test_vector3(self):
         v = Vector('test', 3)
         v.max = [10, 100, 20]
         self.assertTrue(np.allclose(v.max, [10, 100, 20]))
@@ -117,10 +110,10 @@ class VectorTestCases(unittest.TestCase):
             v.max = [5, 3]
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('Vector test: tried setting _max'))
+        self.assertTrue(str(e).startswith('Vector test: tried setting _max'))
 
 
-    def test_vector5(self):
+    def test_vector4(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
         self.assertTrue(~v.hitbounds)
@@ -133,21 +126,21 @@ class VectorTestCases(unittest.TestCase):
         except ValueError as e:
             pass
 
-        self.assertTrue(e.message.startswith('Vector test / ensemble 0:'
+        self.assertTrue(str(e).startswith('Vector test / ensemble 0:'
             ' tried setting data with vector of wrong size (2 instead of 3)'))
 
 
-    def test_vector6(self):
+    def test_vector5(self):
         v = Vector('test', 3)
         str = '{0}'.format(v)
 
 
-    def test_vector7(self):
+    def test_vector6(self):
         v = Vector('test', 1)
         v.data = 10
         self.assertTrue(v.data.shape == (1, ) and v.data[0] == 10.)
 
-    def test_vector8(self):
+    def test_vector7(self):
         v = Vector('test', 2, 10)
         for iens in range(10):
             v.iens = iens
@@ -162,7 +155,7 @@ class VectorTestCases(unittest.TestCase):
             ck = ck and v.data[0] == iens + 1
             self.assertTrue(ck)
 
-    def test_vector9(self):
+    def test_vector8(self):
         v = Vector('test', 2, 10)
         default = [1., 1.]
         v.default = default
@@ -187,6 +180,25 @@ class VectorTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
 
+    def test_vector9(self):
+        v = Vector('test', 5, 10000,
+                has_weights=True, has_minmax=False)
+
+        for iens in range(v.nens):
+            v.iens = iens
+            v.data = np.random.uniform(iens, iens+0.1, v.nval)
+
+        x = np.arange(v.nens)/v.nens
+        v.weights = np.tanh((x-0.5)*5)
+
+        v.resample()
+        k = np.sort(np.array([int(d[0]) for d in v._data]))
+        kc = np.bincount(k).astype(float)
+        kc = kc/v.nens
+
+        kc_expected = v.weights/np.sum(v.weights)
+        err = np.max(np.abs(kc-kc_expected))
+
 
 class MatrixTestCases(unittest.TestCase):
 
@@ -200,7 +212,7 @@ class MatrixTestCases(unittest.TestCase):
             m1.names = ['a', 'b']
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('test matrix: tried setting _names'))
+        self.assertTrue(str(e).startswith('test matrix: tried setting _names'))
 
 
     def test_matrix2(self):
@@ -216,7 +228,7 @@ class MatrixTestCases(unittest.TestCase):
             m1.data = np.random.uniform(0, 1, (10, 5))
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('test matrix: tried setting _data'))
+        self.assertTrue(str(e).startswith('test matrix: tried setting _data'))
 
 
     def test_matrix4(self):
@@ -302,7 +314,7 @@ class ModelTestCases(unittest.TestCase):
 
     def test_model3(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.1]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
         dum.params = params
@@ -310,7 +322,7 @@ class ModelTestCases(unittest.TestCase):
 
     def test_model4(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.1]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
         dum.params = params
@@ -320,7 +332,7 @@ class ModelTestCases(unittest.TestCase):
 
     def test_model5(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
         dum.params = params
@@ -342,12 +354,14 @@ class ModelTestCases(unittest.TestCase):
 
     def test_model6(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.5]
         dum = Dummy()
         dum.allocate(len(inputs), 2)
         dum.params = params
         dum.initialise(states=[10, 0])
         dum.inputs = inputs
+
+        dum.config.data = [10]
 
         dum2 = dum.clone()
 
@@ -368,7 +382,7 @@ class ModelTestCases(unittest.TestCase):
         uh = np.array(uh)
         self.assertTrue(np.allclose(dum.uh, uh))
 
-        dum.params = [1., 2.]
+        dum.params = [1., 2., 0.4]
         self.assertTrue(np.allclose(dum.uh, 1.))
 
     def test_model8(self):
@@ -396,18 +410,28 @@ class ModelTestCases(unittest.TestCase):
         expected = {
             'states': {'nens_states_random': 4, 'nens': 24, 'nval': 2},
             'inputs': {'nvar': 2, 'nens': 2, 'nval': 1000},
-            'params': {'nuhlengthmax': 300, 'nens': 3, 'nval': 2},
+            'params': {'nuhlengthmax': 300, 'nens': 3, 'nval': 3},
             'outputs': {'nvar': 2, 'noutputs_max': 2, 'nens_outputs_random': 5, 'nens': 120, 'nval': 1000}
         }
         self.assertTrue(dims == expected)
 
-        for iens1 in range(dims['inputs']['nens']):
+        inputs_all = []
+        params_all = []
+
+        n1 = dims['inputs']['nens']
+        n2 = dims['params']['nens']
+
+        for iens1 in range(n1):
             dum.iens_inputs = iens1
             inputs = np.random.uniform(0, 1, (nval, dum.ninputs))
+            inputs_all.append(inputs)
             dum.inputs = inputs
 
-            for iens2 in range(dims['params']['nens']):
-                dum.iens_params = iens2
+        for iens2 in range(n2):
+            dum.iens_params = iens2
+            params = np.random.uniform(0, 1, (3, ))
+            params_all.append(params)
+            dum.params = params
 
                 # TODO
 
