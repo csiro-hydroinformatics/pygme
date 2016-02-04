@@ -32,7 +32,11 @@ class Dummy(Model):
 
         self.config.names = 'Config1'
 
-    def run(self, idx_start, idx_end, iens_inputs=0, iens_params=0):
+    def run(self):
+
+        idx_start = self.idx_start
+        idx_end = self.idx_end
+
         par1 = self.params[0]
         par2 = self.params[1]
         par3 = self.params[2]
@@ -68,7 +72,11 @@ class MassiveDummy(Model):
             nens_outputs_random=nens_outputs_random)
 
 
-    def run(self, idx_start, idx_end):
+    def run(self):
+
+        idx_start = self.idx_start
+        idx_end = self.idx_end
+
         nval = self.outputs.shape[0]
         outputs = self.inputs.data + np.random.uniform(0, 1, (nval, 1))
         self.outputs.data = outputs[idx_start:idx_end, :]
@@ -145,14 +153,11 @@ class VectorTestCases(unittest.TestCase):
         for iens in range(10):
             v.iens = iens
             v.data = [iens, np.random.uniform(0, 1)]
-            v['X0'] = iens + 1
-            v['X1'] = np.random.uniform(0, 1)
 
         for iens in range(10):
             v.iens = iens
             ck = v.data.shape == (2, )
-            ck = ck and v['X0'] == iens + 1
-            ck = ck and v.data[0] == iens + 1
+            ck = ck and v.data[0] == iens
             self.assertTrue(ck)
 
     def test_vector8(self):
@@ -174,30 +179,23 @@ class VectorTestCases(unittest.TestCase):
             ck = np.allclose(v.data, [10., 10.])
             self.assertTrue(ck)
 
-        v.reset(11., 2)
-        v.iens = 2
-        ck = np.allclose(v.data, [11., 11.])
-        self.assertTrue(ck)
-
 
     def test_vector9(self):
-        v = Vector('test', 5, 10000,
-                has_weights=True, has_minmax=False)
+        v = Vector('test', 5, 100, has_minmax=True)
+        v.min = [0] * v.nval
+        v.max = range(1, v.nval+1)
+        v.means = np.arange(0.5, v.nval+0.5)
 
-        for iens in range(v.nens):
-            v.iens = iens
-            v.data = np.random.uniform(iens, iens+0.1, v.nval)
+        a = np.arange(1, v.nval+1) * 0.2
+        b = np.random.uniform(-1, 1, (v.nval, v.nval))
+        v.covar = np.dot(b.T, np.dot(np.diag(a), b))
 
-        x = np.arange(v.nens)/v.nens
-        v.weights = np.tanh((x-0.5)*5)
+        v.random()
 
-        v.resample()
-        k = np.sort(np.array([int(d[0]) for d in v._data]))
-        kc = np.bincount(k).astype(float)
-        kc = kc/v.nens
+        v2 = v.clone()
+        v2.random(distribution='uniform')
 
-        kc_expected = v.weights/np.sum(v.weights)
-        err = np.max(np.abs(kc-kc_expected))
+        import pdb; pdb.set_trace()
 
 
 class MatrixTestCases(unittest.TestCase):
@@ -339,9 +337,9 @@ class ModelTestCases(unittest.TestCase):
         dum.initialise(states=[10, 0])
         dum.inputs.data = inputs
 
-        idx_start = 0
-        idx_end = 999
-        dum.run(idx_start, idx_end)
+        dum.idx_start = 0
+        dum.idx_end = 999
+        dum.run()
 
         expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
         ck1 = np.allclose(expected1, dum.outputs[:, 0])
@@ -392,10 +390,14 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(len(inputs), 1)
         dum.initialise(states=[])
         dum.inputs = inputs
-        dum.run(0, len(inputs))
+
+        dum.idx_start = 0
+        dum.idx_end = len(inputs)-1
+        dum.run()
 
 
     def test_model9(self):
+
         dum = Dummy(nens_params=3,
             nens_states_random=4,
             nens_outputs_random=5)
@@ -411,7 +413,8 @@ class ModelTestCases(unittest.TestCase):
             'states': {'nens_states_random': 4, 'nens': 24, 'nval': 2},
             'inputs': {'nvar': 2, 'nens': 2, 'nval': 1000},
             'params': {'nuhlengthmax': 300, 'nens': 3, 'nval': 3},
-            'outputs': {'nvar': 2, 'noutputs_max': 2, 'nens_outputs_random': 5, 'nens': 120, 'nval': 1000}
+            'outputs': {'nvar': 2, 'noutputs_max': 2,
+                    'nens_outputs_random': 5, 'nens': 120, 'nval': 1000}
         }
         self.assertTrue(dims == expected)
 
@@ -433,6 +436,9 @@ class ModelTestCases(unittest.TestCase):
             params_all.append(params)
             dum.params = params
 
+        dum.idx_start = 0
+        dum.idx_end = len(inputs)-1
+        dum.run_ens()
                 # TODO
 
 

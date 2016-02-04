@@ -8,35 +8,34 @@ NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
 class Vector(object):
 
     def __init__(self, id, nval, nens=1, prefix='X',
-            has_minmax = True,
-            has_weights = False):
+            has_minmax = True):
 
         self.id = id
         self.nval = nval
         self.nens = nens
         self.has_minmax = has_minmax
-        self.has_weights = has_weights
+        self.prefix = prefix
 
         self._iens = 0
 
-        self._data = [np.nan * np.ones(nval).astype(np.float64)] * nens
+        self._data = [np.nan * np.ones(nval, dtype=np.float64)] * nens
 
-        self._names = np.array(['{0}{1}'.format(prefix, i) for i in range(nval)])
-        self._default = np.nan * np.ones(nval).astype(np.float64)
+        self._names = np.array(['{0}{1}'.format(prefix, i)
+                                    for i in range(nval)])
+        self._default = np.nan * np.ones(nval, dtype=np.float64)
 
         if has_minmax:
-            self._min = -np.inf * np.ones(nval).astype(np.float64)
-            self._max = np.inf * np.ones(nval).astype(np.float64)
+            self._min = -np.inf * np.ones(nval, dtype=np.float64)
+            self._max = np.inf * np.ones(nval, dtype=np.float64)
             self._hitbounds = [False] * nens
         else:
             self._min = None
             self._max = None
             self._hitbounds = None
 
-        if has_weights:
-            self._weights = [np.nan] * nens
-        else:
-            self._weights = None
+        self.means = 0 * np.ones(nval, dtype=np.float64)
+        self.covar = np.eye(nval, dtype=np.float64)
+
 
 
     def __str__(self):
@@ -48,87 +47,64 @@ class Vector(object):
 
         return str
 
-    def __checkname(self, name):
-
-        try:
-            kx = np.where(name == self._names)[0]
-        except ValueError:
-            raise ValueError(('Vector {0}: name {1} not in' + \
-                    ' the vector names').format(self.id, name))
-        return kx
-
 
     def __set_attrib(self, target, source):
 
         if target == '_weights' and not self.has_weights:
             raise ValueError(('Vector {0}: Cannot set weights, '
-                'vector do not have them').format(self.id))
+                'vector do not have this attribute').format(self.id))
 
         if target in ['_min', '_max'] and not self.has_minmax:
             raise ValueError(('Vector {0}: Cannot set min or max, '
-                'vector do not have them').format(self.id))
+                'vector do not have this attribute').format(self.id))
 
         _source = np.atleast_1d(source).flatten()
 
         if not target in ['_names']:
             _source = _source.astype(np.float64)
 
-        ntarget = self.nval
-        if target == '_weights':
-            ntarget = self.nens
-
-        if len(_source) != ntarget:
+        if len(_source) != self.nval:
             raise ValueError(('Vector {0}: tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
-                self.id, target, len(_source), ntarget))
+                self.id, target, len(_source), self.nval))
 
         setattr(self, target, _source)
 
 
-    def __getitem__(self, name):
-
-        kx = self.__checkname(name)
-
-        return self._data[self._iens][kx]
-
-
-    def __setitem__(self, name, value):
-
-        kx = self.__checkname(name)
-
-        data = self._data[self._iens]
-        data[kx] = value
-
-
-    def reset(self, value=None, iens=None):
-        nens = self.nens
+    def reset(self, value=None):
         nval = self.nval
 
         if value is None:
             default = self._default
         else:
-            default = np.array([value] * nval).astype(np.float64)
+            default = np.array([value] * nval, dtype=np.float64)
 
-        if iens is None:
-            self._data = [default.copy() for i in range(nens)]
-        else:
-            self._data[iens] = default.copy()
+        for iens in range(self.nens):
+            self.iens = iens
+            self.data = default.copy()
 
 
-    def resample(self):
-        ''' Resample vector component based on weights. Method used in particle filter '''
+    def random(self, distribution='normal'):
+        if not self.has_minmax:
+            raise ValueError(('Vector {0}: tried random but ' +
+                'vector has no min/max').format(self.id))
 
-        if not self.has_weights:
-            raise ValueError(('Vector {0}: Cannot resample if '
-                'vector does not have weights').format(self.id))
+        for iens in range(self.nens):
+            self.iens = iens
 
-        sweight = np.sum(self._weights)
-        probabilities = np.array(self._weights)/sweight
+            if distribution == 'normal':
+                rand = np.random.multivariate_normal(self.means,
+                        self.covar, (1, )).flat[:]
 
-        idx = np.random.choice(np.arange(self.nens),
-                (self.nens, ), p=probabilities)
+            elif distribution == 'uniform':
+                rand = np.random.uniform(self.min, self.max,
+                        (self.nval, ))
+            else:
+                raise ValueError(('Vector {0}: in random, distribution ' +
+                    '{1} not allowed').format(self.id, distribution))
 
-        self._data = [self._data[k] for k in idx]
+            self.data = rand
+
 
 
     @property
@@ -159,14 +135,6 @@ class Vector(object):
         else:
             self._data[self._iens] = _value
 
-
-    @property
-    def weights(self):
-        return self._weights
-
-    @weights.setter
-    def weights(self, value):
-        self.__set_attrib('_weights', value)
 
     @property
     def min(self):
@@ -229,6 +197,20 @@ class Vector(object):
 
         self._iens = value
 
+    def clone(self):
+        clone = Vector(self.id, self.nval, self.nens,
+                    self.prefix, self.has_minmax)
+
+        if self.has_minmax:
+            clone.min = self.min.copy()
+            clone.max = self.max.copy()
+
+        clone.means = self.means.copy()
+        clone.covar = self.covar.copy()
+
+        return clone
+
+
 
 
 class Matrix(object):
@@ -241,7 +223,7 @@ class Matrix(object):
             self.nval = nval
             self.nvar = nvar
             self.nens = nens
-            self._data = [np.nan * np.ones((nval, nvar)).astype(np.float64)]*nens
+            self._data = [np.nan * np.ones((nval, nvar), dtype=np.float64)]*nens
 
         elif data is not None:
 
@@ -357,7 +339,7 @@ class Matrix(object):
         nval = self.nval
         nvar = self.nvar
 
-        default = (value * np.ones((nval, nvar))).astype(np.float64)
+        default = value * np.ones((nval, nvar), dtype=np.float64)
 
         if iens is None:
             self._data = [default.copy() for i in range(nens)]
@@ -411,6 +393,9 @@ class Model(object):
 
         self._inputs = None
         self._outputs = None
+
+        self.idx_start = 0
+        self.idx_end = 0
 
 
     def __str__(self):
@@ -571,8 +556,8 @@ class Model(object):
         n1 = self._params.nens
         n2 = self.nens_states_random
         n3 = self.nens_outputs_random
-        iens = n1 * n2  * n3 * self.inputs.iens
-        iens += n2 * n3 * self.params.iens
+        iens = n1 * n2  * n3 * self._inputs.iens
+        iens += n2 * n3 * self._params.iens
         iens += n3 * self._iens_states_random
         iens += value
 
@@ -662,16 +647,17 @@ class Model(object):
                 self._statesuh.data = [0.] * self._statesuh.nval
 
 
-    def run(self, idx_start, idx_end):
+    def run(self):
         pass
 
-    def run_ens(self, idx_start, idx_end,
+    def run_ens(self,
             ens_inputs = None,
             ens_params = None,
             ens_states_random = None,
             ens_outputs_random = None):
         ''' Run the model with selected ensembles '''
 
+        # Set ensemble lists
         if ens_inputs is None:
             ens_inputs = range(self._inputs.nens)
 
@@ -684,6 +670,7 @@ class Model(object):
         if ens_outputs_random is None:
             ens_outputs_random = range(self.nens_outputs_random)
 
+        # Loop through ensembles
         for i_inputs, i_params, i_states, i_outputs in \
                 itertools.product(ens_inputs, ens_params,
                         ens_states_random, ens_outputs_random):
@@ -693,7 +680,7 @@ class Model(object):
             self.iens_states_random = i_states
             self.iens_outputs_random = i_outputs
 
-            self.run(idx_start, idx_end)
+            self.run()
 
 
     def clone(self):
