@@ -182,7 +182,7 @@ class VectorTestCases(unittest.TestCase):
 
     def test_vector9(self):
         v = Vector('test', 5, 100, has_minmax=True)
-        v.min = [0] * v.nval
+        v.min = range(0, v.nval)
         v.max = range(1, v.nval+1)
         v.means = np.arange(0.5, v.nval+0.5)
 
@@ -194,8 +194,6 @@ class VectorTestCases(unittest.TestCase):
 
         v2 = v.clone()
         v2.random(distribution='uniform')
-
-        import pdb; pdb.set_trace()
 
 
 class MatrixTestCases(unittest.TestCase):
@@ -252,7 +250,7 @@ class MatrixTestCases(unittest.TestCase):
         nens = 20
         m1 = Matrix.fromdims('test', nval, nvar, nens)
 
-        data = [np.random.uniform(0, 10, (nval, nvar))] * nens
+        data = np.random.uniform(0, 10, (nens, nval, nvar))
 
         for iens in range(nens):
             m1.iens = iens
@@ -279,17 +277,6 @@ class MatrixTestCases(unittest.TestCase):
             m1.iens = iens
             ck = np.allclose(m1.data, 2.*test)
             self.assertTrue(ck)
-
-        iens = 15
-        m1.reset(3., iens)
-        m1.iens = iens
-        ck = np.allclose(m1.data, 3.*test)
-        self.assertTrue(ck)
-
-        m1.iens = iens+1
-        ck = np.allclose(m1.data, 2.*test)
-        self.assertTrue(ck)
-
 
 class ModelTestCases(unittest.TestCase):
 
@@ -335,7 +322,7 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(len(inputs), 2)
         dum.params = params
         dum.initialise(states=[10, 0])
-        dum.inputs.data = inputs
+        dum.inputs = inputs
 
         dum.idx_start = 0
         dum.idx_end = 999

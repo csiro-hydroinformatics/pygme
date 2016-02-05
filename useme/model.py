@@ -11,23 +11,24 @@ class Vector(object):
             has_minmax = True):
 
         self.id = id
-        self.nval = nval
-        self.nens = nens
+        self._nval = nval
+        self._nens = nens
         self.has_minmax = has_minmax
         self.prefix = prefix
 
         self._iens = 0
 
-        self._data = [np.nan * np.ones(nval, dtype=np.float64)] * nens
+        self._data = np.nan * np.ones((nens, nval), dtype=np.float64)
 
         self._names = np.array(['{0}{1}'.format(prefix, i)
                                     for i in range(nval)])
+
         self._default = np.nan * np.ones(nval, dtype=np.float64)
 
         if has_minmax:
             self._min = -np.inf * np.ones(nval, dtype=np.float64)
             self._max = np.inf * np.ones(nval, dtype=np.float64)
-            self._hitbounds = [False] * nens
+            self._hitbounds = np.zeros(nens, dtype=np.bool)
         else:
             self._min = None
             self._max = None
@@ -72,45 +73,53 @@ class Vector(object):
 
 
     def reset(self, value=None):
+        ''' Set parameter data to a given value or default values if value is None '''
         nval = self.nval
 
         if value is None:
-            default = self._default
+            value = self._default
         else:
-            default = np.array([value] * nval, dtype=np.float64)
+            value = (value * np.ones(self.nval)).astype(np.float64)
 
-        for iens in range(self.nens):
-            self.iens = iens
-            self.data = default.copy()
+        value = np.clip(value.flatten(), self.min, self.max)
+        self._data = np.repeat(np.atleast_2d(value), self.nens, axis=0)
 
 
     def random(self, distribution='normal'):
-        if not self.has_minmax:
-            raise ValueError(('Vector {0}: tried random but ' +
-                'vector has no min/max').format(self.id))
+        ''' Randomise vector data '''
 
-        for iens in range(self.nens):
-            self.iens = iens
+        if not self.has_minmax and distribution=='uniform':
+            raise ValueError(('Vector {0}: Cannot randomize with uniform ' +
+                ' distribution if vector has no min/max').format(self.id))
 
-            if distribution == 'normal':
-                rand = np.random.multivariate_normal(self.means,
-                        self.covar, (1, )).flat[:]
+        if (self.means is None or self.covar is None) and distribution=='uniform':
+            raise ValueError(('Vector {0}: Cannot randomize with normal ' +
+                ' distribution if vector has no means or covar').format(self.id))
 
-            elif distribution == 'uniform':
-                rand = np.random.uniform(self.min, self.max,
-                        (self.nval, ))
-            else:
-                raise ValueError(('Vector {0}: in random, distribution ' +
-                    '{1} not allowed').format(self.id, distribution))
+        if distribution == 'normal':
+            self._data = np.random.multivariate_normal(self.means,
+                    self.covar, (self.nens, ))
 
-            self.data = rand
+        elif distribution == 'uniform':
+            self._data = np.random.uniform(self.min, self.max,
+                    (self.nens, self.nval))
+        else:
+            raise ValueError(('Vector {0}: Random, distribution ' +
+                '{1} not allowed').format(self.id, distribution))
 
 
+    @property
+    def nens(self):
+        return self._nens
+
+    @property
+    def nval(self):
+        return self._nval
 
     @property
     def data(self):
         ''' Get data for a given ensemble member set by iens '''
-        return self._data[self._iens]
+        return self._data[self._iens, :]
 
     @data.setter
     def data(self, value):
@@ -130,10 +139,10 @@ class Vector(object):
                 hitb = hitb | (np.subtract(self._max, _value) < 0.)
 
             self._hitbounds[self._iens] = np.any(hitb)
-            self._data[self._iens] = np.clip(_value, self._min, self._max)
+            self._data[self._iens, :] = np.clip(_value, self._min, self._max)
 
         else:
-            self._data[self._iens] = _value
+            self._data[self._iens, :] = _value
 
 
     @property
@@ -197,13 +206,20 @@ class Vector(object):
 
         self._iens = value
 
+
     def clone(self):
         clone = Vector(self.id, self.nval, self.nens,
                     self.prefix, self.has_minmax)
 
+        clone.iens = self.iens
+        clone.names = self.names.copy()
+
+        clone._data = self._data.copy()
+
         if self.has_minmax:
             clone.min = self.min.copy()
             clone.max = self.max.copy()
+            clone._hitbounds = [h.copy() for h in self._hitbounds]
 
         clone.means = self.means.copy()
         clone.covar = self.covar.copy()
@@ -217,39 +233,24 @@ class Matrix(object):
 
     def __init__(self, id, nval, nvar, nens=1, data=None, prefix='V'):
         self.id = id
+        self.prefix = prefix
         self._iens = 0
 
         if nval is not None and nvar is not None and nens is not None:
-            self.nval = nval
-            self.nvar = nvar
-            self.nens = nens
-            self._data = [np.nan * np.ones((nval, nvar), dtype=np.float64)]*nens
+            self._nval = nval
+            self._nvar = nvar
+            self._nens = nens
+            self._data = np.nan * np.ones((nens, nval, nvar), dtype=np.float64)
 
         elif data is not None:
 
-            if isinstance(data, np.ndarray):
-                data = [data]
+            _data = data
+            if len(data.shape) == 1:
+                _data = np.atleast_3d(data)
+            elif len(data.shape) == 2:
+                _data = np.atleast_3d(data.T).T
 
-            if not isinstance(data, list):
-                raise ValueError('data is not a list or a numpy.ndarray')
-
-            self.nens = len(data)
-
-            _data = []
-            for idx, d in enumerate(data):
-                _d = np.atleast_2d(d)
-                if _d.shape[0] == 1:
-                    _d = _d.T
-                _data.append(_d)
-
-                if idx == 0:
-                    self.nval, self.nvar = _d.shape
-                else:
-                    if _d.shape != (self.nval, self.nvar):
-                        raise ValueError(('Shape of element {0} in data ({1}) ' + \
-                            ' is different from ({2}, {3})'.format( \
-                            idx,  _d.shape, self.nval, self.nvar)))
-
+            self._nens, self._nval, self._nvar = _data.shape
             self._data = _data
 
         else:
@@ -275,6 +276,19 @@ class Matrix(object):
         str += '}'
 
         return str
+
+
+    @property
+    def nvar(self):
+        return self._nvar
+
+    @property
+    def nval(self):
+        return self._nval
+
+    @property
+    def nens(self):
+        return self._nens
 
 
     @property
@@ -314,7 +328,7 @@ class Matrix(object):
                     '({1} instead of {2})').format( \
                     self.id, _value.shape[1], self.nvar))
 
-        self._data[self._iens] = _value
+        self._data[self._iens, :, :] = _value
 
 
     @property
@@ -334,17 +348,12 @@ class Matrix(object):
         self._iens = value
 
 
-    def reset(self, value=0., iens=None):
+    def reset(self, value=0.):
         nens = self.nens
         nval = self.nval
         nvar = self.nvar
 
-        default = value * np.ones((nval, nvar), dtype=np.float64)
-
-        if iens is None:
-            self._data = [default.copy() for i in range(nens)]
-        else:
-            self._data[iens] = default.copy()
+        self._data = value * np.ones((nens, nval, nvar), dtype=np.float64)
 
 
 
