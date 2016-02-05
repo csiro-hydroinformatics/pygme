@@ -1,9 +1,15 @@
 import math, itertools
+import random
 import numpy as np
 
 import c_hymod_models_utils
 
 NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
+
+
+def set_seed(seed=333):
+    np.random.seed(seed)
+
 
 class Vector(object):
 
@@ -84,8 +90,7 @@ class Vector(object):
         value = np.clip(value.flatten(), self.min, self.max)
         self._data = np.repeat(np.atleast_2d(value), self.nens, axis=0)
 
-
-    def random(self, distribution='normal'):
+    def random(self, distribution='normal', seed=333):
         ''' Randomise vector data '''
 
         if not self.has_minmax and distribution=='uniform':
@@ -96,6 +101,8 @@ class Vector(object):
             raise ValueError(('Vector {0}: Cannot randomize with normal ' +
                 ' distribution if vector has no means or covar').format(self.id))
 
+
+        # Sample vector data
         if distribution == 'normal':
             self._data = np.random.multivariate_normal(self.means,
                     self.covar, (self.nens, ))
@@ -106,7 +113,6 @@ class Vector(object):
         else:
             raise ValueError(('Vector {0}: Random, distribution ' +
                 '{1} not allowed').format(self.id, distribution))
-
 
     @property
     def nens(self):
@@ -244,11 +250,11 @@ class Matrix(object):
 
         elif data is not None:
 
-            _data = data
+            _data = data.copy()
             if len(data.shape) == 1:
-                _data = np.atleast_3d(data)
+                _data = np.atleast_3d(data).copy()
             elif len(data.shape) == 2:
-                _data = np.atleast_3d(data.T).T
+                _data = np.atleast_3d(data.T).T.copy()
 
             self._nens, self._nval, self._nvar = _data.shape
             self._data = _data
@@ -356,6 +362,13 @@ class Matrix(object):
         self._data = value * np.ones((nens, nval, nvar), dtype=np.float64)
 
 
+    def clone(self):
+        clone = Matrix.fromdata(self.id, self._data)
+
+        return clone
+
+
+
 
 class Model(object):
 
@@ -390,13 +403,16 @@ class Model(object):
 
         # UH ordinates. Number of ensembles is same than nens_params
         self._uh = Vector('uh', NUHMAXLENGTH, nens_params)
+        self._uh.min = np.zeros(NUHMAXLENGTH)
+        self._uh.max = np.ones(NUHMAXLENGTH)
 
         # Initialize UH to [1, 0, 0, .., 0] (neutral UH)
+        self._uh.reset(0.)
         for iens in range(nens_params):
             self._uh.iens = iens
-            self._uh.data = [1.] + [0.] * (NUHMAXLENGTH-1)
+            self._uh.data[0] = 1.
 
-        self.nstates = nstates
+        self._nstates = nstates
         self._states = None
         self._statesuh = None
 
@@ -421,9 +437,8 @@ class Model(object):
         str += '  nparams      = {0} [{1} ens]\n'.format(
                     self._params.nval, self._params.nens)
 
-        if not self._states is None:
-            str += '  nstates      = {0} [{1} ens]\n'.format(
-                    self._states.nval, self.nens_states_random)
+        str += '  nstates      = {0} [{1} ens]\n'.format(
+                    self._nstates, self.nens_states_random)
 
         str += '  noutputs = {0} (max) [{1} ens]\n'.format(self.noutputs_max,
                     self.nens_outputs_random)
@@ -483,6 +498,10 @@ class Model(object):
     @uh.setter
     def uh(self, value):
         ''' Set UH values '''
+        if np.abs(np.sum(value)-1.) > 1e-9:
+            raise ValueError(('Model {0}: Trying to set uhdata '
+                    'that do not sum to 1 ({1})').format( \
+                                self.name, np.sum(value)))
         self._uh.data = value
 
 
@@ -628,11 +647,12 @@ class Model(object):
 
         # Allocate state vectors with number of ensemble
         nens = self._params.nens * self._inputs.nens * self.nens_states_random
-        self._states = Vector('states', self.nstates, nens,
+        self._states = Vector('states', self._nstates, nens,
                                 prefix='S', has_minmax=False)
 
         self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens,
-                                prefix='SUH', has_minmax=False)
+                                prefix='SUH')
+        self._statesuh.min = np.zeros(NUHMAXLENGTH)
 
         # Allocate output matrix with number of final ensemble
         nens *= self.nens_outputs_random
@@ -654,6 +674,14 @@ class Model(object):
             if statesuh is None:
                 self._states.iens = iens
                 self._statesuh.data = [0.] * self._statesuh.nval
+
+    def random(self, item='params', distribution='normal', seed=3):
+        obj = getattr(self, '_{0}'.format(item))
+        if obj is None:
+            raise ValueError(('Model {0}: Model does not have object {1}').format( \
+                                self.name, item))
+
+        obj.random(distribution, seed)
 
 
     def run(self):
@@ -699,41 +727,19 @@ class Model(object):
             self.config.nval,
             self.ninputs,
             self._params.nval,
-            self.nstates,
+            self._nstates,
             self.noutputs_max,
             self._params.nens,
             self.nens_states_random,
             self.nens_outputs_random)
 
-        model.config.data = self.config.data.copy()
+        for item in ['_params', '_uh', '_states',
+            '_statesuh', 'config', '_inputs', '_outputs']:
+            obj = getattr(self, item)
 
-        for iens in range(self._params.nens):
-            self._params.iens = iens
-            model._params.iens = iens
-            model._params.data = self._params.data.copy()
+            if not obj is None:
+                setattr(model, item, obj.clone())
 
-
-        if not self._inputs is None:
-            model.allocate(self._inputs.nval, self._outputs.nvar,
-                    self._inputs.nens)
-
-            for iens in range(self._states.nens):
-                self._states.iens = iens
-                model._states.iens = iens
-                model._states.data = self._states.data.copy()
-
-                model._statesuh.iens = iens
-                model._statesuh.data = self._statesuh.data.copy()
-
-            for iens in range(self._inputs.nens):
-                self._inputs.iens = iens
-                model._inputs.iens = iens
-                model._inputs.data = self._inputs.data.copy()
-
-            for iens in range(self._outputs.nens):
-                self._outputs.iens = iens
-                model._outputs.iens = iens
-                model._outputs.data = self._outputs.data.copy()
 
         return model
 

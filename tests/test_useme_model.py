@@ -8,6 +8,9 @@ import time
 import numpy as np
 np.seterr(all='print')
 
+from useme import model
+model.set_seed()
+
 from useme.model import Model, Vector, Matrix
 
 
@@ -29,6 +32,8 @@ class Dummy(Model):
             nens_outputs_random=nens_outputs_random)
 
         self._params.default = [0., 1., 0.]
+        self._params.min = [-10., -10., -10.]
+        self._params.max = [10., 10., 10.]
 
         self.config.names = 'Config1'
 
@@ -51,7 +56,9 @@ class Dummy(Model):
                     + [0.] * (2-self.outputs.shape[1])
 
     def set_uh(self):
-        self.uh = np.array([1.] * len(self.uh))
+        uh = np.zeros(self._uh.nval)
+        uh[:4] = 0.25
+        self.uh =  uh
 
 
 class MassiveDummy(Model):
@@ -368,7 +375,7 @@ class ModelTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(dum.uh, uh))
 
         dum.params = [1., 2., 0.4]
-        self.assertTrue(np.allclose(dum.uh, 1.))
+        self.assertTrue(np.allclose(dum.uh[:4], 0.25))
 
     def test_model8(self):
         inputs = np.random.uniform(0, 1, (1000, 1))
@@ -428,6 +435,19 @@ class ModelTestCases(unittest.TestCase):
         dum.run_ens()
                 # TODO
 
+    def test_model10(self):
+
+        dum = Dummy(nens_params=3,
+            nens_states_random=4,
+            nens_outputs_random=5)
+
+        nval = 1000
+        noutputs = 2
+        dum.allocate(nval, noutputs, nens_inputs = 2)
+
+        dum.random('params', 'uniform')
+        dum.random('states')
+        dum.random('statesuh')
 
 
 if __name__ == '__main__':
