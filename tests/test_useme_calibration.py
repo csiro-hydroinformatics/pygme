@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 
-from useme.model import Model
+from useme.model import Model, Matrix
 from useme.calibration import Calibration
 
 
@@ -19,27 +19,24 @@ class Dummy(Model):
             ninputs=2, \
             nparams=2, \
             nstates=2, \
-            noutputs_max = 2,
-            inputs_names = ['I1', 'I2'], \
-            outputs_names = ['O1', 'O2'])
+            noutputs_max = 2)
 
         self.config.names = 'debug'
-        self.states.names = ['State1', 'State2']
-        self.params.names = ['Param1', 'Param2']
-        self.params.units = ['mm', 'mm']
-        self.params.min = [0, 0]
-        self.params.max = [20, 20]
+
+        self._params.names = ['Param1', 'Param2']
+        self._params.min = [0, 0]
+        self._params.max = [20, 20]
 
     def run(self):
-        par1 = self.params['Param1']
-        par2 = self.params['Param2']
+        par1 = self.params[0]
+        par2 = self.params[1]
 
-        outputs = par1 * np.cumsum(self.inputs.data, 0) + par2
+        outputs = par1 * np.cumsum(self.inputs + par2, 0)
 
-        self._states.data = outputs[-1, :]
+        self.states = outputs[-1, :]
 
-        nvar = self._outputs.nvar
-        self._outputs.data = outputs[:, :nvar]
+        nvar = self.outputs.shape[1]
+        self.outputs = outputs[:, :nvar]
 
 
 class CalibrationDummy(Calibration):
@@ -48,18 +45,18 @@ class CalibrationDummy(Calibration):
 
         model = Dummy()
 
-        Calibration.__init__(self, 
+        Calibration.__init__(self,
             model = model, \
             ncalparams = 2, \
             timeit = True)
 
-        self.calparams_means.data =  [0, 0]
-        self.calparams_stdevs.data = [1, 0, 0, 1]
+        self._calparams.means =  [1, 1]
+        self._calparams.covar = [[1, 0.], [0., 1]]
 
     def cal2true(self, calparams):
         return np.exp(calparams)
 
- 
+
 
 class CalibrationTestCases(unittest.TestCase):
 
@@ -70,15 +67,16 @@ class CalibrationTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10.]
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
-        dum.inputs.data = inputs
+        dum.allocate(inputs.shape[0], 2)
+        dum.inputs = inputs
 
-        dum.params.data = params
+        dum.params = params
         dum.run()
-        observations = dum.outputs.data[:, 0].copy()
+        obs = dum.outputs[:, 0].copy()
 
         calib = CalibrationDummy()
-        calib.setup(observations, inputs)
+        calib.setup(Matrix.fromdata('obs', obs),
+                    Matrix.fromdata('inputs', inputs))
 
         str = '{0}'.format(calib)
 
@@ -87,20 +85,21 @@ class CalibrationTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (1000, 2))
         obs = np.random.uniform(0, 1, 1000)
         calib = CalibrationDummy()
-       
+
         try:
             calib.idx_cal = obs==obs
         except ValueError as e:
             pass
-        self.assertTrue(e.message.startswith('No observations data'))
+
+        self.assertTrue(e.message.startswith('No obsdata'))
 
 
     def test_calibration3(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
-        obs = np.random.uniform(0, 1, 1000)
+        inputs = Matrix.fromdata('in', np.random.uniform(0, 1, (1000, 2)))
+        obs = Matrix.fromdata('obs', np.random.uniform(0, 1, 1000))
         calib = CalibrationDummy()
         calib.setup(obs, inputs)
-       
+
         try:
             start, explo, explo_ofun = calib.explore(iprint=0, nsamples=10)
         except ValueError as e:
@@ -109,39 +108,40 @@ class CalibrationTestCases(unittest.TestCase):
 
 
     def test_calibration4(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
+        inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10.]
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
-        dum.inputs.data = inputs
+        dum.allocate(inputs.nval, 2)
+        dum.inputs = inputs.data
 
-        dum.params.data = params
+        dum.params = params
         dum.run()
-        obs = dum.outputs.data[:, 0].copy()
+        obs = Matrix.fromdata('obs', dum.outputs[:, 0])
 
         calib = CalibrationDummy()
         calib.setup(obs, inputs)
-        calib.idx_cal = obs == obs
-       
+        calib.idx_cal = np.arange(obs.nval)
+
         start, explo, explo_ofun = calib.explore(iprint=0, nsamples=10)
         final, out, _ = calib.fit(start, iprint=0, ftol=1e-8)
 
-        self.assertTrue(np.allclose(calib.model.params.data, params))
+        self.assertTrue(np.allclose(calib.model.params, params))
 
 
     def test_calibration5(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
+        inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10.]
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
-        dum.inputs.data = inputs
+        dum.allocate(inputs.nval, 2)
+        dum.inputs = inputs.data
 
-        dum.params.data = params
+        dum.params = params
         dum.run()
-        obs = dum.outputs.data[:, 0].copy()
+        obs = Matrix.fromdata('obs', dum.outputs[:, 0])
 
         calib = CalibrationDummy()
-        calib.fullfit(obs, inputs)
+        idx_cal = np.arange(obs.nval)
+        calib.fullfit(obs, inputs, idx_cal, iprint=10)
 
-        self.assertTrue(np.allclose(calib.model.params.data, params))
+        self.assertTrue(np.allclose(calib.model.params, params))
 

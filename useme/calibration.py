@@ -9,6 +9,8 @@ from scipy.optimize import fmin_powell as fmin
 
 from useme.model import Vector, Matrix
 
+def set_seed(seed=333):
+    np.random.seed(seed)
 
 def sse(obs, sim, errparams):
     err = obs-sim
@@ -41,14 +43,15 @@ def sls_llikelihood(obs, sim, errparams):
 
 class Calibration(object):
 
-    def __init__(self, model, \
-            ncalparams, \
-            errfun=None, \
-            minimize=True, \
-            optimizer=fmin, \
-            initialise_model=True, \
-            timeit=False, \
-            nfit=2):
+    def __init__(self, model,
+            ncalparams,
+            nens_params = 1,
+            errfun=None,
+            minimize=True,
+            optimizer=fmin,
+            initialise_model=True,
+            timeit=False,
+            nrepeat_fit=2):
 
         self._model = model
         self._minimize = minimize
@@ -57,48 +60,38 @@ class Calibration(object):
         self._iprint = 0
         self._runtime = np.nan
         self._initialise_model = initialise_model
-        self._is_fitting = False
+        self._status = 'intialised'
         self._dx_sensitivity = 1e-3
-        self._nfit = nfit
+        self._nrepeat_fit = nrepeat_fit
 
-        self._observations = None
+        self._obsdata = None
         self._idx_cal = None
 
-        self._calparams = Vector('calparams', ncalparams)
-        self._calparams_means = Vector('calparams_means', ncalparams)
-        self._calparams_stdevs = Vector('calparams_stdevs', \
-                ncalparams*ncalparams)
+        self._calparams = Vector('calparams', ncalparams, nens_params)
 
         self.errfun = sse
 
-        # Wrapper around optimizer to do 
+        # Wrapper around optimizer to
         # send the current calibration object
         def _optimizer(objfun, start, calib, disp, *args, **kwargs):
             kwargs['disp'] = disp
             final = optimizer(objfun, start, *args, **kwargs)
             return final
-            
+
         self._optimizer = _optimizer
 
     def __str__(self):
         str = 'Calibration instance for model {0}\n'.format(self._model.name)
-        str += '  nfit       : {0}\n'.format(self._nfit)
-        str += '  ncalparams : {0}\n'.format(self.calparams_means.nval)
-        str += '  ieval      : {0}\n'.format(self.ieval)
-        str += '  runtime    : {0}\n'.format(self._runtime)
-        str += '  {0}\n'.format(self.calparams_means)
-        str += '  {0}\n'.format(self.calparams)
-        str += '  {0}\n'.format(self._model.params)
+        str += '  status     : {0}\n'.format(self._status)
+        str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
+        str += '  ncalparams : {0}\n'.format(self._calparams.nval)
+        str += '  ieval      : {0}\n'.format(self._ieval)
 
         return str
 
     @property
     def ieval(self):
         return self._ieval
-
-    @ieval.setter
-    def ieval(self, value):
-        self._ieval = value
 
 
     @property
@@ -108,17 +101,7 @@ class Calibration(object):
 
     @property
     def calparams(self):
-        return self._calparams
-
-
-    @property
-    def calparams_means(self):
-        return self._calparams_means
-
-
-    @property
-    def calparams_stdevs(self):
-        return self._calparams_stdevs
+        return self._calparams.data
 
 
     @property
@@ -127,8 +110,8 @@ class Calibration(object):
 
 
     @property
-    def observations(self):
-        return self._observations
+    def obsdata(self):
+        return self._obsdata.data
 
 
     @property
@@ -146,19 +129,19 @@ class Calibration(object):
 
             # Set model parameters
             params = self.cal2true(calparams)
-            self._model._params.data = params
+            self._model.params = params
 
             # Exit objectif function if parameters hit bounds
-            if self._model._params.hitbounds and self._is_fitting:
+            if self._model._params.hitbounds and self._status:
                 return np.inf
 
             # Run model initialisation if needed
             if self._initialise_model:
                 self._model.initialise()
 
-            idx_start = self._idx_cal[0]
-            idx_end = self._idx_cal[-1]
-            self._model.run(idx_start, idx_end)
+            self._model.idx_start = self._idx_cal[0]
+            self._model.idx_end = self._idx_cal[-1]
+            self._model.run()
             self._ieval += 1
 
             if self._timeit:
@@ -166,11 +149,12 @@ class Calibration(object):
                 self._runtime = (t1-t0)*1000
 
             # Get error model parameters if they exist
+            # example standard deviation of normal gaussian error model
             errparams = self.cal2err(calparams)
 
             # Compute objectif function
-            ofun = self._errfun(self._observations.data[self._idx_cal, :], \
-                    self._model._outputs.data[self._idx_cal, :], errparams)
+            ofun = self._errfun(self.obsdata[self._idx_cal, :], \
+                    self._model.outputs[self._idx_cal, :], errparams)
 
             if not self._minimize:
                 ofun *= -1
@@ -178,9 +162,9 @@ class Calibration(object):
             if self._iprint>0:
                 if self._ieval % self._iprint == 0:
                     self._calparams.data = calparams
-                    print('Fit {0:3d} : {1:3.3e} {2} ~ {3:.3f} ms'.format( \
-                        self._ieval, ofun, self._calparams, \
-                        self._runtime))
+                    print('{4} {0:3d} : {1:3.3e} {2} ~ {3:.3f} ms'.format( \
+                        self._ieval, ofun, self._calparams.data, \
+                        self._runtime, self._status))
 
             return ofun
 
@@ -198,11 +182,13 @@ class Calibration(object):
         else:
             _idx_cal = value
 
-        if self._observations is None:
-            raise ValueError('No observations data. Please allocate')
+        if self._obsdata is None:
+            raise ValueError('No obsdata data. Please allocate')
 
-        if np.max(_idx_cal) >= self._observations.nval:
-            raise ValueError('Wrong values in idx_cal')
+        if np.max(_idx_cal) >= self._obsdata.nval:
+            raise ValueError(('Max value in idx_cal({0})' +
+                ' exceeds number of observations ({1})').format(np.max(idx_cal),
+                                                        self._obsdata.nval))
 
         self._idx_cal = _idx_cal
 
@@ -214,37 +200,32 @@ class Calibration(object):
         if self._idx_cal is None:
             raise ValueError('No idx_cal data. Please allocate')
 
-        # Check observations are allocated
-        if self._observations is None:
-            raise ValueError('No observations data. Please allocate')
+        # Check obsdata are allocated
+        if self._obsdata is None:
+            raise ValueError('No obsdata data. Please allocate')
 
         # Check inputs are allocated
-        if self._model.inputs is None:
+        if self._model._inputs is None:
             raise ValueError(('No inputs data for model {0}.' + \
                 ' Please allocate').format(self._model.name))
 
-        # Check inputs are initialised
-        if np.all(np.isnan(self._model._inputs.data)):
-            raise ValueError(('All inputs data are NaN for model {0}.' + \
-                ' Please initialise').format(self._model.name))
-
         # Check outputs are allocated
-        if self._model.outputs is None:
+        if self._model._outputs is None:
             raise ValueError(('No outputs data for model {0}.' + \
                 ' Please allocate').format(self._model.name))
 
-        # Check inputs and observations have the right dimension
+        # Check inputs and obsdata have the right dimension
         n1 = self._model._inputs.nval
-        n2 = self._observations.nval
+        n2 = self._obsdata.nval
         if n1 != n2:
-            raise ValueError(('model.inputs.nval({0}) !=' + \
-                ' observations.nval({1})').format(n1, n2))
+            raise ValueError(('model inputs nval({0}) !=' + \
+                ' obsdata nval({1})').format(n1, n2))
 
         n1 = self._model._outputs.nvar
-        n2 = self._observations.nvar
+        n2 = self._obsdata.nvar
         if n1 != n2:
-            raise ValueError(('model.outputs.nvar({0}) !=' + \
-                ' observations.nvar({1})').format(n1, n2))
+            raise ValueError(('model outputs nvar({0}) !=' + \
+                ' obsdata nvar({1})').format(n1, n2))
 
         # Check params size
         ncalparams = self._calparams.nval
@@ -252,7 +233,6 @@ class Calibration(object):
         params = self.cal2true(calparams)
         if len(params.shape) != 1:
             raise ValueError('cal2true does not return a 1D array')
-
 
         errparams = self.cal2err(calparams)
         if not errparams is None:
@@ -262,70 +242,54 @@ class Calibration(object):
 
 
     def cal2true(self, calparams):
+        ''' Convert calibrated parameters to true values '''
         return calparams
 
 
     def cal2err(self, calparams):
+        ''' Get error model parameters from the list of calibrated parameters '''
         return None
 
+    def setup(self, obsdata, inputs):
 
-    def setup(self, observations, inputs):
+        if inputs.nval != obsdata.nval:
+            raise ValueError(('Number of value in inputs({0}) different' +
+                ' from obsdata ({1})').format(inputs.nval, obdata.nval))
 
-       self._observations = Matrix.fromdata('observations', observations)
-
-       self._model.allocate(self._observations.nval, self._observations.nvar)
-       self._model.inputs.data = inputs
-
-
-    def sample(self, nsamples, seed=333):
-
-        # Save random state
-        random_state = random.getstate()
-
-        # Set seed
-        np.random.seed(seed)
-
-        ncalparams = self.calparams_means.nval
-
-        # sample parameters
-        samples = np.random.multivariate_normal(\
-                self.calparams_means.data, \
-                self.calparams_stdevs.data.reshape( \
-                    ncalparams, ncalparams), \
-                nsamples)
-
-        samples = np.atleast_2d(samples)
-        if samples.shape[0] == 1:
-            samples = samples.T
-
-        # Reset random state
-        random.setstate(random_state)
-
-        return samples
+        if obsdata.nvar > self._model.noutputs_max:
+            raise ValueError(('Number of variables in outputs({0}) greater' +
+                ' than model can produce ({1})').format(obsdata.nvar,
+                                                self._model.noutputs_max))
 
 
-    def explore(self, \
-            calparams_explore=None, \
-            nsamples = None, \
-            iprint=0, \
-            seed=333):
+        self._model.allocate(inputs.nval, obsdata.nvar,
+                            inputs.nens)
+        self._model._inputs = inputs
+
+        self._obsdata = obsdata
+
+
+    def explore(self,
+            nsamples = None,
+            iprint=0,
+            distribution = 'normal'):
 
         self.check()
         self._iprint = iprint
         self._ieval = 0
+        self._status = 'explore'
+        ncalparams = self._calparams.nval
 
+        # Set the number of samples
         if nsamples is None:
-            ncalparams = self._calparams_means.nval
             nsamples = int(200 * math.sqrt(ncalparams))
 
-        if calparams_explore is None:
-            calparams_explore = self.sample(nsamples, seed)
-        else:
-            calparams_explore = np.atleast_2d(calparams_explore)
-            if calparams_explore.shape[0] == 1:
-                calparams_explore = calparams_explore.T
-
-            nsamples = calparams_explore.shape[0]
+        # Get random samples from parameter
+        cparams = self._calparams
+        calparams_explore = Vector('explore', ncalparams, nsamples)
+        for item in ['min', 'max', 'means', 'covar']:
+            setattr(calparams_explore, item, getattr(cparams, item).copy())
+        calparams_explore.random(distribution)
 
         ofun_explore = np.zeros(nsamples) * np.nan
         ofun_min = np.inf
@@ -334,17 +298,15 @@ class Calibration(object):
         calparams_best = None
 
         for i in range(nsamples):
-            calparams = calparams_explore[i,:]
+            # Get parameter sample
+            calparams = calparams_explore._data[i, :]
+
             ofun = self._objfun(calparams)
             ofun_explore[i] = ofun
 
             if self._iprint>0:
                 if self._ieval % self._iprint == 0:
                     self._calparams.data = calparams
-                    print(('Exploration {0}/{1} : ' + \
-                        '{2:3.3e} {3} ~ {4:.2f} ms').format( \
-                        self._ieval, nsamples, ofun, self._calparams, \
-                        self._runtime))
 
             if ofun < ofun_min:
                 ofun_min = ofun
@@ -363,21 +325,25 @@ class Calibration(object):
 
         self.check()
         self._iprint = iprint
-        self._is_fitting = True
-        nfit = self._nfit
+        self._status = 'fit'
+        nrepeat_fit = self._nrepeat_fit
+
+        if np.any(np.isnan(calparams_ini)):
+            raise ValueError('calparams_ini contains NaN')
 
         if self._iprint>0:
             ofun_ini = self._objfun(calparams_ini)
 
             self._calparams.data = calparams_ini
-            print('\nFit start: {0:3.3e} {1} ~ {2:.2f} ms\n'.format( \
-                    ofun_ini, self._calparams, self._runtime))
+            print('\n>> Fit start: {0:3.3e} {1} ~ {2:.2f} ms <<\n'.format( \
+                    ofun_ini, calparams_ini, self._runtime))
 
         # Apply the optimizer several times to ensure convergence
-        for k in range(nfit):
+        for k in range(nrepeat_fit):
             final = self._optimizer(self._objfun, \
                     calparams_ini, self, disp=self._iprint>0, \
                     *args, **kwargs)
+
             calparams_ini = final
 
         ofun_final = self._objfun(final)
@@ -385,31 +351,30 @@ class Calibration(object):
         self._calparams.data = final
 
         if self._iprint>0:
-            print('\nFit final: {0:3.3e} {1} ~ {2:.2f} ms\n'.format( \
-                    ofun_final, self._calparams, self._runtime))
+            print('\n>> Fit final: {0:3.3e} {1} ~ {2:.2f} ms <<\n'.format( \
+                    ofun_final, self._calparams.data, self._runtime))
 
-        self._is_fitting = False
+        self._status = 'fit completed'
 
         return final, outputs_final, ofun_final
 
 
-    def fullfit(self, observations, inputs, \
+    def fullfit(self, obsdata, inputs, \
             idx_cal=None, \
             iprint=0, \
-            nsamples=None, \
-            nfit=2):
+            nsamples=None):
 
-        self.setup(observations, inputs)
+        self.setup(obsdata, inputs)
 
         if idx_cal is None:
-            idx_cal = np.arange(self._observations.nval)
+            idx_cal = np.arange(self._obsdata.nval)
         self.idx_cal = idx_cal
 
         try:
             start, explo, explo_ofun = self.explore(iprint=iprint, \
                 nsamples=nsamples)
         except ValueError:
-            start = self.model.params.default
+            start = self.model._params.default
 
         final, out, out_ofun = self.fit(start, iprint=iprint)
 

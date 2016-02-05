@@ -40,8 +40,8 @@ class Vector(object):
             self._max = None
             self._hitbounds = None
 
-        self.means = 0 * np.ones(nval, dtype=np.float64)
-        self.covar = np.eye(nval, dtype=np.float64)
+        self._means = 0 * np.ones(nval, dtype=np.float64)
+        self._covar = np.eye(nval, dtype=np.float64)
 
 
 
@@ -57,23 +57,24 @@ class Vector(object):
 
     def __set_attrib(self, target, source):
 
-        if target == '_weights' and not self.has_weights:
-            raise ValueError(('Vector {0}: Cannot set weights, '
-                'vector do not have this attribute').format(self.id))
-
         if target in ['_min', '_max'] and not self.has_minmax:
             raise ValueError(('Vector {0}: Cannot set min or max, '
                 'vector do not have this attribute').format(self.id))
 
-        _source = np.atleast_1d(source).flatten()
+        if target == '_covar':
+            _source = np.atleast_2d(source)
+            dims = (self.nval, self.nval)
+        else:
+            _source = np.atleast_1d(source).flatten()
+            dims = (self.nval, )
 
         if not target in ['_names']:
             _source = _source.astype(np.float64)
 
-        if len(_source) != self.nval:
+        if _source.shape != dims:
             raise ValueError(('Vector {0}: tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
-                self.id, target, len(_source), self.nval))
+                self.id, target, _source.shape, dims))
 
         setattr(self, target, _source)
 
@@ -97,15 +98,15 @@ class Vector(object):
             raise ValueError(('Vector {0}: Cannot randomize with uniform ' +
                 ' distribution if vector has no min/max').format(self.id))
 
-        if (self.means is None or self.covar is None) and distribution=='uniform':
+        if (self._means is None or self._covar is None) and distribution=='uniform':
             raise ValueError(('Vector {0}: Cannot randomize with normal ' +
-                ' distribution if vector has no means or covar').format(self.id))
+                ' distribution if vector has no._means or._covar').format(self.id))
 
 
         # Sample vector data
         if distribution == 'normal':
-            self._data = np.random.multivariate_normal(self.means,
-                    self.covar, (self.nens, ))
+            self._data = np.random.multivariate_normal(self._means,
+                    self._covar, (self.nens, ))
 
         elif distribution == 'uniform':
             self._data = np.random.uniform(self.min, self.max,
@@ -149,6 +150,25 @@ class Vector(object):
 
         else:
             self._data[self._iens, :] = _value
+
+
+    @property
+    def means(self):
+        return self._means
+
+    @means.setter
+    def means(self, value):
+        self.__set_attrib('_means', value)
+
+
+    @property
+    def covar(self):
+        return self._covar
+
+    @covar.setter
+    def covar(self, value):
+        self.__set_attrib('_covar', value)
+
 
 
     @property
@@ -227,8 +247,8 @@ class Vector(object):
             clone.max = self.max.copy()
             clone._hitbounds = [h.copy() for h in self._hitbounds]
 
-        clone.means = self.means.copy()
-        clone.covar = self.covar.copy()
+        clone._means = self._means.copy()
+        clone._covar = self._covar.copy()
 
         return clone
 
@@ -249,7 +269,6 @@ class Matrix(object):
             self._data = np.nan * np.ones((nens, nval, nvar), dtype=np.float64)
 
         elif data is not None:
-
             _data = data.copy()
             if len(data.shape) == 1:
                 _data = np.atleast_3d(data).copy()
