@@ -6,11 +6,8 @@ from timeit import Timer
 import time
 
 import numpy as np
-import pandas as pd
 
-from hyio import csv
-
-from hywafari import wdata
+from useme.model import Matrix
 from useme.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
 
 class TurcMezentsevTestCases(unittest.TestCase):
@@ -41,7 +38,6 @@ class TurcMezentsevTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
-        return
 
         Q = [85.5, \
                 331.7, \
@@ -112,18 +108,18 @@ class TurcMezentsevTestCases(unittest.TestCase):
                 1006.3, \
                 1171.0]
 
-        inputs = np.array([P, E]).T
-        obs = np.array(Q)
+        inputs = Matrix.fromdata('inputs', np.array([P, E]).T)
+        obs = Matrix.fromdata('obs', np.array(Q))
         calib = CalibrationTurcMezentsev()
         calib.setup(obs, inputs)
-        calib.idx_cal = obs == obs
+        calib.idx_cal = obs.data[:,0] == obs.data[:,0]
 
         start, _, _ = calib.explore()
         end, _, _ = calib.fit(start)
 
         tm = calib.model
 
-        ck = np.allclose(tm.params['n'], 1.753469, atol=1e-3)
+        ck = np.allclose(tm.params[0], 1.753469, atol=1e-3)
         if not ck:
             print('tm.trueparams = {0}'.format(tm.params['n']))
 

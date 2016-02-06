@@ -9,6 +9,7 @@ import numpy as np
 
 from useme.models.gr2m import GR2M, CalibrationGR2M
 from useme import calibration
+from useme.model import Matrix
 
 class GR2MTestCases(unittest.TestCase):
 
@@ -23,20 +24,11 @@ class GR2MTestCases(unittest.TestCase):
         str_gr = '%s' % gr
 
 
-    def test_sample(self):
-        nsamples = 100
-        obs = np.zeros(10)
-        inputs = np.zeros((10, 2))
-        calib = CalibrationGR2M()
-        samples = calib.sample(nsamples)
-        self.assertTrue(samples.shape == (nsamples, 2))
-
-
     def test_gr2m_dumb(self):
         gr = GR2M()
         nval = 100
         gr.allocate(nval, 9)
-        gr.params.data = [400, 0.9]
+        gr.params = [400, 0.9]
         gr.initialise()
 
         p = np.exp(np.random.normal(0, 2, size=nval))
@@ -45,15 +37,6 @@ class GR2MTestCases(unittest.TestCase):
 
         gr.run()
 
-        cols1 = gr.outputs.names
-
-        cols2 = ['Q[mm/m]', 'Ech[mm/m]', 
-           'P1[mm/m]', 'P2[mm/m]', 'P3[mm/m]',
-           'R1[mm/m]', 'R2[mm/m]', 'S[mm]', 'R[mm]']
-
-        ck = np.all(cols1 == cols2)
-        self.assertTrue(ck)
- 
 
     def test_gr2m_irstea(self):
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
@@ -65,11 +48,11 @@ class GR2MTestCases(unittest.TestCase):
         # Run
         gr = GR2M()
         gr.allocate(len(inputs), 9)
-        gr.params.data = params
-        gr.inputs.data = inputs
+        gr.params = params
+        gr.inputs = inputs
         gr.initialise()
         gr.run()
-        out = gr.outputs.data
+        out = gr.outputs
 
         # Test
         warmup = 30
@@ -86,50 +69,54 @@ class GR2MTestCases(unittest.TestCase):
 
             if not ck:
                 print('\tVAR[%d] : max abs err = %0.5f < %0.5f ? %s' % ( \
-                        i, np.max(err), err_thresh, ck)) 
+                        i, np.max(err), err_thresh, ck))
+                import pdb; pdb.set_trace()
 
             self.assertTrue(ck)
- 
+
 
     def test_gr2m_irstea_calib(self):
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
         data = np.loadtxt(fd, delimiter=',', skiprows=1)
-        inputs = np.ascontiguousarray(data[:, :2])
+        inputs = Matrix.fromdata('inputs', np.ascontiguousarray(data[:, :2]))
 
         calparams_expected = [650.7, 0.8]
 
         gr = GR2M()
-        gr.allocate(len(inputs), 1)
-        gr.inputs.data = inputs
+        gr.allocate(inputs.nval, 1)
+        gr.inputs = inputs.data
 
-        # Parameter samples
-        nsamples = 50
+        # Calibration object
         calib = CalibrationGR2M()
         calib.errfun = calibration.ssqe_bias
-        samples = calib.sample(nsamples)
 
-        idx_cal = np.arange(12, len(inputs))
-        
+        # Sample parameters
+        nsamples = 50
+        samples = calib._calparams.clone(nsamples)
+        samples.random()
+        samples = samples.transform(calib.cal2true)
+
         # loop through parameters
         for i in range(nsamples):
 
             # Generate obs
-            gr.params.data = np.exp(samples[i, :])
-            expected = gr.params.data.copy()
+            samples.iens = i
+            gr.params = calib.cal2true(samples.data)
+            expected = gr.params.copy()
             gr.initialise()
             gr.run()
-            obs = gr.outputs.data[:,0].copy()
+            obs = Matrix.fromdata('obs', gr.outputs[:,0].copy())
 
             # Calibrate
             calib.setup(obs, inputs)
-            calib.idx_cal = idx_cal
-                        
+            calib.idx_cal = np.arange(12, inputs.nval)
+
             ini, explo, explo_ofun = calib.explore()
             final, _, _ = calib.fit(ini, iprint=0)
 
-            err = np.abs(gr.params.data-expected)
+            err = np.abs(gr.params-expected)
             ck = np.max(err) < 1e-5
-            
+
             self.assertTrue(ck)
 
 if __name__ == '__main__':

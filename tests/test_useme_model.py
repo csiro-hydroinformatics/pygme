@@ -203,6 +203,49 @@ class VectorTestCases(unittest.TestCase):
         v2.random(distribution='uniform')
 
 
+    def test_vector10(self):
+        v = Vector('test', 5, 100, prefix='P')
+
+        v.iens = 10
+
+        v['P2'] = 25.
+        v.iens = 20
+
+        self.assertTrue(np.allclose(v._data[10, 2], 25.))
+
+        v.iens = 10
+        self.assertTrue(np.allclose(v['P2'], 25.))
+
+        try:
+            v['P20'] = 10
+        except ValueError as e:
+            pass
+        self.assertTrue(str(e).startswith('Vector test:' +
+            ' key P20 not in the list of names'))
+
+
+    def test_vector11(self):
+        v = Vector('test', 5, 100, prefix='P')
+        v.min = [0] * 5
+        v.max = [1] * 5
+
+        vc = Vector('test', 2)
+        vc.min = [0, 1]
+        vc.max = [1, 2]
+
+        def fun(x):
+            y = [np.sum(x[:2]), np.sum(x[2:])]
+            return np.array(y)
+
+        v.random('uniform')
+        w = v.transform(fun, clone=vc)
+
+        s = np.array([np.sum(v._data[:, :2], axis=1),
+                np.sum(v._data[:, 2:], axis=1)]).T
+        s = np.clip(s, w.min, w.max)
+        self.assertTrue(np.allclose(w._data, s))
+
+
 class MatrixTestCases(unittest.TestCase):
 
     def setUp(self):
@@ -284,6 +327,30 @@ class MatrixTestCases(unittest.TestCase):
             m1.iens = iens
             ck = np.allclose(m1.data, 2.*test)
             self.assertTrue(ck)
+
+
+    def test_matrix9(self):
+        nval = 10
+        nvar = 5
+        nens = 20
+        m1 = Matrix.fromdims('test', nval, nvar, nens)
+
+        for iens in range(nens):
+            m1.iens = iens
+            m1.data = np.random.uniform(0, 1, (nval, nvar))
+
+        def fun1(x):
+            out = np.array([np.sum(x[:3]), np.sum(x[3:])])
+            return out
+
+        m2 = m1.transform(fun1)
+
+        for iens in range(nens):
+            m1.iens = iens
+            m2.iens = iens
+            expected = np.array([m1.data[:,:3].sum(axis=1), m1.data[:,3:].sum(axis=1)]).T
+            ck = np.allclose(m2.data, expected)
+
 
 class ModelTestCases(unittest.TestCase):
 

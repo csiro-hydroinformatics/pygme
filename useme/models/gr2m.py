@@ -14,40 +14,38 @@ import c_useme_models_utils
 
 class GR2M(Model):
 
-    def __init__(self):
+    def __init__(self,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
+
 
         Model.__init__(self, 'gr2m',
-            nconfig=1, \
-            ninputs=2, \
-            nparams=2, \
-            nstates=2, \
-            noutputs_max = 9,
-            inputs_names = ['P', 'PET'], \
-            outputs_names = ['Q[mm/m]', 'Ech[mm/m]', \
-                'P1[mm/m]', 'P2[mm/m]', 'P3[mm/m]', \
-                'R1[mm/m]', 'R2[mm/m]', 'S[mm]', 'R[mm]'])
+            nconfig=1,
+            ninputs=2,
+            nparams=2,
+            nstates=2,
+            noutputs_max=9,
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
 
         self.config.names = 'catcharea'
-        self.config.units = 'km2'
-        
-        self.states.names = ['Sr', 'Rr']
-        self.states.units = ['mm', 'mm']
 
-        self.params.names = ['S', 'IGF']
-        self.params.units = ['mm', '-']
-        self.params.min = [10., 0.1]
-        self.params.max = [10000., 3.]
-        self.params.default = [400., 0.8]
+        self._params.names = ['S', 'IGF']
+        self._params.min = [10., 0.1]
+        self._params.max = [10000., 3.]
+        self._params.default = [400., 0.8]
 
-        self.params.reset()
+        self.reset()
 
 
     def run(self):
 
-        ierr = c_useme_models_gr2m.gr2m_run(self.params.data, \
-            self.inputs.data, \
-            self.states.data, \
-            self.outputs.data)
+        ierr = c_useme_models_gr2m.gr2m_run(self._params.data, \
+            self._inputs.data, \
+            self._states.data, \
+            self._outputs.data)
 
         if ierr > 0:
             raise ValueError(('Model gr2m, c_useme_models_gr2m.gr2m_run' + \
@@ -61,13 +59,13 @@ class CalibrationGR2M(Calibration):
 
         gr = GR2M()
 
-        Calibration.__init__(self, 
+        Calibration.__init__(self,
             model = gr, \
             ncalparams = 2, \
             timeit = timeit)
 
-        self.calparams_means.data =  [5.9, -0.28]
-        self.calparams_stdevs.data = [0.52, 0.015, 0.015, 0.067]
+        self._calparams.means =  [5.9, -0.28]
+        self._calparams.covar = [[0.52, 0.015], [0.015, 0.067]]
 
 
     def cal2true(self, calparams):

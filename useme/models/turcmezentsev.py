@@ -11,42 +11,44 @@ from useme.calibration import Calibration
 
 class TurcMezentsev(Model):
 
-    def __init__(self):
+    def __init__(self,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
+
 
         Model.__init__(self, 'turcmezentsev',
-            nconfig=1, \
-            ninputs=2, \
-            nparams=1, \
-            nstates=1, \
-            noutputs_max = 2,
-            inputs_names = ['P', 'PET'], \
-            outputs_names = ['Q[mm/y]', 'E[mm/y]'])
+            nconfig=1,
+            ninputs=2,
+            nparams=1,
+            nstates=1,
+            noutputs_max=2,
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
 
         self.config.names = 'dummy'
         self.config.units = '-'
-        
-        self.states.names = ['dummy']
-        self.states.units = ['-']
 
-        self.params.names = ['n']
-        self.params.units = ['-']
-        self.params.min = [0.5]
-        self.params.max = [5.]
-        self.params.default = [2.3]
+        self._params.names = ['n']
+        self._params.units = ['-']
+        self._params.min = [0.5]
+        self._params.max = [5.]
+        self._params.default = [2.3]
 
-        self.params.reset()
+        self.reset()
 
 
     def run(self):
-        P = self.inputs.data[:,0] 
-        PE = self.inputs.data[:,1]
-        n = self.params['n']
+        P = self.inputs[:,0]
+        PE = self.inputs[:,1]
+        n = self.params[0]
         Q = P*(1.-1./(1.+(P/PE)**n)**(1./n))
         E = P-Q
-        self.outputs.data[:, 0] = Q
+        self.outputs[:, 0] = Q
 
-        if self.outputs.nvar > 1:
-            self.outputs.data[:, 1] = E
+        if self.outputs.shape[1] > 1:
+            self.outputs[:, 1] = E
 
 
 
@@ -56,13 +58,13 @@ class CalibrationTurcMezentsev(Calibration):
 
         tm = TurcMezentsev()
 
-        Calibration.__init__(self, 
+        Calibration.__init__(self,
             model = tm, \
             ncalparams = 1, \
             timeit = timeit)
 
-        self.calparams_means.data =  [2.3]
-        self.calparams_stdevs.data = [1.]
+        self._calparams.means =  [2.3]
+        self._calparams.stdevs = [1.]
 
 
     def cal2true(self, calparams):

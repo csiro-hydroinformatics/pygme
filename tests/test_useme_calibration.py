@@ -9,7 +9,9 @@ import numpy as np
 
 from useme.model import Model, Matrix
 from useme.calibration import Calibration
+from useme import calibration
 
+calibration.set_seed(100)
 
 class Dummy(Model):
 
@@ -27,6 +29,7 @@ class Dummy(Model):
         self._params.min = [0, 0]
         self._params.max = [20, 20]
 
+
     def run(self):
         par1 = self.params[0]
         par2 = self.params[1]
@@ -42,7 +45,6 @@ class Dummy(Model):
 class CalibrationDummy(Calibration):
 
     def __init__(self):
-
         model = Dummy()
 
         Calibration.__init__(self,
@@ -50,11 +52,14 @@ class CalibrationDummy(Calibration):
             ncalparams = 2, \
             timeit = True)
 
-        self._calparams.means =  [1, 1]
-        self._calparams.covar = [[1, 0.], [0., 1]]
+        self._calparams.means =  [1, 0]
+        self._calparams.min =  [-10, -10]
+        self._calparams.max =  [10, 10]
+        self._calparams.covar = [[1, 0.], [0., 20]]
 
     def cal2true(self, calparams):
-        return np.exp(calparams)
+        true =  np.array([np.exp(calparams[0]), (np.tanh(calparams[1])+1.)*10.])
+        return true
 
 
 
@@ -122,8 +127,10 @@ class CalibrationTestCases(unittest.TestCase):
         calib.setup(obs, inputs)
         calib.idx_cal = np.arange(obs.nval)
 
-        start, explo, explo_ofun = calib.explore(iprint=0, nsamples=10)
-        final, out, _ = calib.fit(start, iprint=0, ftol=1e-8)
+        start, explo, explo_ofun = calib.explore(iprint=0, nsamples=50)
+
+        final, out, _ = calib.fit(start, iprint=0,
+                maxfun=100000, ftol=1e-8)
 
         self.assertTrue(np.allclose(calib.model.params, params))
 
@@ -141,7 +148,8 @@ class CalibrationTestCases(unittest.TestCase):
 
         calib = CalibrationDummy()
         idx_cal = np.arange(obs.nval)
-        calib.fullfit(obs, inputs, idx_cal, iprint=10)
+        calib.fullfit(obs, inputs, idx_cal, iprint=0,
+                maxfun=100000, ftol=1e-8)
 
         self.assertTrue(np.allclose(calib.model.params, params))
 

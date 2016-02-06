@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 
-from scipy.optimize import fmin_powell as fmin
+from scipy.optimize import fmin_powell
 
 from useme.model import Vector, Matrix
 
@@ -48,7 +48,7 @@ class Calibration(object):
             nens_params = 1,
             errfun=None,
             minimize=True,
-            optimizer=fmin,
+            optimizer=fmin_powell,
             initialise_model=True,
             timeit=False,
             nrepeat_fit=2):
@@ -269,10 +269,11 @@ class Calibration(object):
         self._obsdata = obsdata
 
 
-    def explore(self,
-            nsamples = None,
-            iprint=0,
+    def explore(self, nsamples = None, iprint=0,
             distribution = 'normal'):
+        ''' Systematic exploration of parameter space and
+        identification of best parameter set
+        '''
 
         self.check()
         self._iprint = iprint
@@ -285,12 +286,10 @@ class Calibration(object):
             nsamples = int(200 * math.sqrt(ncalparams))
 
         # Get random samples from parameter
-        cparams = self._calparams
-        calparams_explore = Vector('explore', ncalparams, nsamples)
-        for item in ['min', 'max', 'means', 'covar']:
-            setattr(calparams_explore, item, getattr(cparams, item).copy())
-        calparams_explore.random(distribution)
+        calparams_explore = self._calparams.clone(nsamples)
+        calparams_explore.random()
 
+        # Setup objective function
         ofun_explore = np.zeros(nsamples) * np.nan
         ofun_min = np.inf
 

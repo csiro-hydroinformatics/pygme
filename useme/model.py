@@ -55,7 +55,25 @@ class Vector(object):
         return str
 
 
-    def __set_attrib(self, target, source):
+    def __findname__(self, key):
+        if not key in self._names:
+            raise ValueError(('Vector {0}: key {1} not in the' +
+                ' list of names').format(self.id, key))
+
+        return np.where(self._names == key)[0]
+
+
+    def __setitem__(self, key, value):
+        idx = self.__findname__(key)
+        self._data[self._iens, idx] = value
+
+
+    def __getitem__(self, key):
+        idx = self.__findname__(key)
+        return self._data[self._iens, idx]
+
+
+    def __setattrib__(self, target, source):
 
         if target in ['_min', '_max'] and not self.has_minmax:
             raise ValueError(('Vector {0}: Cannot set min or max, '
@@ -78,42 +96,6 @@ class Vector(object):
 
         setattr(self, target, _source)
 
-
-    def reset(self, value=None):
-        ''' Set parameter data to a given value or default values if value is None '''
-        nval = self.nval
-
-        if value is None:
-            value = self._default
-        else:
-            value = (value * np.ones(self.nval)).astype(np.float64)
-
-        value = np.clip(value.flatten(), self.min, self.max)
-        self._data = np.repeat(np.atleast_2d(value), self.nens, axis=0)
-
-    def random(self, distribution='normal', seed=333):
-        ''' Randomise vector data '''
-
-        if not self.has_minmax and distribution=='uniform':
-            raise ValueError(('Vector {0}: Cannot randomize with uniform ' +
-                ' distribution if vector has no min/max').format(self.id))
-
-        if (self._means is None or self._covar is None) and distribution=='uniform':
-            raise ValueError(('Vector {0}: Cannot randomize with normal ' +
-                ' distribution if vector has no._means or._covar').format(self.id))
-
-
-        # Sample vector data
-        if distribution == 'normal':
-            self._data = np.random.multivariate_normal(self._means,
-                    self._covar, (self.nens, ))
-
-        elif distribution == 'uniform':
-            self._data = np.random.uniform(self.min, self.max,
-                    (self.nens, self.nval))
-        else:
-            raise ValueError(('Vector {0}: Random, distribution ' +
-                '{1} not allowed').format(self.id, distribution))
 
     @property
     def nens(self):
@@ -158,7 +140,7 @@ class Vector(object):
 
     @means.setter
     def means(self, value):
-        self.__set_attrib('_means', value)
+        self.__setattrib__('_means', value)
 
 
     @property
@@ -167,7 +149,7 @@ class Vector(object):
 
     @covar.setter
     def covar(self, value):
-        self.__set_attrib('_covar', value)
+        self.__setattrib__('_covar', value)
 
 
 
@@ -177,7 +159,7 @@ class Vector(object):
 
     @min.setter
     def min(self, value):
-        self.__set_attrib('_min', value)
+        self.__setattrib__('_min', value)
 
 
 
@@ -187,7 +169,7 @@ class Vector(object):
 
     @max.setter
     def max(self, value):
-        self.__set_attrib('_max', value)
+        self.__setattrib__('_max', value)
 
 
     @property
@@ -196,7 +178,7 @@ class Vector(object):
 
     @default.setter
     def default(self, value):
-        self.__set_attrib('_default', value)
+        self.__setattrib__('_default', value)
 
         if self.has_minmax:
             self._default = np.clip(self._default, self._min, self._max)
@@ -208,7 +190,7 @@ class Vector(object):
 
     @names.setter
     def names(self, value):
-        self.__set_attrib('_names', value)
+        self.__setattrib__('_names', value)
 
 
     @property
@@ -233,14 +215,54 @@ class Vector(object):
         self._iens = value
 
 
-    def clone(self):
-        clone = Vector(self.id, self.nval, self.nens,
+    def reset(self, value=None):
+        ''' Set parameter data to a given value or default values if value is None '''
+        nval = self.nval
+
+        if value is None:
+            value = self._default
+        else:
+            value = (value * np.ones(self.nval)).astype(np.float64)
+
+        value = np.clip(value.flatten(), self.min, self.max)
+        self._data = np.repeat(np.atleast_2d(value), self.nens, axis=0)
+
+
+    def random(self, distribution='normal', seed=333):
+        ''' Randomise vector data '''
+
+        if not self.has_minmax and distribution=='uniform':
+            raise ValueError(('Vector {0}: Cannot randomize with uniform ' +
+                ' distribution if vector has no min/max').format(self.id))
+
+        if (self._means is None or self._covar is None) and distribution=='uniform':
+            raise ValueError(('Vector {0}: Cannot randomize with normal ' +
+                ' distribution if vector has no._means or._covar').format(self.id))
+
+
+        # Sample vector data
+        if distribution == 'normal':
+            self._data = np.random.multivariate_normal(self._means,
+                    self._covar, (self.nens, ))
+
+        elif distribution == 'uniform':
+            self._data = np.random.uniform(self.min, self.max,
+                    (self.nens, self.nval))
+        else:
+            raise ValueError(('Vector {0}: Random, distribution ' +
+                '{1} not allowed').format(self.id, distribution))
+
+
+    def clone(self, nens=None):
+
+        if nens is None:
+            nens = self.nens
+
+        clone = Vector(self.id, self.nval, nens,
                     self.prefix, self.has_minmax)
 
         clone.iens = self.iens
         clone.names = self.names.copy()
-
-        clone._data = self._data.copy()
 
         if self.has_minmax:
             clone.min = self.min.copy()
@@ -250,8 +272,37 @@ class Vector(object):
         clone._means = self._means.copy()
         clone._covar = self._covar.copy()
 
+        # Copy data if the number of ensemble is identical
+        if nens is None:
+            clone._data = self._data.copy()
+
         return clone
 
+
+    def transform(self, fun, clone=None):
+        ''' Applies a transform function to each ensemble members of the vector '''
+
+        # Create output vector
+        if clone is None:
+            output = Vector('transform', self.nval, self.nens, prefix='XT')
+        else:
+            output = clone.clone(self.nens)
+            output.names = ['{0}T{1}'.format(self.prefix, i)
+                                for i in range(clone.nval)]
+
+        # Apply transform
+        output._data = np.apply_along_axis(fun, 1, self._data).astype(np.float64)
+
+        if output._data.shape != (self.nens, output.nval):
+            raise ValueError(('Vector {0}: in transform, [fun] function produces ' +
+                'an array with shape {1}, it should be ({2},{3})').format(
+                        self.id, output._data.shape, output.nens, output.nval))
+
+        # Clip data
+        if output.has_minmax:
+            output._data = np.clip(output._data, output.min, output.max)
+
+        return output
 
 
 
@@ -386,6 +437,24 @@ class Matrix(object):
 
         return clone
 
+
+    def transform(self, fun):
+        ''' Applies a transform function to each ensemble members of the matrix '''
+
+        # Determines dimensions of output
+        tmp = np.ones((2, self.nvar))
+        tmp = np.apply_along_axis(fun, 1, tmp)
+        nvar = tmp.shape[1]
+
+        prefix = '{0}T'.format(self.prefix)
+
+        # Create output matrix
+        output = Matrix(id, self.nval, nvar, self.nens, prefix=prefix)
+
+        # Apply transform
+        output._data = np.apply_along_axis(fun, 2, self._data).astype(np.float64)
+
+        return output
 
 
 
@@ -694,7 +763,19 @@ class Model(object):
                 self._states.iens = iens
                 self._statesuh.data = [0.] * self._statesuh.nval
 
+
+    def reset(self, item='params', value=None):
+        ''' Function to reset model objects '''
+        obj = getattr(self, '_{0}'.format(item))
+        if obj is None:
+            raise ValueError(('Model {0}: Model does not have object {1}').format( \
+                                self.name, item))
+
+        obj.reset(value)
+
+
     def random(self, item='params', distribution='normal', seed=3):
+        ''' Function to randomise model objects '''
         obj = getattr(self, '_{0}'.format(item))
         if obj is None:
             raise ValueError(('Model {0}: Model does not have object {1}').format( \
