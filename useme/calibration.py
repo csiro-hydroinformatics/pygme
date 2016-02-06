@@ -362,7 +362,8 @@ class Calibration(object):
     def fullfit(self, obsdata, inputs, \
             idx_cal=None, \
             iprint=0, \
-            nsamples=None):
+            nsamples=None,
+            *args, **kwargs):
 
         self.setup(obsdata, inputs)
 
@@ -376,7 +377,8 @@ class Calibration(object):
         except ValueError:
             start = self.model._params.default
 
-        final, out, out_ofun = self.fit(start, iprint=iprint)
+        kwargs['iprint'] = iprint
+        final, out, out_ofun = self.fit(start, *args, **kwargs)
 
         return final, out, out_ofun
 
