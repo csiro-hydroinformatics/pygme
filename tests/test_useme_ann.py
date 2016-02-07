@@ -140,6 +140,9 @@ class ANNTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
+        raise ValueError('Test failing')
+        return
+
         ninputs = 2
         nneurons = 1
         calib = CalibrationANN(ninputs, nneurons)
