@@ -40,6 +40,26 @@ class GR2M(Model):
         self.reset()
 
 
+    def initialise(self, states=None, statesuh=None):
+
+        params = self.params
+
+        if self._states is None:
+            raise ValueError(('{0} model: states are None,' +
+                    ' please allocate').format(self.name))
+
+        # initialise GR4J with reservoir levels
+        if states is None:
+            states = np.zeros(self._states.nval)
+            states[0] = params[0] * 0.5
+            states[1] = params[1] * 0.4
+
+            statesuh = np.zeros(self._statesuh.nval)
+
+        super(GR2M, self).initialise(states, statesuh)
+
+
+
     def run(self):
 
         ierr = c_useme_models_gr2m.gr2m_run(self._params.data, \

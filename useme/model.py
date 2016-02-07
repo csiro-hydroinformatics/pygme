@@ -555,6 +555,11 @@ class Model(object):
 
 
     @property
+    def nparams(self):
+        return self._params.nval
+
+
+    @property
     def params(self):
         return self._params.data
 
@@ -591,6 +596,11 @@ class Model(object):
                     'that do not sum to 1 ({1})').format( \
                                 self.name, np.sum(value)))
         self._uh.data = value
+
+
+    @property
+    def nstates(self):
+        return self._states.nval
 
 
     @property
@@ -642,6 +652,14 @@ class Model(object):
         self._iens_states_random = value
         self._states.iens = iens
         self._statesuh.iens = iens
+
+
+    @property
+    def nval(self):
+        if not self._outputs is None:
+            return self._outputs.nval
+        else:
+            raise ValueError('Model {0}: no outputs allocated'.format(self.name))
 
 
     @property
@@ -755,23 +773,30 @@ class Model(object):
     def initialise(self, states=None, statesuh=None):
 
         for iens in range(self._states.nens):
+            self._states.iens = iens
+            self._states.iens = iens
+
             if states is None:
-                self._states.iens = iens
                 self._states.data = [0.] * self._states.nval
+            else:
+                self._states.data = states
 
             if statesuh is None:
-                self._states.iens = iens
                 self._statesuh.data = [0.] * self._statesuh.nval
+            else:
+                self._statesuh.data = statesuh
 
 
     def reset(self, item='params', value=None):
         ''' Function to reset model objects '''
+
         obj = getattr(self, '_{0}'.format(item))
-        if obj is None:
-            raise ValueError(('Model {0}: Model does not have object {1}').format( \
+
+        if obj is None or obj is None:
+            raise ValueError(('Model {0}: Model does not have attribute _{1}').format( \
                                 self.name, item))
 
-        obj.reset(value)
+        setattr(self, item, obj.default)
 
 
     def random(self, item='params', distribution='normal', seed=3):

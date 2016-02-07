@@ -9,8 +9,9 @@ import time
 import numpy as np
 
 from useme.models.ann import ANN, CalibrationANN
-from useme.models.ann import destandardize, standardize, standardize_params
+from useme.models.ann import destandardize, standardize, get_standardize_params
 from useme import calibration
+from useme.model import Matrix
 
 
 class ANNTestCases(unittest.TestCase):
@@ -38,7 +39,7 @@ class ANNTestCases(unittest.TestCase):
             c = 1e-5
             X = np.exp(X)-c
 
-            params = standardize_params(X, c)
+            params = get_standardize_params(X, c)
             Un = standardize(X, params)
             X2 = destandardize(Un, params)
 
@@ -56,26 +57,26 @@ class ANNTestCases(unittest.TestCase):
             # Set random parameters
             ann = ANN(ninputs, nneurons)
             idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
-            params = np.zeros(ann.params.nval)
+            params = np.zeros(ann._params.nval)
             params[idxL1W] = np.random.uniform(0.8, 1.2, len(idxL1W))
             params[idxL1B] = np.random.uniform(-0.2, 0.2, len(idxL1B))
             params[idxL2W] = np.random.uniform(0.8, 1.2, len(idxL2W))
             params[idxL2B] = np.random.uniform(-0.2, 0.2, len(idxL2B))
-            ann.params.data = params
+            ann.params = params
 
             # Set inputs
-            inputs = np.random.uniform(-1, 1, (nval, ninputs))
-            ann.allocate(len(inputs))
-            ann.inputs.data = inputs
+            inputs = Matrix.fromdata('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
+            ann.allocate(inputs.nval)
+            ann.inputs = inputs.data
 
             # Standardize inputs
-            params_std = standardize_params(inputs)
+            params_std = get_standardize_params(inputs.data)
             ann.inputs_trans_params = params_std
             ann.standardize_inputs()
 
             # Run model
             ann.run()
-            Q1 = ann.outputs.data[:, 0]
+            Q1 = ann.outputs[:, 0]
 
             L1M, L1C, L2M, L2C = ann.params2matrix()
             S2 = np.tanh(np.dot(ann.inputs_trans.data, L1M) + L1C)
@@ -93,32 +94,32 @@ class ANNTestCases(unittest.TestCase):
             # Set Parameters
             ann = ANN(ninputs, nneurons)
             idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
-            params = np.zeros(ann.params.nval)
+            params = np.zeros(ann._params.nval)
             params[idxL1W] = np.random.uniform(0.8, 1.2, len(idxL1W))
             params[idxL1B] = np.random.uniform(-0.2, 0.2, len(idxL1B))
             params[idxL2W] = np.random.uniform(0.8, 1.2, len(idxL2W))
             params[idxL2B] = np.random.uniform(-0.2, 0.2, len(idxL2B))
-            ann.params.data = params.copy()
+            ann.params = params.copy()
 
             # Set inputs
-            inputs = np.random.uniform(-1, 1, (nval, ninputs))
-            ann.allocate(len(inputs))
-            ann.inputs.data = inputs
+            inputs = Matrix.fromdata('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
+            ann.allocate(inputs.nval)
+            ann.inputs = inputs.data
 
             # Standardize inputs
-            params_std = standardize_params(inputs)
+            params_std = get_standardize_params(inputs.data)
             ann.inputs_trans_params = params_std
             ann.standardize_inputs()
 
             # Run model
             ann.run()
-            Q1 = ann.outputs.data[:, 0].copy()
+            Q1 = ann.outputs[:, 0].copy()
 
             dx = 1e-6
-            jac = np.zeros((len(Q1), ann.params.nval))
-            for k in range(ann.params.nval):
-                ann.params.data = params
-                ann.params.data[k] = params[k] + dx
+            jac = np.zeros((len(Q1), ann.nparams))
+            for k in range(ann.nparams):
+                ann.params = params
+                ann.params[k] = params[k] + dx
                 ann.run()
                 Q2 = ann.outputs_trans.data[:, 0].copy()
                 jac[:, k] = (Q2-Q1)/dx
@@ -134,7 +135,7 @@ class ANNTestCases(unittest.TestCase):
             ck = ck & (np.max(err[idxL1B]) < 1e-4)
             ck = ck & (np.max(err[idxL2W]) < 1e-4)
             ck = ck & (np.max(err[idxL2B]) < 1e-4)
-           
+
             self.assertTrue(ck)
 
 
@@ -162,38 +163,39 @@ class ANNTestCases(unittest.TestCase):
             dm = np.concatenate(dm).reshape((len(month_u), 5))
 
             # Setup a monthly forecast model
-            inputs = dm[:, [1, 3]]
-            obs = np.append(dm[1:, 3], np.nan)
+            inputs = Matrix.fromdata('inputs', dm[:, [1, 3]])
+            obs = Matrix.fromdata('obs', np.append(dm[1:, 3], np.nan))
 
             # Run ann first
-            calib.setup(obs, inputs, 0.01, 0.01)
-            calib.idx_cal = ~np.isnan(obs)
+            calib.setup(obs, inputs)
+            calib.idx_cal = ~np.isnan(obs.data)
 
             ann = calib.model
             idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
-            nparams = ann.params.nval
-            params = np.zeros(nparams)
+            params = np.zeros(ann.nparams)
             params[idxL1W] = np.random.uniform(0.8, 1.2, len(idxL1W))
             params[idxL1B] = np.random.uniform(-0.2, 0.2, len(idxL1B))
             params[idxL2W] = np.random.uniform(0.8, 1.2, len(idxL2W))
             params[idxL2B] = np.random.uniform(-0.2, 0.2, len(idxL2W))
 
-            ann.params.data = params.copy()
+            ann.params = params.copy()
             ann.run()
 
             # Reset calibration to take into account new obs
-            obs = ann.outputs.data[:,0].copy()
-            calib.setup(obs, inputs, 0.01, 0.01)
+            obs = Matrix.fromdata('obs', ann.outputs[:,0].copy())
+            calib.cst_inputs = 0.01
+            calib.cst_outputs = 0.01
+            calib.setup(obs, inputs)
 
             # Calibrate
             ini, _, _ = calib.explore()
             #ini = np.random.uniform(-1, 1, nparams)
             final, _, final_ofun = calib.fit(ini, iprint=5)
 
-            sim = ann.outputs.data[:, 0]
-            erro = np.abs(obs - sim)
+            sim = ann.outputs[:, 0]
+            erro = np.abs(obs.data - sim)
 
-            err = np.abs(ann.params.data - params)/np.abs(params) * 100
+            err = np.abs(ann.params - params)/np.abs(params) * 100
             ck = np.max(err) < 1e-4
 
             print('\t\tTEST CALIB %2d : max abs err = %0.5f' % ( \

@@ -16,47 +16,46 @@ NUHMAXLENGTH = c_useme_models_utils.uh_getnuhmaxlength()
 
 class LagRoute(Model):
 
-    def __init__(self):
+    def __init__(self,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
+
 
         Model.__init__(self, 'lagroute',
-            nconfig=4, \
-            ninputs=1, \
-            nparams=2, \
-            nstates=1, \
+            nconfig=4,
+            ninputs=1,
+            nparams=2,
+            nstates=1,
             noutputs_max = 4,
-            inputs_names = ['Inflow'], \
-            outputs_names = ['Q[m3/s]', 'laggedQ[m3/s]', \
-                'Vlag[m3]', 'Vstore[m3]'])
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
 
         self.config.names = ['timestep', 'length', \
                 'flowref', 'storage_expon']
-        self.config.units = ['s', 'm', 'm3/s', '-']
 
         self.config['timestep'] = 86400
         self.config['length'] = 86400
         self.config['flowref'] = 1
         self.config['storage_expon'] = 1
 
-        self.states.names = ['V']
-        self.states.units = ['m3']
+        self._params.names = ['U', 'alpha']
+        self._params.min = [0.01, 0.]
+        self._params.max = [20., 1.]
+        self._params.default = [1., 0.5]
 
-        self.params.names = ['U', 'alpha']
-        self.params.units = ['s/m', '-']
-        self.params.min = [0.01, 0.]
-        self.params.max = [20., 1.]
-        self.params.default = [1., 0.5]
-
-        self.params.reset()
+        self.reset()
 
 
     def set_uh(self):
 
         # Lag = alpha * U * L / dt
         config = self.config
-        params = self.params
+        params = self._params
 
         delta = config['length'] * params['U'] * params['alpha']
-        delta /= self.config['timestep']
+        delta /= config['timestep']
         delta = np.float64(delta)
 
         if np.isnan(delta):
@@ -83,19 +82,19 @@ class LagRoute(Model):
 
     def run(self):
 
-        if self.inputs.nvar != self.ninputs:
+        if self._inputs.nvar != self.ninputs:
             raise ValueError(('Model LagRoute, self.inputs.nvar({0}) != ' + \
                     'self.ninputs({1})').format( \
                     self._inputs.nvar, self._ninputs))
 
         ierr = c_useme_models_lagroute.lagroute_run(self._nuhlength, \
             self.config.data, \
-            self.params.data, \
-            self.uh.data, \
-            self.inputs.data, \
-            self.statesuh.data, \
-            self.states.data, \
-            self.outputs.data)
+            self._params.data, \
+            self._uh.data, \
+            self._inputs.data, \
+            self._statesuh.data, \
+            self._states.data, \
+            self._outputs.data)
 
         if ierr > 0:
             raise ValueError(('c_useme_models_lagroute.' + \
@@ -108,14 +107,14 @@ class CalibrationLagRoute(Calibration):
 
         lm = LagRoute()
 
-        Calibration.__init__(self, 
+        Calibration.__init__(self,
             model = lm, \
             ncalparams = 2, \
             timeit = timeit)
 
-        self.calparams_means.data =  [1., 0.5]
+        self._calparams.means =  [1., 0.5]
 
-        stdevs = [0.5, 0., 0., 0.2]
-        self.calparams_stdevs.data = stdevs
+        covar = [[0.5, 0.], [0., 0.2]]
+        self._calparams.covar = covar
 
 

@@ -37,6 +37,9 @@ class Dummy(Model):
 
         self.config.names = 'Config1'
 
+        self.reset()
+
+
     def run(self):
 
         idx_start = self.idx_start
@@ -437,7 +440,7 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         dum.allocate(10, 2)
 
-        uh = [1.] + [0.] * (len(dum.uh)-1)
+        uh = [0.25]*4 + [0.] * (len(dum.uh)-4)
         uh = np.array(uh)
         self.assertTrue(np.allclose(dum.uh, uh))
 
@@ -467,7 +470,7 @@ class ModelTestCases(unittest.TestCase):
         noutputs = 2
         dum.allocate(nval, noutputs, nens_inputs = 2)
 
-        dum.initialise(states=[])
+        dum.initialise()
 
         dims = dum.getdims()
         expected = {

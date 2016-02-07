@@ -6,7 +6,7 @@ from useme.calibration import Calibration
 from useme import calibration
 
 
-def standardize_params(X, cst=None):
+def get_standardize_params(X, cst=None):
 
     U = X
     if not cst is None:
@@ -25,18 +25,20 @@ def standardize_params(X, cst=None):
 def standardize(X, params):
     mu = params['mu']
     sig = params['sig']
-    cst = params['cst']
 
     U = X
-    if not cst is None:
-        U = np.log(X+cst)
+
+    if 'cst' in params:
+        cst = params['cst']
+        if not cst is None:
+            U = np.log(X+cst)
 
     U = np.atleast_2d(U)
     if U.shape[0] == 1:
         U = U.T
 
-    mu = np.nanmean(U, 0)
-    sig = np.nanstd(U, 0)
+    #mu = np.nanmean(U, 0)
+    #sig = np.nanstd(U, 0)
     Un = (U-mu)/sig
 
     return Un
@@ -56,7 +58,10 @@ def destandardize(Un, params):
 
 class ANN(Model):
 
-    def __init__(self, ninputs, nneurons):
+    def __init__(self, ninputs, nneurons,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
 
         self.nneurons = nneurons
 
@@ -65,29 +70,27 @@ class ANN(Model):
         noutputs_max = nneurons + 1
 
         Model.__init__(self, 'ann',
-            nconfig=1, \
-            ninputs=ninputs, \
-            nparams=nparams, \
-            nstates=1, \
+            nconfig=1,
+            ninputs=ninputs,
+            nparams=nparams,
+            nstates=1,
             noutputs_max = noutputs_max,
-            inputs_names = ['I{0}'.format(i) for i in range(ninputs)], \
-            outputs_names = ['L2N1'] + \
-                ['L1N{0}'.format(i) for i in range(1, nneurons+1)])
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
 
         self.config.names = ['dummy']
         self.config.units = ['-']
 
-        self.states.names = ['dummy']
-        self.states.units = ['-']
+        self._params.units = ['-'] * nparams
+        self._params.min = [-10.] * nparams
+        self._params.max = [10.] * nparams
+        self._params.default = [0.] * nparams
 
-        self.params.units = ['-'] * nparams
-        self.params.min = [-10.] * nparams
-        self.params.max = [10.] * nparams
-        self.params.default = [0.] * nparams
-        self.params.reset()
+        self.reset()
 
         # Covariance matrix of parameters
-        self.params_covar = Matrix.fromdims('params_covar', nparams, nparams)
+        self._params_covar = Matrix.fromdims('params_covar', nparams, nparams)
 
         # Additional data to handle transformation
         self._inputs_trans = None
@@ -95,6 +98,7 @@ class ANN(Model):
 
         self._outputs_trans = None
         self._outputs_trans_params = {'mu':0., 'sig':1., 'cst':None}
+
 
     @property
     def inputs_trans(self):
@@ -132,13 +136,13 @@ class ANN(Model):
         }
 
 
-    def allocate(self, nval, noutputs=1):
+    def allocate(self, nval, noutputs=1, nens_inputs=1):
         if noutputs !=1:
             raise ValueError('Number of outputs defined for ANN model should be 1')
 
-        super(ANN, self).allocate(nval, noutputs)
+        super(ANN, self).allocate(nval, noutputs, nens_inputs)
 
-        ninputs = self.inputs.nvar
+        ninputs = self._inputs.nvar
         self._inputs_trans = Matrix.fromdims('inputs_trans', nval, ninputs)
         self._outputs_trans = Matrix.fromdims('outputs_trans', nval, 1)
 
@@ -156,10 +160,10 @@ class ANN(Model):
 
     def params2idx(self):
         ''' Returns indices of parameters in the parameter vector '''
-        nneurons = self._noutputs_max - 1
+        nneurons = self.noutputs_max - 1
         ninputs = self.ninputs
 
-        idx = np.arange(self.params.nval)
+        idx = np.arange(self.nparams)
 
         n1 = ninputs*nneurons
 
@@ -176,10 +180,10 @@ class ANN(Model):
 
     def params2matrix(self):
         ''' Returns parameter matrices from the parameter vector '''
-        nneurons = self._noutputs_max - 1
+        nneurons = self.noutputs_max - 1
         ninputs = self.ninputs
 
-        params = self.params.data
+        params = self._params.data
         idxL1W, idxL1B, idxL2W, idxL2B = self.params2idx()
 
         # Parameter for first layer
@@ -199,21 +203,20 @@ class ANN(Model):
         return np.tanh(np.dot(self.inputs_trans.data, L1W) + L1B)
 
 
-    def run_layer2(self):
+    def run_layer2(self, S):
         ''' Compute outputs from second layer '''
         _, _, L2W, L2B = self.params2matrix()
-        S = self.run_layer1()
         return np.dot(S, L2W) + L2B
 
 
     def run(self):
         ''' Run model '''
         S = self.run_layer1()
-        O = self.run_layer2()
+        O = self.run_layer2(S)
         self.outputs_trans.data =  O
 
         params = self.outputs_trans_params
-        self.outputs.data = destandardize(O, params)
+        self.outputs = destandardize(O, params)
 
 
     def jacobian(self):
@@ -222,9 +225,8 @@ class ANN(Model):
         L1W, L1B, L2W, L2B = self.params2matrix()
 
         self.run()
-        nval = self.outputs.nval
-        nparams = self.params.nval
-        jac = np.zeros((nval, nparams))
+        nval = self._outputs.nval
+        jac = np.zeros((nval, self.nparams))
         inputs_trans = self.inputs_trans.data
 
         # Jacobian for first layer
@@ -253,7 +255,7 @@ class ANN(Model):
 
 
 def ann_optimizer(objfun, start, calib, disp, *args, **kwargs):
-    ''' Specific ANN optimizer implementing Levenberg-Mararquardt 
+    ''' Specific ANN optimizer implementing Levenberg-Mararquardt
     back propagation with Bayesian regularization '''
 
     # Set model parameters
@@ -267,10 +269,10 @@ def ann_optimizer(objfun, start, calib, disp, *args, **kwargs):
 
     # Initialise variables
     idx_cal = calib.idx_cal
-    obs = calib._observations_trans.data[idx_cal, :]
+    obs = calib._obsdata_trans.data[idx_cal, :]
     sse = calibration.sse(obs, out[idx_cal, :], None)
 
-    nparams = ann.params.nval
+    nparams = ann.nparams
     gamk = float(nparams)
     nberr = float(obs.shape[0])
 
@@ -279,9 +281,9 @@ def ann_optimizer(objfun, start, calib, disp, *args, **kwargs):
 
     if beta<0:
         raise ValueError(('More parameters ({0}) than' + \
-            ' observations({1})!'.format(nparams, nberr)))
+            ' obs({1})!'.format(nparams, nberr)))
 
-    params = ann.params.data.reshape((nparams, 1))
+    params = ann.params.reshape((nparams, 1))
     ssx = np.sum(params*params)
 
     # Parameter uncertainty
@@ -317,12 +319,13 @@ def ann_optimizer(objfun, start, calib, disp, *args, **kwargs):
             ssx2 = np.sum(params2*params2)
 
             # Run model with updated parameters
-            ann.params.data = params2[:, 0]
+            ann.params = params2[:, 0]
             ann.run()
             out = ann.outputs_trans.data
             sse2 = calibration.sse(obs, out[idx_cal, :], None)
             perf2 = beta*sse2 + alpha*ssx2
-            
+            import pdb; pdb.set_trace()
+
             if perf2 < perf:
                 sse = sse2
                 ssx = ssx2
@@ -356,11 +359,11 @@ def ann_optimizer(objfun, start, calib, disp, *args, **kwargs):
                 print('MU_MAX reached, stop at epoch {0}\n'.format(epoch))
             break
 
-    ann.params.data = params
+    ann.params = params.flat[:]
 
     A = beta*JJ+II*alpha
     Ainv = np.linalg.inv(A)
-    ann.params_covar.data = Ainv
+    ann._params.covar = Ainv
 
     return params
 
@@ -374,26 +377,26 @@ class CalibrationANN(Calibration):
         self.nepochs = nepochs
 
         ann = ANN(ninputs, nneurons)
-        nparams = ann.params.nval
+        nparams = ann.nparams
 
         def dummy_optimizer(objfun, start, *args, **kwargs):
             return start
 
         Calibration.__init__(self,
             model = ann, \
-            ncalparams = nparams, \
+            ncalparams = ann.nparams, \
             optimizer = dummy_optimizer, \
             timeit = timeit, \
-            nfit = 1)
+            nrepeat_fit = 1)
 
         idxL1W, idxL1B, idxL2W, idxL2B = ann.params2idx()
         means = np.zeros(nparams)
         means[idxL1W] = 1.
         means[idxL2W] = 1.
-        self.calparams_means.data =  means
+        self._calparams.means =  means
 
-        stdevs = np.eye(nparams).flat[:]
-        self.calparams_stdevs.data = stdevs
+        covar = np.eye(nparams)
+        self._calparams.covar = covar
 
         # Setup errfun (not used in the fitting procedure, only for exploration)
         self.errfun = calibration.sse
@@ -401,30 +404,33 @@ class CalibrationANN(Calibration):
         # Modify optimizer to accomodate for ANN procedure
         self._optimizer = ann_optimizer
 
-        # Transformed observations
-        self._observations_trans = None
+        # Transformed obs
+        self._obsdata_trans = None
+
+        # Constants for transformation
+        self.cst_inputs = 0.
+        self.cst_outputs = 0.
+
 
     @property
-    def observations_trans(self):
-        return self._observations_trans
+    def obsdata_trans(self):
+        return self._obsdata_trans
 
 
-    def setup(self, observations, inputs, \
-        cst_inputs=None,
-        cst_outputs=None):
+    def setup(self, obs, inputs):
 
-        super(CalibrationANN, self).setup(observations, inputs)
+        super(CalibrationANN, self).setup(obs, inputs)
 
-        params = standardize_params(inputs, cst_inputs)
+        params = get_standardize_params(inputs.data, self.cst_inputs)
         self.model._inputs_trans_params = params
-        self.model._inputs_trans.data = standardize(inputs, params)
+        self.model._inputs_trans.data = standardize(inputs.data, params)
 
-        params = standardize_params(observations, cst_outputs)
+        params = get_standardize_params(obs.data, self.cst_outputs)
         self.model._outputs_trans_params = params
 
-        nval = self._observations.nval
-        nvar = self._observations.nvar
-        self._observations_trans = Matrix.fromdims('observations_trans', nval, nvar)
-        self._observations_trans.data = standardize(observations, params)
+        nval = self._obsdata.nval
+        nvar = self._obsdata.nvar
+        self._obsdata_trans = Matrix.fromdims('obsdata_trans', nval, nvar)
+        self._obsdata_trans.data = standardize(obs.data, params)
 
 

@@ -16,40 +16,39 @@ NUHMAXLENGTH = c_useme_models_utils.uh_getnuhmaxlength()
 
 class GR4J(Model):
 
-    def __init__(self):
+    def __init__(self,
+            nens_params=1,
+            nens_states_random=1,
+            nens_outputs_random=1):
 
         self._nuh1 = 0
         self._nuh2 = 0
 
         Model.__init__(self, 'gr4j',
-            nconfig=1, \
-            ninputs=2, \
-            nparams=4, \
-            nstates=2, \
-            noutputs_max = 9,
-            inputs_names = ['P', 'PET'], \
-            outputs_names = ['Q[mm/d]', 'Ech[mm/d]', 'E[mm/d]', 'Pr[mm/d]',\
-                'Qd[mm/d]', 'Qr[mm/d]', 'Perc[mm/d]',\
-                'S[mm]', 'R[mm]'])
+            nconfig=1,
+            ninputs=2,
+            nparams=4,
+            nstates=2,
+            noutputs_max=9,
+            nens_params=nens_params,
+            nens_states_random=nens_states_random,
+            nens_outputs_random=nens_outputs_random)
 
         self.config.names = 'catcharea'
-        self.config.units = 'km2'
 
-        self.states.names = ['Sr', 'Rr']
-        self.states.units = ['mm', 'mm']
+        self._params.names = ['S', 'IGF', 'R', 'TB']
+        self._params.min = [10., -50., 1., 0.5]
+        self._params.max = [20000., 50., 5000., 100.]
+        self._params.default = [400., -1., 50., 0.5]
 
-        self.params.names = ['S', 'IGF', 'R', 'TB']
-        self.params.units = ['mm', 'mm/d', 'mm', 'd']
-        self.params.min = [10., -50., 1., 0.5]
-        self.params.max = [20000., 50., 5000., 100.]
-        self.params.default = [400., -1., 50., 0.5]
-
-        self.params.reset()
+        self.reset()
 
 
     def set_uh(self):
 
-        params = self.params.data
+        super(GR4J, self).set_uh()
+
+        params = self.params
 
         # First uh
         nuh1 = np.zeros(1).astype(np.int32)
@@ -63,7 +62,7 @@ class GR4J(Model):
             raise ModelError(self.name, ierr, \
                     message='Model GR4J: c_useme_models_utils.uh_getuh')
 
-        self.uh.data[:self._nuh1] = uh1[:self._nuh1]
+        self.uh[:self._nuh1] = uh1[:self._nuh1]
 
         # Second uh
         nuh2 = np.zeros(1).astype(np.int32)
@@ -74,48 +73,53 @@ class GR4J(Model):
         self._nuh2 = nuh2[0]
 
         if ierr > 0:
-            raise ValueError('Model GR4J: c_useme_models_utils.uh_getuh returns {0}'.format(\
-                ierr))
+            raise ValueError(('Model GR4J: c_useme_models_utils.uh_getuh' +
+                ' returns {0}').format(ierr))
 
         nend = self._uh.nval-self._nuh1
-        self._uh.data[self._nuh1:] = uh2[:nend]
+        self.uh[self._nuh1:] = uh2[:nend]
         self._nuhlength = self._nuh1 + self._nuh2
 
 
-
     def initialise(self, states=None, statesuh=None):
-        
-        params = self.params.data
+
+        params = self.params
+
+        if self._states is None:
+            raise ValueError(('{0} model: states are None,' +
+                    ' please allocate').format(self.name))
 
         # initialise GR4J with reservoir levels
         if states is None:
-            states = np.zeros(self.states.nval)
+            states = np.zeros(self._states.nval)
             states[0] = params[0] * 0.5
             states[1] = params[2] * 0.4
+
+            statesuh = np.zeros(self._statesuh.nval)
 
         super(GR4J, self).initialise(states, statesuh)
 
 
     def run(self):
 
-        if self.inputs.nvar != self.ninputs:
-            raise ValueError(('Model GR4J, self.inputs.nvar({0}) != ' + \
-                    'self.ninputs({1})').format( \
-                    self._inputs.nvar, self._ninputs))
-        
-        ierr = c_useme_models_gr4j.gr4j_run(self._nuh1, \
-            self._nuh2, \
-            self.params.data, \
-            self.uh.data, \
-            self.uh.data[self._nuh1:], \
-            self.inputs.data, \
-            self.statesuh.data, \
-            self.states.data, \
-            self.outputs.data)
+        if self._inputs.nvar != self.ninputs:
+            raise ValueError(('Model GR4J, self._inputs.nvar({0}) != ' +
+                    'self._ninputs({1})').format(
+                    self._inputs.nvar, self.ninputs))
+
+        ierr = c_useme_models_gr4j.gr4j_run(self._nuh1,
+            self._nuh2,
+            self._params.data,
+            self._uh.data,
+            self._uh.data[self._nuh1:],
+            self._inputs.data,
+            self._statesuh.data,
+            self._states.data,
+            self._outputs.data)
 
         if ierr > 0:
-            raise ValueError('c_useme_models_gr4j.gr4j_run returns {0}'.format(\
-                ierr))
+            raise ValueError(('c_useme_models_gr4j.gr4j_run' +
+                ' returns {0}').format(ierr))
 
 
 class CalibrationGR4J(Calibration):
@@ -124,18 +128,18 @@ class CalibrationGR4J(Calibration):
 
         gr = GR4J()
 
-        Calibration.__init__(self, 
+        Calibration.__init__(self,
             model = gr, \
             ncalparams = 4, \
             timeit = timeit)
 
-        self.calparams_means.data =  [5.8, -0.78, 3.39, 0.86]
+        self._calparams.means =  [5.8, -0.78, 3.39, 0.86]
 
-        stdevs = [1.16, 0.2, -0.15, -0.07, \
-                0.2, 1.79, -0.24, -0.149, \
-                -0.15, -0.24, 1.68, -0.16, \
-                -0.07, -0.149, -0.16, 0.167]
-        self.calparams_stdevs.data = stdevs
+        covar = [[1.16, 0.2, -0.15, -0.07],
+                [0.2, 1.79, -0.24, -0.149],
+                [-0.15, -0.24, 1.68, -0.16],
+                [-0.07, -0.149, -0.16, 0.167]]
+        self._calparams.covar = covar
 
 
     def cal2true(self, calparams):
