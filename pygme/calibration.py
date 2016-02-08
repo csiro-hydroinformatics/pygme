@@ -67,7 +67,11 @@ class Calibration(object):
         self._obsdata = None
         self._idx_cal = None
 
+        # Create vector of calibrated parameters
+        # (can be different from model parameters)
         self._calparams = Vector('calparams', ncalparams, nens_params)
+        self._calparams.means = np.zeros(ncalparams, dtype=np.float64)
+        self._calparams.covar = np.eye(ncalparams, dtype=np.float64)
 
         self.errfun = sse
 
@@ -84,7 +88,7 @@ class Calibration(object):
         str = 'Calibration instance for model {0}\n'.format(self._model.name)
         str += '  status     : {0}\n'.format(self._status)
         str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
-        str += '  ncalparams : {0}\n'.format(self._calparams.nval)
+        str += '  ncalparams : {0}\n'.format(self.ncalparams)
         str += '  ieval      : {0}\n'.format(self._ieval)
 
         return str
@@ -98,6 +102,10 @@ class Calibration(object):
     def runtime(self):
         return self._runtime
 
+
+    @property
+    def ncalparams(self):
+        return self._calparams.nval
 
     @property
     def calparams(self):
@@ -228,8 +236,7 @@ class Calibration(object):
                 ' obsdata nvar({1})').format(n1, n2))
 
         # Check params size
-        ncalparams = self._calparams.nval
-        calparams = np.zeros(ncalparams)
+        calparams = np.zeros(self.ncalparams)
         params = self.cal2true(calparams)
         if len(params.shape) != 1:
             raise ValueError('cal2true does not return a 1D array')
@@ -250,6 +257,7 @@ class Calibration(object):
         ''' Get error model parameters from the list of calibrated parameters '''
         return None
 
+
     def setup(self, obsdata, inputs):
 
         if inputs.nval != obsdata.nval:
@@ -267,6 +275,9 @@ class Calibration(object):
         self._model._inputs = inputs
 
         self._obsdata = obsdata
+
+        # By default calibrate on everything
+        self.idx_cal = np.arange(obsdata.nval)
 
 
     def explore(self, nsamples = None, iprint=0,

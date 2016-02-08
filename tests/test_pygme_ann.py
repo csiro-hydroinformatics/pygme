@@ -140,7 +140,7 @@ class ANNTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
-        raise ValueError('Test failing')
+        raise ValueError('This ANN test is failing !!!!')
         return
 
         ninputs = 2

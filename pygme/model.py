@@ -279,32 +279,6 @@ class Vector(object):
         return clone
 
 
-    def transform(self, fun, clone=None):
-        ''' Applies a transform function to each ensemble members of the vector '''
-
-        # Create output vector
-        if clone is None:
-            output = Vector('transform', self.nval, self.nens, prefix='XT')
-        else:
-            output = clone.clone(self.nens)
-            output.names = ['{0}T{1}'.format(self.prefix, i)
-                                for i in range(clone.nval)]
-
-        # Apply transform
-        output._data = np.apply_along_axis(fun, 1, self._data).astype(np.float64)
-
-        if output._data.shape != (self.nens, output.nval):
-            raise ValueError(('Vector {0}: in transform, [fun] function produces ' +
-                'an array with shape {1}, it should be ({2},{3})').format(
-                        self.id, output._data.shape, output.nens, output.nval))
-
-        # Clip data
-        if output.has_minmax:
-            output._data = np.clip(output._data, output.min, output.max)
-
-        return output
-
-
 
 class Matrix(object):
 
@@ -438,25 +412,6 @@ class Matrix(object):
         return clone
 
 
-    def transform(self, fun):
-        ''' Applies a transform function to each ensemble members of the matrix '''
-
-        # Determines dimensions of output
-        tmp = np.ones((2, self.nvar))
-        tmp = np.apply_along_axis(fun, 1, tmp)
-        nvar = tmp.shape[1]
-
-        prefix = '{0}T'.format(self.prefix)
-
-        # Create output matrix
-        output = Matrix(id, self.nval, nvar, self.nens, prefix=prefix)
-
-        # Apply transform
-        output._data = np.apply_along_axis(fun, 2, self._data).astype(np.float64)
-
-        return output
-
-
 
 class Model(object):
 
@@ -507,8 +462,8 @@ class Model(object):
         self._inputs = None
         self._outputs = None
 
-        self.idx_start = 0
-        self.idx_end = 0
+        self._idx_start = 0
+        self._idx_end = 0
 
 
     def __str__(self):
@@ -534,6 +489,39 @@ class Model(object):
         str += '  nuhlengthmax    = {0}\n'.format(self._uh.nval)
 
         return str
+
+    @property
+    def idx_start(self):
+        return self._idx_start
+
+    @idx_start.setter
+    def idx_start(self, value):
+        if self._inputs is None:
+            raise ValueError(('Model {0}: Cannot set idx_start when'+
+                ' inputs is None. Please allocate').format(self.name))
+
+        if value < 0 or value >= self._inputs.nval:
+            raise ValueError(('Model {0}: idx_start < 0 or > inputs.nval ({1})'.format(self.name,
+                self._inputs.nval))
+
+        self._idx_start = value
+
+
+    @property
+    def idx_end(self):
+        return self._idx_end
+
+    @idx_end.setter
+    def idx_end(self, value):
+        if self._inputs is None:
+            raise ValueError(('Model {0}: Cannot set idx_end when'+
+                ' inputs is None. Please allocate').format(self.name))
+
+        if value < 0 or value >= self._inputs.nval:
+            raise ValueError(('Model {0}: idx_end < 0 or > inputs.nval ({1})'.format(self.name,
+                self._inputs.nval))
+
+        self._idx_end = value
 
 
     @property
@@ -764,6 +752,10 @@ class Model(object):
         nens *= self.nens_outputs_random
         self._outputs = Matrix.fromdims('outputs',
                 nval, noutputs, nens, prefix='O')
+
+        # Set up start and end to beginning and end of simulation
+        self.idx_start = 0
+        self.idx_end = nval-1
 
 
     def set_uh(self):

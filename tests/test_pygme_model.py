@@ -13,84 +13,7 @@ model.set_seed()
 
 from pygme.model import Model, Vector, Matrix
 
-
-class Dummy(Model):
-
-    def __init__(self,
-            nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
-
-        Model.__init__(self, 'dummy',
-            nconfig=1,\
-            ninputs=2, \
-            nparams=3, \
-            nstates=2, \
-            noutputs_max=2,
-            nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
-
-        self._params.default = [0., 1., 0.]
-        self._params.min = [-10., -10., -10.]
-        self._params.max = [10., 10., 10.]
-
-        self.config.names = 'Config1'
-
-        self.reset()
-
-
-    def run(self):
-
-        idx_start = self.idx_start
-        idx_end = self.idx_end
-
-        par1 = self.params[0]
-        par2 = self.params[1]
-        par3 = self.params[2]
-
-        nval, nvar = self.outputs.shape
-
-        outputs = par1 + par2 * np.cumsum(self.inputs, 0)
-        outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(nval, ))
-        self.outputs[idx_start:idx_end+1, :] = outputs[idx_start:idx_end+1, :nvar]
-
-        self.states = list(self.outputs[idx_end, :]) \
-                    + [0.] * (2-self.outputs.shape[1])
-
-    def set_uh(self):
-        uh = np.zeros(self._uh.nval)
-        uh[:4] = 0.25
-        self.uh =  uh
-
-
-class MassiveDummy(Model):
-
-    def __init__(self,
-            nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
-
-        Model.__init__(self, 'dummy',
-            nconfig=0,
-            ninputs=1,
-            nparams=0,
-            nstates=0,
-            noutputs_max=1,
-            nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
-
-
-    def run(self):
-
-        idx_start = self.idx_start
-        idx_end = self.idx_end
-
-        nval = self.outputs.shape[0]
-        outputs = self.inputs.data + np.random.uniform(0, 1, (nval, 1))
-        self.outputs.data = outputs[idx_start:idx_end, :]
-
+from dummy import Dummy, MassiveDummy
 
 
 class VectorTestCases(unittest.TestCase):
@@ -227,28 +150,6 @@ class VectorTestCases(unittest.TestCase):
             ' key P20 not in the list of names'))
 
 
-    def test_vector11(self):
-        v = Vector('test', 5, 100, prefix='P')
-        v.min = [0] * 5
-        v.max = [1] * 5
-
-        vc = Vector('test', 2)
-        vc.min = [0, 1]
-        vc.max = [1, 2]
-
-        def fun(x):
-            y = [np.sum(x[:2]), np.sum(x[2:])]
-            return np.array(y)
-
-        v.random('uniform')
-        w = v.transform(fun, clone=vc)
-
-        s = np.array([np.sum(v._data[:, :2], axis=1),
-                np.sum(v._data[:, 2:], axis=1)]).T
-        s = np.clip(s, w.min, w.max)
-        self.assertTrue(np.allclose(w._data, s))
-
-
 class MatrixTestCases(unittest.TestCase):
 
     def setUp(self):
@@ -330,29 +231,6 @@ class MatrixTestCases(unittest.TestCase):
             m1.iens = iens
             ck = np.allclose(m1.data, 2.*test)
             self.assertTrue(ck)
-
-
-    def test_matrix9(self):
-        nval = 10
-        nvar = 5
-        nens = 20
-        m1 = Matrix.fromdims('test', nval, nvar, nens)
-
-        for iens in range(nens):
-            m1.iens = iens
-            m1.data = np.random.uniform(0, 1, (nval, nvar))
-
-        def fun1(x):
-            out = np.array([np.sum(x[:3]), np.sum(x[3:])])
-            return out
-
-        m2 = m1.transform(fun1)
-
-        for iens in range(nens):
-            m1.iens = iens
-            m2.iens = iens
-            expected = np.array([m1.data[:,:3].sum(axis=1), m1.data[:,3:].sum(axis=1)]).T
-            ck = np.allclose(m2.data, expected)
 
 
 class ModelTestCases(unittest.TestCase):

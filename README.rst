@@ -1,13 +1,13 @@
 pygme
 =======
 
-A simple python package to design, run and calibrate models used in environmental sciences
+Python Generic Modelling Engine (PyGME): A simple python package to design, run and calibrate models used in environmental sciences
 
 What is pygme?
 ~~~~~~~~~~~~~~~~
 
--  pygme is a set of tools to create simple models and calibrate them via automatic optimizer
--
+- pygme is a set of tools to create simple models and calibrate them via automatic optimizer
+- pygme provides interface to classical hydrological models and allows you to create your own models.
 
 Installation
 ~~~~~~~~~~~~

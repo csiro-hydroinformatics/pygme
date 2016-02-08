@@ -11,56 +11,10 @@ from pygme.model import Model, Matrix
 from pygme.calibration import Calibration
 from pygme import calibration
 
+from dummy import Dummy, CalibrationDummy
+
+
 calibration.set_seed(100)
-
-class Dummy(Model):
-
-    def __init__(self):
-        Model.__init__(self, 'dummy',
-            nconfig=1,\
-            ninputs=2, \
-            nparams=2, \
-            nstates=2, \
-            noutputs_max = 2)
-
-        self.config.names = 'debug'
-
-        self._params.names = ['Param1', 'Param2']
-        self._params.min = [0, 0]
-        self._params.max = [20, 20]
-
-
-    def run(self):
-        par1 = self.params[0]
-        par2 = self.params[1]
-
-        outputs = par1 * np.cumsum(self.inputs + par2, 0)
-
-        self.states = outputs[-1, :]
-
-        nvar = self.outputs.shape[1]
-        self.outputs = outputs[:, :nvar]
-
-
-class CalibrationDummy(Calibration):
-
-    def __init__(self):
-        model = Dummy()
-
-        Calibration.__init__(self,
-            model = model, \
-            ncalparams = 2, \
-            timeit = True)
-
-        self._calparams.means =  [1, 0]
-        self._calparams.min =  [-10, -10]
-        self._calparams.max =  [10, 10]
-        self._calparams.covar = [[1, 0.], [0., 20]]
-
-    def cal2true(self, calparams):
-        true =  np.array([np.exp(calparams[0]), (np.tanh(calparams[1])+1.)*10.])
-        return true
-
 
 
 class CalibrationTestCases(unittest.TestCase):
@@ -70,7 +24,7 @@ class CalibrationTestCases(unittest.TestCase):
 
     def test_calibration1(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.shape[0], 2)
         dum.inputs = inputs
@@ -114,9 +68,11 @@ class CalibrationTestCases(unittest.TestCase):
 
     def test_calibration4(self):
         inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (1000, 2)))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.nval, 2)
+        import pdb; pdb.set_trace()
+        dum.initialise()
         dum.inputs = inputs.data
 
         dum.params = params
@@ -136,8 +92,9 @@ class CalibrationTestCases(unittest.TestCase):
 
 
     def test_calibration5(self):
+        return
         inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (1000, 2)))
-        params = [0.5, 10.]
+        params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.nval, 2)
         dum.inputs = inputs.data
