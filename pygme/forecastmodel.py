@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-from useme.model import Model, Matrix
+from pygme.model import Model, Matrix
 
 
 class ForecastData(object):

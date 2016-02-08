@@ -7,8 +7,8 @@ import time
 
 import numpy as np
 
-from useme.model import Matrix
-from useme.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
+from pygme.model import Matrix
+from pygme.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
 
 class TurcMezentsevTestCases(unittest.TestCase):
 

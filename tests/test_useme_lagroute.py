@@ -10,12 +10,12 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-from useme.models.lagroute import LagRoute, CalibrationLagRoute
-from useme import calibration
+from pygme.models.lagroute import LagRoute, CalibrationLagRoute
+from pygme import calibration
 
 
-import c_useme_models_utils
-UHEPS = c_useme_models_utils.uh_getuheps()
+import c_pygme_models_utils
+UHEPS = c_pygme_models_utils.uh_getuheps()
 
 
 class LagRouteTestCases(unittest.TestCase):

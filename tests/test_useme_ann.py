@@ -8,10 +8,10 @@ import time
 
 import numpy as np
 
-from useme.models.ann import ANN, CalibrationANN
-from useme.models.ann import destandardize, standardize, get_standardize_params
-from useme import calibration
-from useme.model import Matrix
+from pygme.models.ann import ANN, CalibrationANN
+from pygme.models.ann import destandardize, standardize, get_standardize_params
+from pygme import calibration
+from pygme.model import Matrix
 
 
 class ANNTestCases(unittest.TestCase):

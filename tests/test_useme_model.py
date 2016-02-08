@@ -8,10 +8,10 @@ import time
 import numpy as np
 np.seterr(all='print')
 
-from useme import model
+from pygme import model
 model.set_seed()
 
-from useme.model import Model, Vector, Matrix
+from pygme.model import Model, Vector, Matrix
 
 
 class Dummy(Model):

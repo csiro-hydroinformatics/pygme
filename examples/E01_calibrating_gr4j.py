@@ -1,8 +1,8 @@
 import os
 import numpy as np
 
-from useme import calibration
-from useme.models.gr4j import GR4J, CalibrationGR4J
+from pygme import calibration
+from pygme.models.gr4j import GR4J, CalibrationGR4J
 
 gr = GR4J()
 warmup = 365*6

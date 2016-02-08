@@ -7,9 +7,9 @@ import time
 
 import numpy as np
 
-from useme.models.gr2m import GR2M, CalibrationGR2M
-from useme import calibration
-from useme.model import Matrix
+from pygme.models.gr2m import GR2M, CalibrationGR2M
+from pygme import calibration
+from pygme.model import Matrix
 
 class GR2MTestCases(unittest.TestCase):
 

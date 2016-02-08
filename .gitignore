@@ -4,8 +4,8 @@
 *.swp
 .coverage
 build
-useme.egg-info
-c_useme_models_gr2m.c
-c_useme_models_gr4j.c
-c_useme_models_lagroute.c
-c_useme_models_utils.c
+pygme.egg-info
+c_pygme_models_gr2m.c
+c_pygme_models_gr4j.c
+c_pygme_models_lagroute.c
+c_pygme_models_utils.c

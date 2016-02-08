@@ -1,9 +1,9 @@
 
 import numpy as np
 
-from useme.model import Model, Matrix
-from useme.calibration import Calibration
-from useme import calibration
+from pygme.model import Model, Matrix
+from pygme.calibration import Calibration
+from pygme import calibration
 
 
 def get_standardize_params(X, cst=None):

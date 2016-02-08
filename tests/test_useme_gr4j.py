@@ -6,13 +6,13 @@ import time
 
 import numpy as np
 
-from useme import calibration
-from useme.model import Matrix
-from useme.models.gr4j import GR4J, CalibrationGR4J
+from pygme import calibration
+from pygme.model import Matrix
+from pygme.models.gr4j import GR4J, CalibrationGR4J
 
 
-import c_useme_models_utils
-UHEPS = c_useme_models_utils.uh_getuheps()
+import c_pygme_models_utils
+UHEPS = c_pygme_models_utils.uh_getuheps()
 
 
 class GR4JTestCases(unittest.TestCase):

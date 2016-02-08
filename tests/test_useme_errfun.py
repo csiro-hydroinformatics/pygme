@@ -7,7 +7,7 @@ import time
 
 import numpy as np
 
-from useme import calibration
+from pygme import calibration
 
 
 class ErrfunTestCases(unittest.TestCase):

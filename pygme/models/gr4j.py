@@ -4,14 +4,14 @@ import pandas as pd
 
 from hystat import sutils
 
-from useme.model import Model
-from useme.calibration import Calibration
+from pygme.model import Model
+from pygme.calibration import Calibration
 
-import c_useme_models_gr4j
-import c_useme_models_utils
+import c_pygme_models_gr4j
+import c_pygme_models_utils
 
 # Dimensions
-NUHMAXLENGTH = c_useme_models_utils.uh_getnuhmaxlength()
+NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 
 class GR4J(Model):
@@ -53,27 +53,27 @@ class GR4J(Model):
         # First uh
         nuh1 = np.zeros(1).astype(np.int32)
         uh1 = np.zeros(NUHMAXLENGTH).astype(np.float64)
-        ierr = c_useme_models_utils.uh_getuh(NUHMAXLENGTH,
+        ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH,
                 1, params[3], \
                 nuh1, uh1)
         self._nuh1 = nuh1[0]
 
         if ierr > 0:
             raise ModelError(self.name, ierr, \
-                    message='Model GR4J: c_useme_models_utils.uh_getuh')
+                    message='Model GR4J: c_pygme_models_utils.uh_getuh')
 
         self.uh[:self._nuh1] = uh1[:self._nuh1]
 
         # Second uh
         nuh2 = np.zeros(1).astype(np.int32)
         uh2 = np.zeros(NUHMAXLENGTH).astype(np.float64)
-        ierr = c_useme_models_utils.uh_getuh(NUHMAXLENGTH, \
+        ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH, \
                 2, params[3], \
                 nuh2, uh2)
         self._nuh2 = nuh2[0]
 
         if ierr > 0:
-            raise ValueError(('Model GR4J: c_useme_models_utils.uh_getuh' +
+            raise ValueError(('Model GR4J: c_pygme_models_utils.uh_getuh' +
                 ' returns {0}').format(ierr))
 
         nend = self._uh.nval-self._nuh1
@@ -107,7 +107,7 @@ class GR4J(Model):
                     'self._ninputs({1})').format(
                     self._inputs.nvar, self.ninputs))
 
-        ierr = c_useme_models_gr4j.gr4j_run(self._nuh1,
+        ierr = c_pygme_models_gr4j.gr4j_run(self._nuh1,
             self._nuh2,
             self._params.data,
             self._uh.data,
@@ -118,7 +118,7 @@ class GR4J(Model):
             self._outputs.data)
 
         if ierr > 0:
-            raise ValueError(('c_useme_models_gr4j.gr4j_run' +
+            raise ValueError(('c_pygme_models_gr4j.gr4j_run' +
                 ' returns {0}').format(ierr))
 
 

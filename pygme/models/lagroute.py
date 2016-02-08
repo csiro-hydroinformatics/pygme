@@ -4,14 +4,14 @@ import pandas as pd
 
 from hystat import sutils
 
-from useme.model import Model
-from useme.calibration import Calibration
+from pygme.model import Model
+from pygme.calibration import Calibration
 
-import c_useme_models_lagroute
-import c_useme_models_utils
+import c_pygme_models_lagroute
+import c_pygme_models_utils
 
 # Dimensions
-NUHMAXLENGTH = c_useme_models_utils.uh_getnuhmaxlength()
+NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 
 class LagRoute(Model):
@@ -68,12 +68,12 @@ class LagRoute(Model):
         # First uh
         nuh = np.zeros(1).astype(np.int32)
         uh = np.zeros(NUHMAXLENGTH).astype(np.float64)
-        ierr = c_useme_models_utils.uh_getuh(NUHMAXLENGTH,
+        ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH,
                 5, delta, \
                 nuh, uh)
 
         if ierr > 0:
-            raise ValueError(('Model LagRoute: c_useme_models_utils.uh_getuh' + \
+            raise ValueError(('Model LagRoute: c_pygme_models_utils.uh_getuh' + \
                 ' returns {0}').format(ierr))
 
         self._uh.data = uh
@@ -87,7 +87,7 @@ class LagRoute(Model):
                     'self.ninputs({1})').format( \
                     self._inputs.nvar, self._ninputs))
 
-        ierr = c_useme_models_lagroute.lagroute_run(self._nuhlength, \
+        ierr = c_pygme_models_lagroute.lagroute_run(self._nuhlength, \
             self.config.data, \
             self._params.data, \
             self._uh.data, \
@@ -97,7 +97,7 @@ class LagRoute(Model):
             self._outputs.data)
 
         if ierr > 0:
-            raise ValueError(('c_useme_models_lagroute.' + \
+            raise ValueError(('c_pygme_models_lagroute.' + \
                 'lagroute_run returns {0}').format(ierr))
 
 

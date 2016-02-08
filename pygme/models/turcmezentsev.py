@@ -5,8 +5,8 @@ import pandas as pd
 
 from hystat import sutils
 
-from useme.model import Model
-from useme.calibration import Calibration
+from pygme.model import Model
+from pygme.calibration import Calibration
 
 
 class TurcMezentsev(Model):

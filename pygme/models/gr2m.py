@@ -5,11 +5,11 @@ import pandas as pd
 
 from hystat import sutils
 
-from useme.model import Model
-from useme.calibration import Calibration
+from pygme.model import Model
+from pygme.calibration import Calibration
 
-import c_useme_models_gr2m
-import c_useme_models_utils
+import c_pygme_models_gr2m
+import c_pygme_models_utils
 
 
 class GR2M(Model):
@@ -62,13 +62,13 @@ class GR2M(Model):
 
     def run(self):
 
-        ierr = c_useme_models_gr2m.gr2m_run(self._params.data, \
+        ierr = c_pygme_models_gr2m.gr2m_run(self._params.data, \
             self._inputs.data, \
             self._states.data, \
             self._outputs.data)
 
         if ierr > 0:
-            raise ValueError(('Model gr2m, c_useme_models_gr2m.gr2m_run' + \
+            raise ValueError(('Model gr2m, c_pygme_models_gr2m.gr2m_run' + \
                     'returns {0}').format(ierr))
 
 
