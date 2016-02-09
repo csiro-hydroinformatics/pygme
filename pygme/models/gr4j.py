@@ -18,8 +18,8 @@ class GR4J(Model):
 
     def __init__(self,
             nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
+            nens_states=1,
+            nens_outputs=1):
 
         self._nuh1 = 0
         self._nuh2 = 0
@@ -31,8 +31,8 @@ class GR4J(Model):
             nstates=2,
             noutputs_max=9,
             nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
 
         self.config.names = 'catcharea'
 

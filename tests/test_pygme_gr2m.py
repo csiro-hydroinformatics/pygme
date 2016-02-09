@@ -94,7 +94,6 @@ class GR2MTestCases(unittest.TestCase):
         nsamples = 50
         samples = calib._calparams.clone(nsamples)
         samples.random()
-        samples = samples.transform(calib.cal2true)
 
         # loop through parameters
         for i in range(nsamples):

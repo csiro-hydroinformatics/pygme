@@ -76,8 +76,6 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_run2(self):
-        return
-
         warmup = 365 * 5
         gr = GR4J()
 
@@ -128,7 +126,6 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
-        return
 
         gr = GR4J()
         warmup = 365*6
@@ -167,12 +164,12 @@ class GR4JTestCases(unittest.TestCase):
             ieval1 = calib.ieval
 
             final, _, _ = calib.fit(start, ftol=1e-8)
-            ieval2 = calib.ieval
+            ieval2 = calib.ieval - ieval1
 
             err = np.abs(calib.model.params - params_expected)
             ck = np.max(err) < 1e-8
 
-            print('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e} neval={2}/{3}'.format( \
+            print('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e} neval= {2} + {3}'.format( \
                     i+1, np.max(err), ieval1, ieval2))
 
             self.assertTrue(ck)

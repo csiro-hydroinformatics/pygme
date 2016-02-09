@@ -341,53 +341,24 @@ class ModelTestCases(unittest.TestCase):
     def test_model9(self):
 
         dum = Dummy(nens_params=3,
-            nens_states_random=4,
-            nens_outputs_random=5)
+            nens_states=4,
+            nens_outputs=5)
 
         nval = 1000
         noutputs = 2
         dum.allocate(nval, noutputs, nens_inputs = 2)
 
-        dum.initialise()
+        self.assertTrue(dum.get_dims('params') == (3, 3))
+        self.assertTrue(dum.get_dims('states') == (2, 4))
+        self.assertTrue(dum.get_dims('inputs') == (nval, 2, 2))
+        self.assertTrue(dum.get_dims('outputs') == (nval, noutputs, 5))
 
-        dims = dum.getdims()
-        expected = {
-            'states': {'nens_states_random': 4, 'nens': 24, 'nval': 2},
-            'inputs': {'nvar': 2, 'nens': 2, 'nval': 1000},
-            'params': {'nuhlengthmax': 300, 'nens': 3, 'nval': 3},
-            'outputs': {'nvar': 2, 'noutputs_max': 2,
-                    'nens_outputs_random': 5, 'nens': 120, 'nval': 1000}
-        }
-        self.assertTrue(dims == expected)
-
-        inputs_all = []
-        params_all = []
-
-        n1 = dims['inputs']['nens']
-        n2 = dims['params']['nens']
-
-        for iens1 in range(n1):
-            dum.iens_inputs = iens1
-            inputs = np.random.uniform(0, 1, (nval, dum.ninputs))
-            inputs_all.append(inputs)
-            dum.inputs = inputs
-
-        for iens2 in range(n2):
-            dum.iens_params = iens2
-            params = np.random.uniform(0, 1, (3, ))
-            params_all.append(params)
-            dum.params = params
-
-        dum.idx_start = 0
-        dum.idx_end = len(inputs)-1
-        dum.run_ens()
-                # TODO
 
     def test_model10(self):
 
         dum = Dummy(nens_params=3,
-            nens_states_random=4,
-            nens_outputs_random=5)
+            nens_states=4,
+            nens_outputs=5)
 
         nval = 1000
         noutputs = 2
@@ -396,6 +367,30 @@ class ModelTestCases(unittest.TestCase):
         dum.random('params', 'uniform')
         dum.random('states')
         dum.random('statesuh')
+
+
+    def test_model11(self):
+
+        dum = Dummy()
+
+        nval = 1000
+        noutputs = 1
+        dum.allocate(nval, noutputs)
+        dum.inputs = np.random.uniform(0, 1, (nval, dum.ninputs))
+
+        dum.idx_start = 10
+        dum.idx_end = nval-1
+        dum.run_ens()
+        self.assertTrue(np.all(np.isnan(dum.outputs[:10, 0])))
+
+        try:
+            dum.idx_end = nval+1
+        except Exception, e:
+            pass
+
+        self.assertTrue(e.message.startswith('Model dummy: idx_end < 0'))
+
+
 
 
 if __name__ == '__main__':

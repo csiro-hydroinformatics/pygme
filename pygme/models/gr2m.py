@@ -16,8 +16,8 @@ class GR2M(Model):
 
     def __init__(self,
             nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
+            nens_states=1,
+            nens_outputs=1):
 
 
         Model.__init__(self, 'gr2m',
@@ -27,8 +27,8 @@ class GR2M(Model):
             nstates=2,
             noutputs_max=9,
             nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
 
         self.config.names = 'catcharea'
 

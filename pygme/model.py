@@ -422,8 +422,8 @@ class Model(object):
             nstates,
             noutputs_max,
             nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
+            nens_states=1,
+            nens_outputs=1):
 
         self.name = name
         self.ninputs = ninputs
@@ -432,11 +432,11 @@ class Model(object):
         self.noutputs_max = noutputs_max
 
         # Random ensemble
-        self._iens_outputs_random = 0
-        self.nens_outputs_random = nens_outputs_random
+        self._iens_outputs = 0
+        self.nens_outputs = nens_outputs
 
-        self._iens_states_random = 0
-        self.nens_states_random = nens_states_random
+        self._iens_states = 0
+        self.nens_states = nens_states
 
         # Config vector
         self.config = Vector('config', nconfig)
@@ -481,14 +481,15 @@ class Model(object):
                     self._params.nval, self._params.nens)
 
         str += '  nstates      = {0} [{1} ens]\n'.format(
-                    self._nstates, self.nens_states_random)
+                    self._nstates, self.nens_states)
 
         str += '  noutputs = {0} (max) [{1} ens]\n'.format(self.noutputs_max,
-                    self.nens_outputs_random)
+                    self.nens_outputs)
 
         str += '  nuhlengthmax    = {0}\n'.format(self._uh.nval)
 
         return str
+
 
     @property
     def idx_start(self):
@@ -497,11 +498,11 @@ class Model(object):
     @idx_start.setter
     def idx_start(self, value):
         if self._inputs is None:
-            raise ValueError(('Model {0}: Cannot set idx_start when'+
+            raise ValueError(('Model {0}: Cannot set idx_end when'+
                 ' inputs is None. Please allocate').format(self.name))
 
         if value < 0 or value >= self._inputs.nval:
-            raise ValueError(('Model {0}: idx_start < 0 or > inputs.nval ({1})'.format(self.name,
+            raise ValueError(('Model {0}: idx_start < 0 or > inputs.nval ({1})').format(self.name,
                 self._inputs.nval))
 
         self._idx_start = value
@@ -518,7 +519,7 @@ class Model(object):
                 ' inputs is None. Please allocate').format(self.name))
 
         if value < 0 or value >= self._inputs.nval:
-            raise ValueError(('Model {0}: idx_end < 0 or > inputs.nval ({1})'.format(self.name,
+            raise ValueError(('Model {0}: idx_end < 0 or > inputs.nval ({1})').format(self.name,
                 self._inputs.nval))
 
         self._idx_end = value
@@ -531,20 +532,6 @@ class Model(object):
     @inputs.setter
     def inputs(self, value):
         self._inputs.data = value
-
-
-    @property
-    def iens_inputs(self):
-        return self._inputs.iens
-
-    @iens_inputs.setter
-    def iens_inputs(self, value):
-        self._inputs.iens = value
-
-
-    @property
-    def nparams(self):
-        return self._params.nval
 
 
     @property
@@ -562,17 +549,6 @@ class Model(object):
 
 
     @property
-    def iens_params(self):
-        return self._params.iens
-
-    @iens_params.setter
-    def iens_params(self, value):
-        ''' Set the parameter parameter ensemble number '''
-        self._params.iens = value
-        self._uh.iens = value
-
-
-    @property
     def uh(self):
         return self._uh.data
 
@@ -587,14 +563,9 @@ class Model(object):
 
 
     @property
-    def nstates(self):
-        return self._states.nval
-
-
-    @property
     def states(self):
         # Code needed to sync input/params ensemble with states
-        self.iens_states_random = self.iens_states_random
+        self._states.iens = self.iens_states
         return self._states.data
 
     @states.setter
@@ -605,7 +576,7 @@ class Model(object):
     @property
     def statesuh(self):
         # Code needed to sync input/params ensemble with states
-        self.iens_states_random = self.iens_states_random
+        self._statesuh.iens = self.iens_states
         return self._statesuh.data
 
     @statesuh.setter
@@ -614,40 +585,8 @@ class Model(object):
 
 
     @property
-    def iens_states_random(self):
-        return self._iens_states_random
-
-    @iens_states_random.setter
-    def iens_states_random(self, value):
-        ''' Set the states vector ensemble number '''
-
-        value = int(value)
-        if value >= self.nens_states_random or value < 0:
-            raise ValueError(('Model {0}: iens_states_random {1} ' \
-                    '>= nens {2} or < 0').format( \
-                                self.name, value, self.nens_states_random))
-
-        # Determines the state ensemble number given the input ensemble and the parameter ensemble
-        # It is assumed that the loop will go first on inputs then on parameters
-        # and finally on random states ensembles
-        n1 = self._params.nens
-        n2 = self.nens_states_random
-        iens = n1 * n2  * self._inputs.iens
-        iens += n2 * self._params.iens
-        iens += value
-
-        # Set ensemble number
-        self._iens_states_random = value
-        self._states.iens = iens
-        self._statesuh.iens = iens
-
-
-    @property
-    def nval(self):
-        if not self._outputs is None:
-            return self._outputs.nval
-        else:
-            raise ValueError('Model {0}: no outputs allocated'.format(self.name))
+    def iens_states(self):
+        return self._iens_states
 
 
     @property
@@ -660,68 +599,129 @@ class Model(object):
 
 
     @property
-    def iens_outputs_random(self):
-        return self._iens_outputs_random
-
-    @iens_outputs_random.setter
-    def iens_outputs_random(self, value):
-        ''' Set the outputs vector ensemble number '''
-
-        if value >= self.nens_outputs_random or value < 0:
-            raise ValueError(('Model {0}: iens_outputs_random {1} ' \
-                    '>= nens {2} or < 0').format( \
-                                self.name, value, self.nens_outputs_random))
-
-        # Determines the state ensemble number given the input ensemble and the parameter ensemble
-        # It is assumed that the loop will go first on inputs then on parameters
-        # and finally on random states ensembles
-        n1 = self._params.nens
-        n2 = self.nens_states_random
-        n3 = self.nens_outputs_random
-        iens = n1 * n2  * n3 * self._inputs.iens
-        iens += n2 * n3 * self._params.iens
-        iens += n3 * self._iens_states_random
-        iens += value
-
-        # Set ensemble number
-        self._outputs_states_random = value
+    def iens_outputs(self):
+        return self._iens_outputs
 
 
-    def getdims(self):
-        nens = 0
-        nval = 0
-        nvar = 0
-        if not self._inputs is None:
-            nvar = self._inputs.nvar
-            nval = self._inputs.nval
-            nens = self._inputs.nens
-        dims = {'inputs':{'nens':nens, 'nval':nval, 'nvar':nvar}}
+    def get_iens(item='params'):
+        ''' Set ensemble member for model attributes '''
+        if item in ['params', 'inputs']:
+            obj = getattr(self, '_{0}'.format(item))
+            if not obj is None:
+                return obj.iens
+            else:
+                raise ValueError(('Model {0}: getting ensemble number, but item {1}' +
+                ' is None. Cannot get ensemble number').format(self.name, item))
 
-        nens = self._params.nens
-        nval = self._params.nval
-        dims['params'] = {'nens':nens, 'nval':nval,
-            'nuhlengthmax':self._uh.nval}
+        elif item == 'states':
+            return self._iens_states
 
-        nens = 0
-        nval = 0
-        if not self._states is None:
-            nens = self._states.nens
-            nval = self._states.nval
-        dims['states'] = {'nens':nens, 'nval':nval,
-            'nens_states_random':self.nens_states_random}
+        elif item == 'outputs':
+           return self._outputs_states
 
-        nens = 0
-        nval = 0
-        nvar = 0
-        if not self._outputs is None:
-            nvar = self._outputs.nvar
-            nval = self._outputs.nval
-            nens = self._outputs.nens
-        dims['outputs'] = {'nens':nens, 'nval':nval, 'nvar':nvar,
-            'noutputs_max':self.noutputs_max,
-            'nens_outputs_random':self.nens_outputs_random}
+        else:
+            raise ValueError(('Model {0}: setting ensemble number, but item {1}' +
+                ' does not exists').format(self.name, item))
 
-        return dims
+
+
+    def set_iens(self, item='params', value=0):
+        ''' Set ensemble member for model attributes '''
+        value = int(value)
+
+        if item in ['params', 'inputs']:
+            obj = getattr(self, '_{0}'.format(item))
+            if not obj is None:
+                obj.iens = value
+            else:
+                raise ValueError(('Model {0}: setting ensemble number, but item {1}' +
+                ' is None. Cannot get ensemble number').format(self.name, item))
+
+
+        elif item == 'states':
+            if value >= self.nens_states or value < 0:
+                raise ValueError(('Model {0}: iens_states {1} ' \
+                        '>= nens {2} or < 0').format( \
+                                    self.name, value, self.nens_states))
+
+            # Determines the state ensemble number given the input ensemble and the parameter ensemble
+            # It is assumed that the loop will go first on inputs then on parameters
+            # and finally on random states ensembles
+            n1 = self._params.nens
+            n2 = self.nens_states
+            iens = n1 * n2  * self._inputs.iens
+            iens += n2 * self._params.iens
+            iens += value
+
+            # Set ensemble number
+            self._iens_states = value
+            self._states.iens = iens
+            self._statesuh.iens = iens
+
+        elif item == 'outputs':
+            if value >= self.nens_outputs or value < 0:
+                raise ValueError(('Model {0}: iens_outputs {1} ' \
+                        '>= nens {2} or < 0').format( \
+                                    self.name, value, self.nens_outputs))
+
+            # Determines the state ensemble number given the input ensemble and the parameter ensemble
+            # It is assumed that the loop will go first on inputs then on parameters
+            # and finally on random states ensembles
+            n1 = self._params.nens
+            n2 = self.nens_states
+            n3 = self.nens_outputs
+            iens = n1 * n2  * n3 * self._inputs.iens
+            iens += n2 * n3 * self._params.iens
+            iens += n3 * self._iens_states
+            iens += value
+
+            # Set ensemble number
+            self._outputs_states = value
+
+        else:
+            raise ValueError(('Model {0}: setting ensemble number, but item {1}' +
+                ' does not exists').format(self.name, item))
+
+
+    def get_dims(self, item='params'):
+        ''' Getting dimensions of object '''
+
+        nens = None
+        nval = None
+        nvar = None
+
+        if item == 'inputs':
+            if not self._inputs is None:
+                nvar = self._inputs.nvar
+                nval = self._inputs.nval
+                nens = self._inputs.nens
+
+            return (nval, nvar, nens)
+
+        elif item == 'params':
+            nens = self._params.nens
+            nval = self._params.nval
+
+            return (nval, nens)
+
+        elif item == 'states':
+            if not self._states is None:
+                nens = self.nens_states
+                nval = self._states.nval
+
+            return (nval, nens)
+
+        elif item == 'outputs':
+            if not self._outputs is None:
+                nvar = self._outputs.nvar
+                nval = self._outputs.nval
+                nens = self.nens_outputs
+
+            return (nval, nvar, nens)
+
+        else:
+            raise ValueError(('Model {0}: getting dims, but item {1}' +
+                ' does not exists').format(self.name, item))
 
 
     def allocate(self, nval, noutputs=1, nens_inputs=1):
@@ -740,7 +740,7 @@ class Model(object):
                 nval, self.ninputs, nens_inputs, prefix='I')
 
         # Allocate state vectors with number of ensemble
-        nens = self._params.nens * self._inputs.nens * self.nens_states_random
+        nens = self._params.nens * self._inputs.nens * self.nens_states
         self._states = Vector('states', self._nstates, nens,
                                 prefix='S', has_minmax=False)
 
@@ -749,7 +749,7 @@ class Model(object):
         self._statesuh.min = np.zeros(NUHMAXLENGTH)
 
         # Allocate output matrix with number of final ensemble
-        nens *= self.nens_outputs_random
+        nens *= self.nens_outputs
         self._outputs = Matrix.fromdims('outputs',
                 nval, noutputs, nens, prefix='O')
 
@@ -781,7 +781,6 @@ class Model(object):
 
     def reset(self, item='params', value=None):
         ''' Function to reset model objects '''
-
         obj = getattr(self, '_{0}'.format(item))
 
         if obj is None or obj is None:
@@ -792,8 +791,9 @@ class Model(object):
 
 
     def random(self, item='params', distribution='normal', seed=3):
-        ''' Function to randomise model objects '''
+        ''' Function to randomise model items '''
         obj = getattr(self, '_{0}'.format(item))
+
         if obj is None:
             raise ValueError(('Model {0}: Model does not have object {1}').format( \
                                 self.name, item))
@@ -807,8 +807,8 @@ class Model(object):
     def run_ens(self,
             ens_inputs = None,
             ens_params = None,
-            ens_states_random = None,
-            ens_outputs_random = None):
+            ens_states = None,
+            ens_outputs = None):
         ''' Run the model with selected ensembles '''
 
         # Set ensemble lists
@@ -818,21 +818,21 @@ class Model(object):
         if ens_params is None:
             ens_params = range(self._params.nens)
 
-        if ens_states_random is None:
-            ens_states_random = range(self.nens_states_random)
+        if ens_states is None:
+            ens_states = range(self.nens_states)
 
-        if ens_outputs_random is None:
-            ens_outputs_random = range(self.nens_outputs_random)
+        if ens_outputs is None:
+            ens_outputs = range(self.nens_outputs)
 
         # Loop through ensembles
         for i_inputs, i_params, i_states, i_outputs in \
                 itertools.product(ens_inputs, ens_params,
-                        ens_states_random, ens_outputs_random):
+                        ens_states, ens_outputs):
 
-            self.iens_inputs = i_inputs
-            self.iens_params = i_params
-            self.iens_states_random = i_states
-            self.iens_outputs_random = i_outputs
+            self.set_iens('inputs', i_inputs)
+            self.set_iens('params', i_params)
+            self.set_iens('states', i_states)
+            self.set_iens('outputs', i_outputs)
 
             self.run()
 
@@ -847,8 +847,8 @@ class Model(object):
             self._nstates,
             self.noutputs_max,
             self._params.nens,
-            self.nens_states_random,
-            self.nens_outputs_random)
+            self.nens_states,
+            self.nens_outputs)
 
         for item in ['_params', '_uh', '_states',
             '_statesuh', 'config', '_inputs', '_outputs']:
@@ -856,7 +856,6 @@ class Model(object):
 
             if not obj is None:
                 setattr(model, item, obj.clone())
-
 
         return model
 

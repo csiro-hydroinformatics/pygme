@@ -9,8 +9,8 @@ class Dummy(Model):
 
     def __init__(self,
             nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
+            nens_states=1,
+            nens_outputs=1):
 
         Model.__init__(self, 'dummy',
             nconfig=1,\
@@ -19,8 +19,8 @@ class Dummy(Model):
             nstates=2, \
             noutputs_max=2,
             nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
 
         self._params.default = [0., 1., 0.]
         self._params.min = [-10., -10., -10.]
@@ -64,8 +64,8 @@ class MassiveDummy(Model):
 
     def __init__(self,
             nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
+            nens_states=1,
+            nens_outputs=1):
 
         Model.__init__(self, 'dummy',
             nconfig=0,
@@ -74,8 +74,8 @@ class MassiveDummy(Model):
             nstates=0,
             noutputs_max=1,
             nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
 
 
     def run(self):

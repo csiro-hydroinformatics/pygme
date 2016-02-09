@@ -61,7 +61,6 @@ class Calibration(object):
         self._runtime = np.nan
         self._initialise_model = initialise_model
         self._status = 'intialised'
-        self._dx_sensitivity = 1e-3
         self._nrepeat_fit = nrepeat_fit
 
         self._obsdata = None
@@ -147,8 +146,7 @@ class Calibration(object):
             if self._initialise_model:
                 self._model.initialise()
 
-            self._model.idx_start = self._idx_cal[0]
-            self._model.idx_end = self._idx_cal[-1]
+            # run model
             self._model.run()
             self._ieval += 1
 
@@ -167,6 +165,7 @@ class Calibration(object):
             if not self._minimize:
                 ofun *= -1
 
+            # Print output if needed
             if self._iprint>0:
                 if self._ieval % self._iprint == 0:
                     self._calparams.data = calparams
@@ -197,7 +196,14 @@ class Calibration(object):
             raise ValueError(('Max value in idx_cal({0})' +
                 ' exceeds number of observations ({1})').format(np.max(idx_cal),
                                                         self._obsdata.nval))
-
+        if np.min(_idx_cal) < self.model.idx_start:
+            raise ValueError(('Min value in idx_cal({0})' +
+                ' exceeds model.idx_start ({1})').format(np.max(idx_cal),
+                                                        self.model.idx_start))
+        if np.max(_idx_cal) > self.model.idx_end:
+            raise ValueError(('Max value in idx_cal({0})' +
+                ' exceeds model.idx_end ({1})').format(np.max(idx_cal),
+                                                        self.model.idx_end))
         self._idx_cal = _idx_cal
 
 
@@ -213,39 +219,45 @@ class Calibration(object):
             raise ValueError('No obsdata data. Please allocate')
 
         # Check inputs are allocated
-        if self._model._inputs is None:
+        if self.model._inputs is None:
             raise ValueError(('No inputs data for model {0}.' + \
                 ' Please allocate').format(self._model.name))
 
         # Check outputs are allocated
-        if self._model._outputs is None:
+        if self.model._outputs is None:
             raise ValueError(('No outputs data for model {0}.' + \
                 ' Please allocate').format(self._model.name))
 
         # Check inputs and obsdata have the right dimension
-        n1 = self._model._inputs.nval
-        n2 = self._obsdata.nval
-        if n1 != n2:
+        nval, nvar, _ = self.model.get_dims('outputs')
+        nval2 = self._obsdata.nval
+        if nval != nval2:
             raise ValueError(('model inputs nval({0}) !=' + \
-                ' obsdata nval({1})').format(n1, n2))
+                ' obsdata nval({1})').format(nval, nval2))
 
-        n1 = self._model._outputs.nvar
-        n2 = self._obsdata.nvar
-        if n1 != n2:
+        nvar2 = self._obsdata.nvar
+        if nvar != nvar2:
             raise ValueError(('model outputs nvar({0}) !=' + \
-                ' obsdata nvar({1})').format(n1, n2))
+                ' obsdata nvar({1})').format(nvar, nvar2))
 
         # Check params size
         calparams = np.zeros(self.ncalparams)
         params = self.cal2true(calparams)
-        if len(params.shape) != 1:
-            raise ValueError('cal2true does not return a 1D array')
+        try:
+            check = (params.ndim == 1)
+        except Exception:
+            check = False
+        if not check:
+            raise ValueError('cal2true does not return a 1D Numpy array')
 
         errparams = self.cal2err(calparams)
         if not errparams is None:
-            if len(errparams.shape) != 1:
-                raise ValueError('cal2err does not return a 1D array')
-
+            try:
+                check = (errparams.ndim == 1)
+            except Exception:
+                check = False
+            if not check:
+                raise ValueError('cal2err does not return a Numpy 1D Numpy array')
 
 
     def cal2true(self, calparams):
@@ -270,9 +282,9 @@ class Calibration(object):
                                                 self._model.noutputs_max))
 
 
-        self._model.allocate(inputs.nval, obsdata.nvar,
+        self.model.allocate(inputs.nval, obsdata.nvar,
                             inputs.nens)
-        self._model._inputs = inputs
+        self.model._inputs = inputs
 
         self._obsdata = obsdata
 
@@ -290,7 +302,7 @@ class Calibration(object):
         self._iprint = iprint
         self._ieval = 0
         self._status = 'explore'
-        ncalparams = self._calparams.nval
+        ncalparams = self.ncalparams
 
         # Set the number of samples
         if nsamples is None:
@@ -416,26 +428,25 @@ class Calibration(object):
 
 class CrossValidation(object):
 
-    def __init__(self, calib,
-            scheme='split', \
-            warmup=0, \
-            leaveout=0, \
-            explore=True):
+    def __init__(self, calib, explore=True):
 
         self._calib = calib
-        self._scheme = scheme
-        self._warmup = warmup
         self._explore = explore
 
-        self._calperiods = None
+        self._scheme = None
         self._calparams_ini = None
+        self._calperiods = []
+
+        nval = calib._obsdata.nval
+        self._mask = np.ones(nval, dtype=bool)
+
 
     def __str__(self):
         calib = self._calib
         str = 'Cross-validation instance for model {0}\n'.format(calib._model.name)
         str += '  scheme     : {0}\n'.format(self._scheme)
         str += '  explore    : {0}\n'.format(self._explore)
-        str += '  ncalparams : {0}\n'.format(calib.calparams_means.nval)
+        str += '  ncalparams : {0}\n'.format(calib.ncalparams)
         str += '  nperiods   : {0}\n'.format(len(self._calperiods))
 
         return str
@@ -453,32 +464,111 @@ class CrossValidation(object):
         self._calparams_ini.data = value
 
 
-    def setup(self):
+    @property
+    def mask(self):
+        return self._mask
+
+    @mask.setter
+    def mask(self, value):
+        _value = np.atleast_1d(value, dtype=bool)
+
+        nval = calib._obsdata.nval
+        if _value.shape[0] != nval:
+            raise ValueError(('Length of mask({0}) does not match ' +
+                'nval of obsdata').format(_value.shape[0], nval))
+
+        self._mask = mask
+
+
+    def set_periods(self, scheme='split', nperiods=2, warmup=0,
+            nleaveout=None):
+        ''' Define calibration periods '''
+
         self._calib.check()
-        nval = self._calib.model.inputs.nval
-        warmup = self._warmup
+        nval, _, _ = self._calib.model.get_dims('inputs')
+        nvalper = int((nval-warmup)/nperiods)
 
-        if self._scheme == 'split':
-            idx_1 = np.arange(warmup, (nval+warmup)/2)
-            idx_2 = np.arange((nval+warmup)/2, nval)
+        idx = np.arange(nval)
 
-            self._calperiods = [ \
-                    {'id':'PER1', 'idx_cal':idx_1}, \
-                    {'id':'PER2', 'idx_cal':idx_2} \
-            ]
+        if nleaveout is None:
+            nleaveout = nvalper
+
+        if scheme in ['split', 'leaveout']:
+
+            for i in range(nperiods):
+
+                if scheme == 'split':
+                    idx_start = i*nvalper
+                    idx_end = warmup + (i+1)*nvalper-1
+
+                    if idx_start > idx_end:
+                        raise ValueError('idx_start({0}) > idx_end({1})'.format(idx_start, idx_end))
+
+                    mask = self._mask & (idx >= idx_start+warmup) \
+                                & (idx <= idx_end)
+                    idx_cal = idx[mask]
+                    idx_cal_leaveout = []
+
+                    idx_val = np.arange(warmup, nval)
+                    idx_val_leaveout = np.arange(idx_cal[0], idx_cal[-1])
+
+                else:
+                    idx_start = 0
+                    idx_end = nval-1
+                    idx_cal = idx[self._mask]
+
+                    i1 = i*nvalper + warmup
+                    i2 = i1 + nleaveout
+
+                    if i1 > i2:
+                        raise ValueError(('idx_cal_leaveout[0]({0}) > ' +
+                                'idx_cal_leaveout[-1]({1})').format(i1, i2))
+
+                    if i2 >= nval:
+                        break
+                    idx_cal_leaveout = np.arange(i1, i2)
+
+                    idx_val = np.arange(i1, i2)
+                    idx_val_leaveout = []
+
+
+                per = {
+                    'scheme':scheme,
+                    'id':'CALPER{0}'.format(i+1),
+                    'idx_start': idx_start,
+                    'idx_end': idx_end,
+                    'idx_cal': idx_cal,
+                    'idx_val': idx_val,
+                    'idx_cal_leaveout':idx_cal_leaveout,
+                    'idx_val_leaveout':idx_val_leaveout,
+                    'warmup':warmup
+                }
+                self._calperiods.append(per)
+        else:
+            raise ValueError('Cross validation scheme {0} not recognised'.format(self._scheme))
+
+        if len(self._calperiods) == 0:
+            raise ValueError('No calibration period generated, modify inputs')
 
 
     def run(self):
 
-        if self._idx_cals is None:
-            raise ValueError(('No idx_cal for cross-validation of model {0}.' + \
-                ' Please setup').format(self._calib._model.name))
-
         nper = len(self._calperiods)
 
+        if nper == 0:
+            raise ValueError('No calibration periods defined, please setup')
+
         for i in range(nper):
+            # Set calibration range
             per = self._calperiods[i]
             self._calib.idx_cal = per['idx_cal']
+            self._calib.model.idx_start = per['idx_start']
+            self._calib.model.idx_end = per['idx_end']
+
+            # Set leave out period
+            if len(per['idx_cal_leaveout'])>0:
+                self._calib.obsdata = self._obsdata.copy()
+                self._calib.obsdata[per['idx_cal_leaveout']] = np.nan
 
             # Define starting point
             if self._explore:
@@ -490,7 +580,7 @@ class CrossValidation(object):
             final, out, ofun, sensit = self._calib.fit(calparams_ini)
 
             per['calparams'] = final.copy()
-            per['params'] = self._calib.model.params.data.copy()
+            per['params'] = self._calib.model.params.copy()
             per['simulation'] = out
             per['objfun'] = ofun
 
