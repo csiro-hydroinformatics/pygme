@@ -1,7 +1,5 @@
-
-import math
-import random
-import time
+import math, time
+from datetime import datetime
 
 import numpy as np
 
@@ -9,6 +7,7 @@ from scipy.optimize import fmin_powell
 
 from pygme.data import Vector, Matrix
 
+now = datetime.now
 
 def sse(obs, sim, errparams):
     err = obs-sim
@@ -67,6 +66,7 @@ class Calibration(object):
         # Create vector of calibrated parameters
         # (can be different from model parameters)
         self._calparams = Vector('calparams', ncalparams, nens_params)
+        self._calparams.default = np.zeros(ncalparams, dtype=np.float64)
         self._calparams.means = np.zeros(ncalparams, dtype=np.float64)
         self._calparams.covar = np.eye(ncalparams, dtype=np.float64)
 
@@ -104,9 +104,15 @@ class Calibration(object):
     def ncalparams(self):
         return self._calparams.nval
 
+
     @property
     def calparams(self):
         return self._calparams.data
+
+
+    @calparams.setter
+    def calparams(self, value):
+        self._calparams.data = value
 
 
     @property
@@ -192,15 +198,15 @@ class Calibration(object):
 
         if np.max(_idx_cal) >= self._obsdata.nval:
             raise ValueError(('Max value in idx_cal({0})' +
-                ' exceeds number of observations ({1})').format(np.max(idx_cal),
+                ' exceeds number of observations ({1})').format(np.max(_idx_cal),
                                                         self._obsdata.nval))
         if np.min(_idx_cal) < self.model.idx_start:
             raise ValueError(('Min value in idx_cal({0})' +
-                ' exceeds model.idx_start ({1})').format(np.max(idx_cal),
+                ' exceeds model.idx_start ({1})').format(np.max(_idx_cal),
                                                         self.model.idx_start))
         if np.max(_idx_cal) > self.model.idx_end:
             raise ValueError(('Max value in idx_cal({0})' +
-                ' exceeds model.idx_end ({1})').format(np.max(idx_cal),
+                ' exceeds model.idx_end ({1})').format(np.max(_idx_cal),
                                                         self.model.idx_end))
         self._idx_cal = _idx_cal
 
@@ -326,7 +332,7 @@ class Calibration(object):
 
             if self._iprint>0:
                 if self._ieval % self._iprint == 0:
-                    self._calparams.data = calparams
+                    self.calparams = calparams
 
             if ofun < ofun_min:
                 ofun_min = ofun
@@ -336,7 +342,7 @@ class Calibration(object):
             raise ValueError('Could not identify a suitable' + \
                 '  parameter by exploration')
 
-        self._calparams.data = calparams_best
+        self.calparams = calparams_best
 
         return calparams_best, calparams_explore, ofun_explore
 
@@ -367,8 +373,8 @@ class Calibration(object):
             calparams_ini = final
 
         ofun_final = self._objfun(final)
-        outputs_final = self.model.outputs.data
-        self._calparams.data = final
+        outputs_final = self.model.outputs
+        self.calparams = final
 
         if self._iprint>0:
             print('\n>> Fit final: {0:3.3e} {1} ~ {2:.2f} ms <<\n'.format( \
@@ -435,7 +441,8 @@ class CrossValidation(object):
         self._calparams_ini = None
         self._calperiods = []
 
-        nval = calib._obsdata.nval
+        self._obsdata = calib._obsdata.clone()
+        nval = self._obsdata.nval
         self._mask = np.ones(nval, dtype=bool)
 
 
@@ -448,6 +455,16 @@ class CrossValidation(object):
         str += '  nperiods   : {0}\n'.format(len(self._calperiods))
 
         return str
+
+
+    @property
+    def calib(self):
+        return self._calib
+
+
+    @property
+    def calperiods(self):
+        return self._calperiods
 
 
     @property
@@ -486,11 +503,15 @@ class CrossValidation(object):
         nval, _, _ = self._calib.model.get_dims('inputs')
         nvalper = int((nval-warmup)/nperiods)
 
-        idx = np.arange(nval)
+        # Exclude nan from calibration
+        check = np.sum(np.isnan(self._obsdata.data), axis=1) == 0
+        idx = np.where(check)[0]
 
+        # Set default nleaveout
         if nleaveout is None:
             nleaveout = nvalper
 
+        # Build calibration sub-periods
         if scheme in ['split', 'leaveout']:
 
             for i in range(nperiods):
@@ -539,7 +560,9 @@ class CrossValidation(object):
                     'idx_val': idx_val,
                     'idx_cal_leaveout':idx_cal_leaveout,
                     'idx_val_leaveout':idx_val_leaveout,
-                    'warmup':warmup
+                    'warmup':warmup,
+                    'log':{},
+                    'completed':False
                 }
                 self._calperiods.append(per)
         else:
@@ -559,28 +582,43 @@ class CrossValidation(object):
         for i in range(nper):
             # Set calibration range
             per = self._calperiods[i]
-            self._calib.idx_cal = per['idx_cal']
-            self._calib.model.idx_start = per['idx_start']
-            self._calib.model.idx_end = per['idx_end']
+            per['log'][now()] = 'Calibration of subperiod {0} started'.format(i)
+
+            self.calib.model.idx_start = per['idx_start']
+            self.calib.model.idx_end = per['idx_end']
+            self.calib.idx_cal = per['idx_cal']
 
             # Set leave out period
             if len(per['idx_cal_leaveout'])>0:
-                self._calib.obsdata = self._obsdata.copy()
-                self._calib.obsdata[per['idx_cal_leaveout']] = np.nan
+                self.calib._obsdata = self._obsdata.clone()
+                self.calib.obsdata[per['idx_cal_leaveout']] = np.nan
 
             # Define starting point
             if self._explore:
-                calparams_ini, _, _ = self._calib.explore()
+                try:
+                    calparams_ini, _, _ = self._calib.explore()
+                    per['log'][now()] = 'Explore completed'
+                except ValueError, e:
+                    per['log'][now()] = 'Explore failed, {0}'.format(e)
+                    calparams_ini = self.calib._calparams.default
             else:
-                calparams_ini = self._calparams_ini.value
+                calparams_ini = self.calib._calparams.default
 
             # Perform fit for calibration period
-            final, out, ofun, sensit = self._calib.fit(calparams_ini)
+            per['log'][now()] = 'Fit started'
 
-            per['calparams'] = final.copy()
-            per['params'] = self._calib.model.params.copy()
-            per['simulation'] = out
-            per['objfun'] = ofun
+            try:
+                final, out, ofun = self._calib.fit(calparams_ini)
+                per['log'][now()] = 'Fit completed'
+
+                per['completed'] = True
+                per['calparams'] = final.copy()
+                per['params'] = self._calib.model.params.copy()
+                per['simulation'] = out
+                per['objfun'] = ofun
+
+            except Exception, e:
+                per['log'][now()] = 'Fit failed, {0}'.format(e)
 
 
 

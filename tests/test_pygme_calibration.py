@@ -117,15 +117,19 @@ class CrossValidationTestCases(unittest.TestCase):
 
         xv = CrossValidation(calib=calib)
         xv.set_periods(scheme='split', nperiods=4, warmup=2)
-        start_end = [[per['idx_start'], per['idx_end'], per['idx_cal'][0], per['idx_cal'][-1]]
-                        for per in xv._calperiods]
+        start_end = [[per['idx_start'], per['idx_end'],
+                        per['idx_cal'][0], per['idx_cal'][-1]]
+                            for per in xv._calperiods]
 
-        expected = [[0, 5, 2, 5], [4 ,9, 6, 9], [8, 13, 10, 13], [12, 17, 14 ,17]]
+        expected = [[0, 5, 2, 5], [4 ,9, 6, 9],
+                        [8, 13, 10, 13], [12, 17, 14 ,17]]
         self.assertTrue(start_end == expected)
 
         xv.set_periods(scheme='leaveout', nperiods=9, warmup=2)
-        start_end = [[per['idx_start'], per['idx_end'], per['idx_cal'][0], per['idx_cal'][-1]]
-                        for per in xv._calperiods]
+        start_end = [[per['idx_start'], per['idx_end'],
+                        per['idx_cal'][0], per['idx_cal'][-1]]
+                            for per in xv._calperiods]
 
         xv.run()
+        import pdb; pdb.set_trace()
 
