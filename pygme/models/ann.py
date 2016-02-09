@@ -1,9 +1,9 @@
 
 import numpy as np
 
-from pygme.model import Model, Matrix
+from pygme.data import Matrix
+from pygme.model import Model
 from pygme.calibration import Calibration
-from pygme import calibration
 
 
 def get_standardize_params(X, cst=None):
@@ -60,8 +60,8 @@ class ANN(Model):
 
     def __init__(self, ninputs, nneurons,
             nens_params=1,
-            nens_states_random=1,
-            nens_outputs_random=1):
+            nens_states=1,
+            nens_outputs=1):
 
         self.nneurons = nneurons
 
@@ -76,8 +76,8 @@ class ANN(Model):
             nstates=1,
             noutputs_max = noutputs_max,
             nens_params=nens_params,
-            nens_states_random=nens_states_random,
-            nens_outputs_random=nens_outputs_random)
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
 
         self.config.names = ['dummy']
         self.config.units = ['-']
@@ -162,8 +162,9 @@ class ANN(Model):
         ''' Returns indices of parameters in the parameter vector '''
         nneurons = self.noutputs_max - 1
         ninputs = self.ninputs
+        nparams, _ = self.get_dims('params')
 
-        idx = np.arange(self.nparams)
+        idx = np.arange(nparams)
 
         n1 = ninputs*nneurons
 
@@ -225,8 +226,9 @@ class ANN(Model):
         L1W, L1B, L2W, L2B = self.params2matrix()
 
         self.run()
-        nval = self._outputs.nval
-        jac = np.zeros((nval, self.nparams))
+        nval, _, _ = self.get_dims('inputs')
+        nparams, _ = self.get_dims('params')
+        jac = np.zeros((nval, nparams))
         inputs_trans = self.inputs_trans.data
 
         # Jacobian for first layer

@@ -116,8 +116,10 @@ class ANNTestCases(unittest.TestCase):
             Q1 = ann.outputs[:, 0].copy()
 
             dx = 1e-6
-            jac = np.zeros((len(Q1), ann.nparams))
-            for k in range(ann.nparams):
+            nparams, _ = ann.get_dims('params')
+            jac = np.zeros((len(Q1), nparams))
+
+            for k in range(nparams):
                 ann.params = params
                 ann.params[k] = params[k] + dx
                 ann.run()

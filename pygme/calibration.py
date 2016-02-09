@@ -7,10 +7,8 @@ import numpy as np
 
 from scipy.optimize import fmin_powell
 
-from pygme.model import Vector, Matrix
+from pygme.data import Vector, Matrix
 
-def set_seed(seed=333):
-    np.random.seed(seed)
 
 def sse(obs, sim, errparams):
     err = obs-sim

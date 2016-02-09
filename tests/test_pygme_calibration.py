@@ -7,14 +7,13 @@ import time
 
 import numpy as np
 
-from pygme.model import Model, Matrix
+from pygme import data
+from pygme.data import Matrix
 from pygme.calibration import Calibration, CrossValidation
-from pygme import calibration
 
 from dummy import Dummy, CalibrationDummy
 
-
-calibration.set_seed(100)
+data.set_seed(100)
 
 
 class CalibrationTestCases(unittest.TestCase):

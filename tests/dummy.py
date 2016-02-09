@@ -1,6 +1,6 @@
 import numpy as np
 
-from pygme.model import Model, Vector, Matrix
+from pygme.model import Model
 
 from pygme.calibration import Calibration
 
