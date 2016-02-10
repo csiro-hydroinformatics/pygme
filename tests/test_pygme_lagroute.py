@@ -51,7 +51,7 @@ class LagRouteTestCases(unittest.TestCase):
         except ValueError as  e:
             pass
 
-        self.assertTrue(e.message.startswith('Too many outputs defined'))
+        self.assertTrue(str(e).startswith('Too many outputs defined'))
 
 
     def test_error2(self):
@@ -64,7 +64,7 @@ class LagRouteTestCases(unittest.TestCase):
         except ValueError as  e:
             pass
 
-        self.assertTrue(e.message.startswith('inputs matrix: tried setting _data'))
+        self.assertTrue(str(e).startswith('With inputs matrix: tried setting _data'))
 
 
     def test_uh1(self):

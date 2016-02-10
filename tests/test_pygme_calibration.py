@@ -101,21 +101,36 @@ class CrossValidationTestCases(unittest.TestCase):
         print('\t=> CrossValidationTestCase')
 
     def test_xv1(self):
+
         inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (20, 2)))
-        params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.nval, 2)
         dum.initialise()
         dum.inputs = inputs.data
 
-        dum.params = params
-        dum.run()
-        obs = Matrix.from_data('obs', dum.outputs[:, 0])
+        obs = inputs.clone()
+
+        per = [[2, 5], [6, 9], [10, 13], [14, 17]]
+        for i in range(4):
+            dum.params = [(i+1.)/10, i+1., 0.]
+            dum.run()
+
+            idx = range(per[i][0], per[i][1]+1)
+            obs.data[idx, :] = dum.outputs[idx, :]
 
         calib = CalibrationDummy()
         calib.setup(obs, inputs)
 
         xv = CrossValidation(calib=calib)
+
+        # Set leaveout scheme
+        xv.set_periods(scheme='leaveout', nperiods=9, warmup=2)
+        start_end = [[per['idx_start'], per['idx_end'],
+                        per['idx_cal'][0], per['idx_cal'][-1]]
+                            for per in xv._calperiods]
+
+
+        # Set split sample test scheme
         xv.set_periods(scheme='split', nperiods=4, warmup=2)
         start_end = [[per['idx_start'], per['idx_end'],
                         per['idx_cal'][0], per['idx_cal'][-1]]
@@ -125,11 +140,11 @@ class CrossValidationTestCases(unittest.TestCase):
                         [8, 13, 10, 13], [12, 17, 14 ,17]]
         self.assertTrue(start_end == expected)
 
-        xv.set_periods(scheme='leaveout', nperiods=9, warmup=2)
-        start_end = [[per['idx_start'], per['idx_end'],
-                        per['idx_cal'][0], per['idx_cal'][-1]]
-                            for per in xv._calperiods]
-
         xv.run()
-        import pdb; pdb.set_trace()
+
+        for i, per in enumerate(xv._calperiods):
+            params = per['params']
+            expected = [(i+1.)/10, i+1., 0.]
+            self.assertTrue(np.allclose(params, expected))
+
 

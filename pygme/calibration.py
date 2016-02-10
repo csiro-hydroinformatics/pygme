@@ -233,7 +233,7 @@ class Calibration(object):
                 ' Please allocate').format(self._model.name))
 
         # Check inputs and obsdata have the right dimension
-        nval, nvar, _ = self.model.get_dims('outputs')
+        nval, nvar, _, _ = self.model.get_dims('outputs')
         nval2 = self._obsdata.nval
         if nval != nval2:
             raise ValueError(('model inputs nval({0}) !=' + \
@@ -500,7 +500,7 @@ class CrossValidation(object):
         ''' Define calibration periods '''
 
         self._calib.check()
-        nval, _, _ = self._calib.model.get_dims('inputs')
+        nval, _, _, _ = self._calib.model.get_dims('inputs')
         nvalper = int((nval-warmup)/nperiods)
 
         # Exclude nan from calibration
@@ -512,6 +512,8 @@ class CrossValidation(object):
             nleaveout = nvalper
 
         # Build calibration sub-periods
+        self._calperiods = []
+
         if scheme in ['split', 'leaveout']:
 
             for i in range(nperiods):

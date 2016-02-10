@@ -35,7 +35,7 @@ class GR4JTestCases(unittest.TestCase):
             gr.allocate(20, 30)
         except ValueError as  e:
             pass
-        self.assertTrue(e.message.startswith('Too many outputs'))
+        self.assertTrue(str(e).startswith('Too many outputs'))
 
 
     def test_error2(self):
@@ -46,7 +46,7 @@ class GR4JTestCases(unittest.TestCase):
             gr.inputs = np.random.uniform(size=(20, 3))
         except ValueError as  e:
             pass
-        self.assertTrue(e.message.startswith('inputs matrix'))
+        self.assertTrue(str(e).startswith('With inputs matrix: tried setting _dat'))
 
 
     def test_uh(self):
