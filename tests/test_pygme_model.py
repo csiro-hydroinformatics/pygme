@@ -126,12 +126,14 @@ class ModelTestCases(unittest.TestCase):
 
         nval = 1000
         noutputs = 2
-        dum.allocate(nval, noutputs, nens_inputs = 2)
+        nlead = 10
+        nens = 2
+        dum.allocate(nval, noutputs, nlead, nens)
 
         self.assertTrue(dum.get_dims('params') == (3, 3))
         self.assertTrue(dum.get_dims('states') == (2, 4))
-        self.assertTrue(dum.get_dims('inputs') == (nval, 2, 2))
-        self.assertTrue(dum.get_dims('outputs') == (nval, noutputs, 5))
+        self.assertTrue(dum.get_dims('inputs') == (nval, 2, nlead, 2))
+        self.assertTrue(dum.get_dims('outputs') == (nval, noutputs, nlead, 5))
 
 
     def test_model10(self):

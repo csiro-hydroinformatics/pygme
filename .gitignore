@@ -10,3 +10,5 @@ c_pygme_models_gr4j.c
 c_pygme_models_lagroute.c
 c_pygme_models_utils.c
 nosetests.xml
+tests/matrix.hdf5
+tests/vector.json

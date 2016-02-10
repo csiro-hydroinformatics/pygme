@@ -1,10 +1,17 @@
-import math, itertools
+
+import re
+from itertools import product
+
+import math
 import random
 import numpy as np
+
+import pandas as pd
 
 
 def set_seed(seed=333):
     np.random.seed(seed)
+
 
 class Vector(object):
 
@@ -39,10 +46,32 @@ class Vector(object):
         self._covar = np.eye(nval, dtype=np.float64)
 
 
+    @classmethod
+    def from_dict(cls, data):
+        ''' Create vector object from dictionary '''
+
+        vect = Vector(data['id'], int(data['nval']), int(data['nens']),
+                    data['prefix'], bool(data['has_minmax']))
+
+        vect.iens = int(data['iens'])
+
+        for item in ['names', 'default',
+            'min', 'max', 'means']:
+            if item in data:
+                value = data[item]
+                setattr(vect, item, value)
+
+        for iens in range(vect.nens):
+            vect.iens = iens
+            vect.data = data['ensembles'][iens]['data']
+            vect._hitbounds[iens] = data['ensembles'][iens]['hitbounds']
+
+        return vect
+
 
     def __str__(self):
 
-        str = 'Vector {0} : nval={1} nens={2} {{'.format( \
+        str = 'With {0} vector : nval={1} nens={2} {{'.format( \
             self.id, self.nval, self.nens)
         str += ', '.join(self._names)
         str += '}'
@@ -52,7 +81,7 @@ class Vector(object):
 
     def __findname__(self, key):
         if not key in self._names:
-            raise ValueError(('Vector {0}: key {1} not in the' +
+            raise ValueError(('With {0} vector: key {1} not in the' +
                 ' list of names').format(self.id, key))
 
         return np.where(self._names == key)[0]
@@ -71,7 +100,7 @@ class Vector(object):
     def __setattrib__(self, target, source):
 
         if target in ['_min', '_max'] and not self.has_minmax:
-            raise ValueError(('Vector {0}: Cannot set min or max, '
+            raise ValueError(('With {0} vector: Cannot set min or max, '
                 'vector do not have this attribute').format(self.id))
 
         if target == '_covar':
@@ -85,7 +114,7 @@ class Vector(object):
             _source = _source.astype(np.float64)
 
         if _source.shape != dims:
-            raise ValueError(('Vector {0}: tried setting {1}, ' + \
+            raise ValueError(('With {0} vector: tried setting {1}, ' + \
                 'got wrong size ({2} instead of {3})').format(\
                 self.id, target, _source.shape, dims))
 
@@ -112,7 +141,7 @@ class Vector(object):
         _value = np.atleast_1d(value).flatten()
 
         if len(_value) != self.nval:
-            raise ValueError(('Vector {0} / ensemble {1}: tried setting data ' + \
+            raise ValueError(('With {0} vector / ensemble {1}: tried setting data ' + \
                 'with vector of wrong size ({2} instead of {3})').format(\
                 self.id, self._iens, len(_value), self.nval))
 
@@ -203,7 +232,7 @@ class Vector(object):
 
         value = int(value)
         if value >= self.nens or value < 0:
-            raise ValueError(('Vector {0}: iens {1} ' \
+            raise ValueError(('With {0} vector: iens {1} ' \
                     '>= nens {2} or < 0').format( \
                                 self.id, value, self.nens))
 
@@ -227,11 +256,11 @@ class Vector(object):
         ''' Randomise vector data '''
 
         if not self.has_minmax and distribution=='uniform':
-            raise ValueError(('Vector {0}: Cannot randomize with uniform ' +
+            raise ValueError(('With {0} vector: Cannot randomize with uniform ' +
                 ' distribution if vector has no min/max').format(self.id))
 
         if (self._means is None or self._covar is None) and distribution=='uniform':
-            raise ValueError(('Vector {0}: Cannot randomize with normal ' +
+            raise ValueError(('With {0} vector: Cannot randomize with normal ' +
                 ' distribution if vector has no._means or._covar').format(self.id))
 
 
@@ -244,7 +273,7 @@ class Vector(object):
             self._data = np.random.uniform(self.min, self.max,
                     (self.nens, self.nval))
         else:
-            raise ValueError(('Vector {0}: Random, distribution ' +
+            raise ValueError(('With {0} vector: Random, distribution ' +
                 '{1} not allowed').format(self.id, distribution))
 
 
@@ -274,49 +303,149 @@ class Vector(object):
         return clone
 
 
+    def to_dict(self):
+        ''' Write vector data to json format '''
+
+        data = {}
+        for item in ['id', 'nval', 'nens', 'has_minmax',
+                    'prefix', 'iens']:
+            value  = getattr(self, item)
+            if item == 'has_minmax':
+                value = int(value)
+
+            data[item] = value
+
+
+        for item in ['names', 'default',
+            'min', 'max', 'means']:
+            obj = getattr(self, item)
+            if not obj is None:
+                data[item] = obj.tolist()
+
+        data['ensembles'] = []
+        for iens in range(self.nens):
+            self.iens = iens
+            values = {'iens':iens, 'data':self.data.tolist(),
+                        'hitbounds':int(self.hitbounds)}
+            data['ensembles'].append(values)
+
+        return data
+
+
+
 
 class Matrix(object):
 
-    def __init__(self, id, nval, nvar, nens=1, data=None, prefix='V'):
+    def __init__(self, id, nval, nvar, nlead=1, nens=1, data=None, prefix='V'):
         self.id = id
         self.prefix = prefix
         self._iens = 0
+        self._ilead = 0
 
-        if nval is not None and nvar is not None and nens is not None:
+        if nval is not None and nvar is not None and \
+            nens is not None and nlead is not None:
             self._nval = nval
             self._nvar = nvar
             self._nens = nens
-            self._data = np.nan * np.ones((nens, nval, nvar), dtype=np.float64)
+            self._nlead = nlead
+            self._data = np.empty((nval, nvar, nlead, nens), dtype=np.float64)
+            self._data.fill(np.nan)
 
         elif data is not None:
-            _data = data.copy()
-            if len(data.shape) == 1:
-                _data = np.atleast_3d(data).copy()
-            elif len(data.shape) == 2:
-                _data = np.atleast_3d(data.T).T.copy()
+            if data.ndim < 4:
+                shape = list(data.shape) + [1] * (4-data.ndim)
+                _data = data.reshape(shape)
 
-            self._nens, self._nval, self._nvar = _data.shape
+            else:
+                _data = data.copy()
+
+            self._nval, self._nvar, self._nlead, self._nens = _data.shape
             self._data = _data
 
         else:
-            raise ValueError(('{0} matrix, ' + \
+            raise ValueError(('With {0} matrix, ' + \
                     'Wrong arguments to Matrix.__init__').format(self.id))
 
         self._names = ['{0}{1}'.format(prefix, i) for i in range(self.nvar)]
 
 
     @classmethod
-    def fromdims(cls, id, nval, nvar, nens=1, prefix='V'):
-        return cls(id, nval, nvar, nens, None)
+    def from_dims(cls, id, nval, nvar, nlead=1, nens=1, prefix='V'):
+        return cls(id, nval, nvar, nlead, nens, None)
 
 
     @classmethod
-    def fromdata(cls, id, data):
-        return cls(id, None, None, None, data, prefix='V')
+    def from_data(cls, id, data):
+        return cls(id, None, None, None, None, data, prefix='V')
+
+    @classmethod
+    def from_hdf(cls, filename, root_path=''):
+
+        store = pd.HDFStore(filename)
+
+        # Browse file structure
+        if not root_path.startswith('/'):
+            root_path = '/' + root_path
+        keys = [k for k in store.keys() if k.startswith(root_path)]
+
+        if len(keys) == 0:
+            raise ValueError(('Cannot create matrix from {0},' +
+                ' no matching root path {1}').format(filename, root_path))
+
+        # Get number of lead times and ensembles
+        leads = []
+        ens = []
+        ids = []
+        id = None
+        for k in keys:
+            # Remove path
+            kk = re.sub('.*/', '', k)
+
+            # Get id, ilead and iens
+            match = re.match('(?P<id>[\d\w]+)_ilead(?P<ilead>\d+)_iens(?P<iens>\d+)', kk)
+            if match is None:
+                raise ValueError(('Cannot create matrix from {0},' +
+                    ' key {1} cannot be decoded').format(filename, kk))
+
+            match = match.groupdict()
+
+            if id is None:
+                id = match['id']
+            else:
+                if id != match['id']:
+                    raise ValueError(('Cannot create matrix from {0},' +
+                        ' id {1} is not used for all tables (e.g., I found this {2})').format(filename,
+                            id, match['id']))
+
+            leads.append(int(match['ilead']))
+            ens.append(int(match['iens']))
+
+        nlead = np.max(leads) + 1
+        nens = np.max(ens) + 1
+
+        # Allocate matrix
+        df = store[keys[0]]
+        nval, nvar = df.shape
+        prefix = df.columns[0][0]
+        mat = Matrix.from_dims(id, nval, nvar, nlead, nens, prefix=prefix)
+
+        # Populate data
+        for ilead, iens in product(range(nlead), range(nens)):
+            mat.ilead = ilead
+            mat.iens = iens
+
+            path = '{0}/{1}_ilead{2}_iens{3}'.format(root_path, id, ilead, iens)
+            df = store[path]
+            mat.data = df.values
+
+        store.close()
+
+        return mat
+
 
     def __str__(self):
-        str = 'Matrix {0} : nval={1} nvar={2} nens={3} {{'.format( \
-            self.id, self.nval, self.nvar, self.nens)
+        str = 'Matrix {0} : nval={1} nvar={2} nlead={3} nens={4} {{'.format( \
+            self.id, self.nval, self.nvar, self.nlead, self.nens)
         str += ', '.join(self._names)
         str += '}'
 
@@ -332,9 +461,12 @@ class Matrix(object):
         return self._nval
 
     @property
+    def nlead(self):
+        return self._nlead
+
+    @property
     def nens(self):
         return self._nens
-
 
     @property
     def names(self):
@@ -345,14 +477,14 @@ class Matrix(object):
         self._names = np.atleast_1d(value)
 
         if len(self._names) != self.nvar:
-            raise ValueError(('{0} matrix: tried setting _names, ' + \
+            raise ValueError(('With {0} matrix: tried setting _names, ' + \
                 'got wrong size ({1} instead of {2})').format(\
                 self.id, len(self._names), self.nvar))
 
 
     @property
     def data(self):
-        return self._data[self._iens]
+        return self._data[:, :, self._ilead, self._iens]
 
     @data.setter
     def data(self, value):
@@ -361,19 +493,36 @@ class Matrix(object):
         if _value.shape[0] == 1:
             _value = _value.T
 
-        if _value.shape[0] != self.nval:
-            raise ValueError(('{0} matrix: tried setting _data,' + \
-                    ' got wrong number of values ' + \
-                    '({1} instead of {2})').format( \
-                    self.id, _value.shape[0], self.nval))
-
         if _value.shape[1] != self.nvar:
-            raise ValueError(('{0} matrix: tried setting _data,' + \
-                    ' got wrong number of variables ' + \
+            raise ValueError(('With {0} matrix: tried setting _data,' + \
+                    ' got wrong number of values ' + \
                     '({1} instead of {2})').format( \
                     self.id, _value.shape[1], self.nvar))
 
-        self._data[self._iens, :, :] = _value
+        if _value.shape[0] != self.nval:
+            raise ValueError(('With {0} matrix: tried setting _data,' + \
+                    ' got wrong number of variables ' + \
+                    '({1} instead of {2})').format( \
+                    self.id, _value.shape[0], self.nval))
+
+        self._data[:, :, self._ilead, self._iens] = _value
+
+
+    @property
+    def ilead(self):
+        return self._ilead
+
+    @ilead.setter
+    def ilead(self, value):
+        ''' Set the lead time. Checks that number is not greater that maximum forecast horizon '''
+
+        value = int(value)
+        if value >= self.nlead or value < 0:
+            raise ValueError(('With {0} vector: ilead {1} ' \
+                    '>= nlead({2}) or < 0').format( \
+                                self.id, value, self.nlead))
+
+        self._ilead = value
 
 
     @property
@@ -386,25 +535,34 @@ class Matrix(object):
 
         value = int(value)
         if value >= self.nens or value < 0:
-            raise ValueError(('Vector {0}: iens {1} ' \
-                    '>= nens {2} or < 0').format( \
+            raise ValueError(('With {0} vector: iens {1} ' \
+                    '>= nens({2}) or < 0').format( \
                                 self.id, value, self.nens))
 
         self._iens = value
 
 
     def reset(self, value=0.):
-        nens = self.nens
-        nval = self.nval
-        nvar = self.nvar
-
-        self._data = value * np.ones((nens, nval, nvar), dtype=np.float64)
+        self._data.fill(value)
 
 
     def clone(self):
-        clone = Matrix.fromdata(self.id, self._data)
+        clone = Matrix.from_data(self.id, self._data)
 
         return clone
 
 
+    def to_hdf(self, filename, root_path=''):
+
+        store = pd.HDFStore(filename)
+
+        for ilead, iens in product(range(self.nlead), range(self.nens)):
+            self.ilead = ilead
+            self.iens = iens
+            df = pd.DataFrame(self.data, columns = self.names)
+
+            path = '{0}/{1}_ilead{2}_iens{3}'.format(root_path, self.id, ilead, iens)
+            store.put(path, df)
+
+        store.close()
 

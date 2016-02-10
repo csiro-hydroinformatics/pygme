@@ -66,25 +66,36 @@ class Model(object):
         str = '\n{0} model implementation\n'.format( \
             self.name)
 
-        nens = 0
-        ninputs = 0
-        if not self._inputs is None:
-            ninputs = self._inputs.nvar
-            nens = self._inputs.nens
-        str += '  ninputs      = {0} [{1} ens]\n'.format(ninputs, nens)
+        for item in ['params', 'states']:
+            nval, nens = self.get_dims(item)
+            str += '  {0} : {1} val, {2} ens\n'.format(item ,
+                                                    nval, nens)
 
-        str += '  nparams      = {0} [{1} ens]\n'.format(
-                    self._params.nval, self._params.nens)
-
-        str += '  nstates      = {0} [{1} ens]\n'.format(
-                    self._nstates, self.nens_states)
-
-        str += '  noutputs = {0} (max) [{1} ens]\n'.format(self.noutputs_max,
-                    self.nens_outputs)
-
+        for item in ['inputs', 'outputs']:
+            nval, nvar, nlead, nens = self.get_dims(item)
+            str += '  {0} : {1} val, {2} var, {3} lead, {4} ens\n'.format(item ,
+                                                    nval, nvar, nlead, nens)
         str += '  nuhlengthmax    = {0}\n'.format(self._uh.nval)
 
         return str
+
+
+    @property
+    def ilead(self):
+        if self._inputs is None:
+            raise ValueError(('Model {0}: Cannot get ilead when'+
+                ' inputs is None. Please allocate').format(self.name))
+
+        return self._inputs.ilead
+
+    @ilead.setter
+    def ilead(self, value):
+        if self._inputs is None:
+            raise ValueError(('Model {0}: Cannot set ilead when'+
+                ' inputs is None. Please allocate').format(self.name))
+
+        self._inputs.ilead = value
+        self._outputs.ilead = value
 
 
     @property
@@ -178,11 +189,6 @@ class Model(object):
     @statesuh.setter
     def statesuh(self, value):
         self._statesuh.data = value
-
-
-    @property
-    def iens_states(self):
-        return self._iens_states
 
 
     @property
@@ -282,17 +288,19 @@ class Model(object):
     def get_dims(self, item='params'):
         ''' Getting dimensions of object '''
 
-        nens = None
         nval = None
         nvar = None
+        nlead = None
+        nens = None
 
         if item == 'inputs':
             if not self._inputs is None:
-                nvar = self._inputs.nvar
                 nval = self._inputs.nval
+                nvar = self._inputs.nvar
+                nlead = self._inputs.nlead
                 nens = self._inputs.nens
 
-            return (nval, nvar, nens)
+            return (nval, nvar, nlead, nens)
 
         elif item == 'params':
             nens = self._params.nens
@@ -309,18 +317,19 @@ class Model(object):
 
         elif item == 'outputs':
             if not self._outputs is None:
-                nvar = self._outputs.nvar
                 nval = self._outputs.nval
+                nvar = self._outputs.nvar
+                nlead = self._outputs.nlead
                 nens = self.nens_outputs
 
-            return (nval, nvar, nens)
+            return (nval, nvar, nlead, nens)
 
         else:
             raise ValueError(('Model {0}: getting dims, but item {1}' +
                 ' does not exists').format(self.name, item))
 
 
-    def allocate(self, nval, noutputs=1, nens_inputs=1):
+    def allocate(self, nval, noutputs=1, nlead_inputs=1, nens_inputs=1):
         ''' We define the number of outputs here to allow more flexible memory allocation '''
 
         if noutputs <= 0:
@@ -333,7 +342,7 @@ class Model(object):
                 self.name, noutputs, self.noutputs_max))
 
         self._inputs = Matrix.fromdims('inputs',
-                nval, self.ninputs, nens_inputs, prefix='I')
+                nval, self.ninputs, nlead_inputs, nens_inputs, prefix='I')
 
         # Allocate state vectors with number of ensemble
         nens = self._params.nens * self._inputs.nens * self.nens_states
@@ -347,7 +356,7 @@ class Model(object):
         # Allocate output matrix with number of final ensemble
         nens *= self.nens_outputs
         self._outputs = Matrix.fromdims('outputs',
-                nval, noutputs, nens, prefix='O')
+                nval, noutputs, nlead_inputs, nens, prefix='O')
 
         # Set up start and end to beginning and end of simulation
         self.idx_start = 0
