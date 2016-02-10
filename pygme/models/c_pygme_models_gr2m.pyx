@@ -25,13 +25,13 @@ def gr2m_run(np.ndarray[double, ndim=1, mode='c'] params not None,
 
     # check dimensions
     if params.shape[0] != 2:
-        raise ValueError('params.shape[0] == 2')
+        raise ValueError('params.shape[0] != 2')
 
     if statesini.shape[0] < 2:
-        raise ValueError('statesini.shape[0] >= 2')
+        raise ValueError('statesini.shape[0] < 2')
 
     if inputs.shape[0] != outputs.shape[0]:
-        raise ValueError('inputs.shape[0] == outputs.shape[0]')
+        raise ValueError('inputs.shape[0] != outputs.shape[0]')
 
     if inputs.shape[1] != 2:
         raise ValueError('inputs.shape[1] != 2')

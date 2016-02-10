@@ -50,6 +50,13 @@ ext_lagroute=Extension(name='c_pygme_models_lagroute',
     ],
     include_dirs=[numpy.get_include()])
 
+ext_knn=Extension(name='c_pygme_models_knn',
+    sources=[
+        'pygme/models/c_pygme_models_knn.pyx',
+    ],
+    include_dirs=[numpy.get_include()])
+
+
 cmdclass = versioneer.get_cmdclass()
 cmdclass['build_ext'] = build_ext
 
@@ -73,7 +80,8 @@ setup(
         ext_utils,
         ext_gr4j,
         ext_gr2m,
-        ext_lagroute
+        ext_lagroute,
+        ext_knn
     ],
     test_suite='nose.collector',
     tests_require=['nose'],

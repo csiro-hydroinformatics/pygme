@@ -7,7 +7,7 @@
 * series resampling. Water Resources Research 32 (3), 679–693.
 *
 * Inputs
-*   NBK   Number of nearest neighbours to consider
+*   knn_nb   Number of nearest neighbours to consider
 *   WINS  Temporal window to restrain the search for nearest neighbours
 *   DMAT  Matrix of feature vectors for each days (nval x nvar)
 *   WEI   Weights to calculate the euclidian distance (nvar x 1)
@@ -20,28 +20,37 @@
 */
 
 int c_knn_run(int nparams, int nval, int nvar, int nrand,
+    int idx_select,
     double * params,
     double * weights,
     double * var,
     double * rand,
-    double * outputs)
+    int * knn_idx)
 {
     int ierr;
-    int i, k, winlag, nbk, nyears;
+    int i, k, idx;
+    int knn_window, knn_nb, nyears, year;
+    int winstart, winend, nn_rank;
+    int knn_idx[KNN_NKERNEL_MAX];
 
-    double sum;
+    double sum, d, w, delta, rand;
     double kernel[KNN_NKERNEL_MAX];
-    double distance[KNN_NVAR_MAX];
+    double distances[KNN_NKERNEL_MAX];
+    double knn_var[KNN_NVAR_MAX];
 
+    /* Check inputs */
     if(nvar > KNN_NVAR_MAX)
         return 444;
 
+    if(idx_select < 0 || idx_select >= nval-1)
+        return 444;
+
     /* Half temporal window selection */
-    winlag = (int)params[0];
+    knn_window = (int)params[0];
 
     /* Number of neighbours */
-    nbk = (int)params[1];
-    if(nbk >= KNN_NKERNEL_MAX)
+    knn_nb = (int)params[1];
+    if(knn_nb >= KNN_NKERNEL_MAX)
         return 444;
 
     /* Number of years in input matrix */
@@ -54,160 +63,100 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
     if(sum <= 0)
         return 444;
 
-    for(i=0; i<nval; i++) weigths[i] = fabs(weights[i])/sum;
+    for(i=0; i<nval; i++)
+        weigths[i] = fabs(weights[i])/sum;
 
     /* Create resampling kernel */
     sum = 0;
-    for(i=0; i<nbk; i++) sum += 1./(double)(i+1);
+    for(i=0; i<knn_nb; i++) sum += 1./(double)(i+1);
 
     kernel[0] = 1./sum;
-    for(i=1; i<nbk; i++) kernel[i] = kernel[i-1] + 1./(double)(i+1)/sum;
+    for(i=1; i<knn_nb; i++)
+    {
+        kernel[i] = kernel[i-1] + 1./(double)(i+1)/sum;
+
+        /* Initialise list of potential nn candidates */
+        knn_idx[i] = 0;
+    }
+
+    /* Initialise variables of neighbour */
+    for(i=0; i<nvar; i++)
+        knn_var[i] = var[idx_select+nval*i];
+
 
     /* resample */
-    for(i=0; i<nval; i++)
+    for(i=0; i<nrand; i++)
     {
         /* reset distance */
-        for(k=0; k<nvar; k++)
-            distance[k] = 0;
+        for(k=0; k<knn_nb; k++) distance[k] = 0;
 
-    }
+        /* compute distance */
+        for(year=-1; year<nyears; year++)
+        {
+            istart = (int)(year*365.25 - knn_window + fmod(idx_selec, 365.25));
+            istart = istart < 0 ? 0 :
+                    istart >= nval-1 ? nval-1 : istart;
+
+            iend = (int)(year*365.25 + knn_window + fmod(idx_selec, 365.25));
+            iend = iend < 0 ? 0 :
+                    iend >= nval-1 ? nval-1 : iend;
+
+            /* loop through data and compute distances */
+            for(idx=istart; idx<iend+1; idx++)
+            {
+                w = weights[idx];
+                if(w < KNN_WEIGHT_MIN)
+                    continue;
+
+                /* Computes weighted euclidian distance for potential neighbour */
+                d = 0;
+                for(l=0; l<nvar; l++)
+                {
+                    delta = var[idx+nval*l] - knn_var[l];
+                    d += delta * delta * w;
+                }
+
+                /* Check if the distance is lower than one
+                 * of the already stored distance */
+                knn_rank = 0;
+                while(d>distances[knn_rank] && knn_rank <= knn_nb)
+                    knn_rank ++;
+
+                /* If yes, then rearrange distances
+                 * and list of selected vectors */
+                if(knn_rank < knn_nb)
+                {
+                    for(l=knn_nb-1; l>=knn_rank+1; l--)
+                    {
+                        knn_idx[l] = knn_idx[l-1];
+                        distances[l] = distances[l-1];
+                    }
+
+                    knn_idx[knn_rank] = idx;
+                    distances[knn_rank] = d;
+                }
+
+            } /* loop on potential neighbours */
+
+        } /* loop on years */
+
+        /* Select neighbours from candidates */
+        rnd = rand[i];
+        rnd = rnd < 0 ? 0 : rnd > 1 ? 1 : rnd;
+
+        l=0;
+        while(rnd > kernel && l < knn_nb)
+            l ++;
+
+        /* Save the following day (key of KNN algorithm!)*/
+        idx_select = knn_idx[l]+1;
+        knn_idx[i] = idx_select;
+
+        /* Save knn variables for next iteration */
+        for(k=0; k<nvar; k++)
+            knn_var[k] = var[idx_select+nval*k];
+
+    } /* loop on random numbers */
 
     return ierr;
-}
-
-int knn_sim(int nval, int nvar,
-	int * _nrand, double * NBK,
-  	double * WINS, double * DMAT, double * WEI, double * DMATSELEC,
-  	double * NNdep, double * RND,double *PRINTMESSAGE, double * KNNSIM_NN)
-{
-    int nbk,dmatCol,nnCol,day,day2,NbAnn,ann,debDay,finDay,nnSelec;
-    int NNliste[MAXCOL],nnClass,nbjDMATSELEC;
-    double DIST[MAXCOL],CARAC[MAXCOL],winlag,SomW;
-    double rnd, KERN[MAXCOL],sumkern,DISTtemp,print;
-
-    /*----- Parameters check ----------*/
-    // Error if the number of days is greater than SIZEMAX
-    // or if the number of features is greater than NBFEATMAX
-    if(nval*nvar>=SIZEMAX){return;}
-
-	nrand = _nrand[0];
-
-    nbk=(int)(NBK[0]);
-    if(nbk>=MAXCOL){return;}
-
-    // Half temporal window
-    winlag=WINS[0]/2;if(winlag<=0){return;}
-
-    // Number of years in DMAT and SMAT
-    NbAnn = (int)(nval/365.25)+1;
-
-	// Print messages
-	print=PRINTMESSAGE[0];
-
-	if(print!=0.0) printf("\n\tKNN parameters: NBK=%2d WIN=%2.0f DMAT[%5d %2d],NVALSIM=%5d ",
-			nbk,WINS[0],nval,nvar,nrand);
-
-    // Normalisation of weights
-    SomW=0;
-    for(dmatCol=0;dmatCol<nvar;dmatCol++){SomW+=fabs(WEI[dmatCol]);}
-
-    if(print!=0.0) printf("\n\tVariables weights:\n\t");
-    if(SomW>0){
-      for(dmatCol=0;dmatCol<nvar;dmatCol++){
-        WEI[dmatCol]=fabs(WEI[dmatCol])/SomW;
-        if(print!=0.0) printf("%3.1f ",WEI[dmatCol]);
-      }
-    }
-
-    // Nb de jours sélectionnés
-    nbjDMATSELEC=1;
-    for(day=0;day<nval;day++){if(DMATSELEC[day]>0){nbjDMATSELEC++;}}
-    if(print!=0.0) printf("\n\tPercentage of selected days: %6d over %6d (%2.0f perc)",
-			nbjDMATSELEC,nval,(double)(nbjDMATSELEC)/(double)(nval)*100);
-
-    if(DMATSELEC[(int)(NNdep[0])]<=0 && print!=0.0 ){
-		printf("CAUTION ! The starting day is not a selected day >> problem with the resampling algo.");
-	}
-
-    /*----- Initialisation des caractéristiques ----------*/
-    nnSelec=(int)(NNdep[0]);if((nnSelec<0)|(nnSelec>=nval)){nnSelec=0;}
-    for(dmatCol=0;dmatCol<nvar;dmatCol++){CARAC[dmatCol]=DMAT[nnSelec+nval*dmatCol];}
-
-    /*----- Resampling kernel ----------*/
-    sumkern=0;for(nnCol=0;nnCol<nbk;nnCol++){sumkern+=1/(double)(nnCol+1);}
-    KERN[0]=1/sumkern;
-
-    if(print!=0.0) printf("\n\tKernel = %5.3f ",KERN[0]);
-
-    for(nnCol=1;nnCol<nbk;nnCol++){
-      KERN[nnCol]=KERN[nnCol-1]+1/(double)(nnCol+1)/sumkern;
-      if(print!=0.0) printf("%5.3f ",KERN[nnCol]);
-    }
-    if(print!=0.0) printf("\n\tLine nb:\n\t");
-
-    /*----- Resampled data generation ----------*/
-    for(day=0;day<nrand;day++){
-        if(fmod(day,1000)==0 && print!=0.0){printf("%5d ",day);}
-        if(fmod(day,8000)==0 && print!=0.0){printf("\n\t");}
-
-        // initialize the distance vector
-        for(nnCol=0;nnCol<nbk;nnCol++){DIST[nnCol]=MAXVALDIST;}
-
-        // Calculate the distance with the value of the descriptors
-        // calculate only if the current date falls within the time window
-        for(ann=-1;ann<NbAnn;ann++){
-
-            // Start and end of the temporal window for each year
-            debDay=(int)(ann*365.25-winlag+fmod(nnSelec,365.25));
-            finDay=(int)(ann*365.25+winlag+fmod(nnSelec,365.25));
-            if(debDay<0){debDay=0;}
-            if(finDay<0){finDay=0;}
-            if(debDay>=nval){debDay=nval-1;}
-            if(finDay>=nval){finDay=nval-1;}
-
-            for(day2=debDay;day2<finDay;day2++){
-
-                // Parcours la base de données en ne retenant que les jours sélectionnés
-                if(DMATSELEC[day2]>0){
-                    DISTtemp=0;
-
-                    // Weighted euclidian distance
-                    for(dmatCol=0;dmatCol<nvar;dmatCol++){
-                        DISTtemp+=WEI[dmatCol]*pow(DMAT[day2+nval*dmatCol]-CARAC[dmatCol],2);
-                    }
-
-                    // Check if the distance is lower than one of the already stored distance
-                    nnClass=0;
-                    while((DISTtemp>DIST[nnClass])&(nnClass<=nbk)){nnClass++;}
-
-                    // if yes, rearrange DIST and NNliste vectors
-                    if(nnClass<nbk){
-                        for(nnCol=nbk-1;nnCol>=nnClass+1;nnCol--){
-                            DIST[nnCol]=DIST[nnCol-1];NNliste[nnCol]=NNliste[nnCol-1];
-                        }
-                        NNliste[nnClass]=day2;DIST[nnClass]=DISTtemp;
-                    }
-
-                }
-            }
-        }
-
-        // Random number
-        rnd=RND[day];if((rnd<0)|(rnd>1)){rnd=0.5;}
-
-        // Selection of the nearest neighbour
-        nnCol=0;while((rnd>KERN[nnCol])&(nnCol<nbk)){nnCol++;}
-        nnSelec = (int)(NNliste[nnCol]+1);
-        if(nnSelec>=nval){nnSelec=nval-1;}
-
-        // Stockage des caractéristiques du jour
-        for(dmatCol=0;dmatCol<nvar;dmatCol++){CARAC[dmatCol]=DMAT[nnSelec+nval*dmatCol];}
-
-        // Attribution of the data to KNNSIM matrix
-        KNNSIM_NN[day]=(double)(nnSelec);
-        //printf(" >> %5.0f\n",KNNSIM_NN[day]);
-
-    } // End of the simulation
-
-     if(print!=0.0) printf("\n\n");
 }
