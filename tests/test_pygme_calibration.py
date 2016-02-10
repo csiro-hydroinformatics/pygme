@@ -33,8 +33,8 @@ class CalibrationTestCases(unittest.TestCase):
         obs = dum.outputs[:, 0].copy()
 
         calib = CalibrationDummy()
-        calib.setup(Matrix.fromdata('obs', obs),
-                    Matrix.fromdata('inputs', inputs))
+        calib.setup(Matrix.from_data('obs', obs),
+                    Matrix.from_data('inputs', inputs))
 
         str = '{0}'.format(calib)
 
@@ -53,7 +53,7 @@ class CalibrationTestCases(unittest.TestCase):
 
 
     def test_calibration3(self):
-        inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (1000, 2)))
+        inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.nval, 2)
@@ -62,7 +62,7 @@ class CalibrationTestCases(unittest.TestCase):
 
         dum.params = params
         dum.run()
-        obs = Matrix.fromdata('obs', dum.outputs[:, 0])
+        obs = Matrix.from_data('obs', dum.outputs[:, 0])
 
         calib = CalibrationDummy()
         calib.setup(obs, inputs)
@@ -77,7 +77,7 @@ class CalibrationTestCases(unittest.TestCase):
 
 
     def test_calibration4(self):
-        inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (1000, 2)))
+        inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.nval, 2)
@@ -85,7 +85,7 @@ class CalibrationTestCases(unittest.TestCase):
 
         dum.params = params
         dum.run()
-        obs = Matrix.fromdata('obs', dum.outputs[:, 0])
+        obs = Matrix.from_data('obs', dum.outputs[:, 0])
 
         calib = CalibrationDummy()
         idx_cal = np.arange(obs.nval)
@@ -101,7 +101,7 @@ class CrossValidationTestCases(unittest.TestCase):
         print('\t=> CrossValidationTestCase')
 
     def test_xv1(self):
-        inputs = Matrix.fromdata('inputs', np.random.uniform(0, 1, (20, 2)))
+        inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (20, 2)))
         params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs.nval, 2)
@@ -110,7 +110,7 @@ class CrossValidationTestCases(unittest.TestCase):
 
         dum.params = params
         dum.run()
-        obs = Matrix.fromdata('obs', dum.outputs[:, 0])
+        obs = Matrix.from_data('obs', dum.outputs[:, 0])
 
         calib = CalibrationDummy()
         calib.setup(obs, inputs)

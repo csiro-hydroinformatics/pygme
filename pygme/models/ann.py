@@ -90,7 +90,7 @@ class ANN(Model):
         self.reset()
 
         # Covariance matrix of parameters
-        self._params_covar = Matrix.fromdims('params_covar', nparams, nparams)
+        self._params_covar = Matrix.from_dims('params_covar', nparams, nparams)
 
         # Additional data to handle transformation
         self._inputs_trans = None
@@ -143,8 +143,8 @@ class ANN(Model):
         super(ANN, self).allocate(nval, noutputs, nens_inputs)
 
         ninputs = self._inputs.nvar
-        self._inputs_trans = Matrix.fromdims('inputs_trans', nval, ninputs)
-        self._outputs_trans = Matrix.fromdims('outputs_trans', nval, 1)
+        self._inputs_trans = Matrix.from_dims('inputs_trans', nval, ninputs)
+        self._outputs_trans = Matrix.from_dims('outputs_trans', nval, 1)
 
 
     def standardize_inputs(self):
@@ -432,7 +432,7 @@ class CalibrationANN(Calibration):
 
         nval = self._obsdata.nval
         nvar = self._obsdata.nvar
-        self._obsdata_trans = Matrix.fromdims('obsdata_trans', nval, nvar)
+        self._obsdata_trans = Matrix.from_dims('obsdata_trans', nval, nvar)
         self._obsdata_trans.data = standardize(obs.data, params)
 
 

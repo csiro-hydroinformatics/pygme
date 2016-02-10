@@ -20,7 +20,7 @@ class ForecastData(object):
     @inputs.setter
     def inputs(self, value):
         if self._inputs is None:
-            self._inputs = Matrix.fromdata('inputs', value)
+            self._inputs = Matrix.from_data('inputs', value)
 
             nval = self._inputs.nval
             if nval != self._nlead:
@@ -37,7 +37,7 @@ class ForecastData(object):
     @outputs.setter
     def outputs(self, value):
         if self._outputs is None:
-            self._outputs = Matrix.fromdata('outputs', value)
+            self._outputs = Matrix.from_data('outputs', value)
 
             nval = self._outputs.nval
             if nval != self._nlead:

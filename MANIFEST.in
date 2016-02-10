@@ -1,2 +1,4 @@
 include REAMDE.rst 
 include LICENSE.txt 
+include versioneer.py
+include pygme/_version.py

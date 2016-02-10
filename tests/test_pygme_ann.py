@@ -65,7 +65,7 @@ class ANNTestCases(unittest.TestCase):
             ann.params = params
 
             # Set inputs
-            inputs = Matrix.fromdata('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
+            inputs = Matrix.from_data('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
             ann.allocate(inputs.nval)
             ann.inputs = inputs.data
 
@@ -102,7 +102,7 @@ class ANNTestCases(unittest.TestCase):
             ann.params = params.copy()
 
             # Set inputs
-            inputs = Matrix.fromdata('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
+            inputs = Matrix.from_data('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
             ann.allocate(inputs.nval)
             ann.inputs = inputs.data
 
@@ -168,8 +168,8 @@ class ANNTestCases(unittest.TestCase):
             dm = np.concatenate(dm).reshape((len(month_u), 5))
 
             # Setup a monthly forecast model
-            inputs = Matrix.fromdata('inputs', dm[:, [1, 3]])
-            obs = Matrix.fromdata('obs', np.append(dm[1:, 3], np.nan))
+            inputs = Matrix.from_data('inputs', dm[:, [1, 3]])
+            obs = Matrix.from_data('obs', np.append(dm[1:, 3], np.nan))
 
             # Run ann first
             calib.setup(obs, inputs)
@@ -187,7 +187,7 @@ class ANNTestCases(unittest.TestCase):
             ann.run()
 
             # Reset calibration to take into account new obs
-            obs = Matrix.fromdata('obs', ann.outputs[:,0].copy())
+            obs = Matrix.from_data('obs', ann.outputs[:,0].copy())
             calib.cst_inputs = 0.01
             calib.cst_outputs = 0.01
             calib.setup(obs, inputs)

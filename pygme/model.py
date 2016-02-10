@@ -341,7 +341,7 @@ class Model(object):
                 ' noutputs({1}) > noutputs_max({2})').format( \
                 self.name, noutputs, self.noutputs_max))
 
-        self._inputs = Matrix.fromdims('inputs',
+        self._inputs = Matrix.from_dims('inputs',
                 nval, self.ninputs, nlead_inputs, nens_inputs, prefix='I')
 
         # Allocate state vectors with number of ensemble
@@ -355,7 +355,7 @@ class Model(object):
 
         # Allocate output matrix with number of final ensemble
         nens *= self.nens_outputs
-        self._outputs = Matrix.fromdims('outputs',
+        self._outputs = Matrix.from_dims('outputs',
                 nval, noutputs, nlead_inputs, nens, prefix='O')
 
         # Set up start and end to beginning and end of simulation

@@ -143,7 +143,7 @@ class GR4JTestCases(unittest.TestCase):
             fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
                     self.FHERE, i+1)
             data = np.loadtxt(fts, delimiter=',')
-            inputs = Matrix.fromdata('inputs',
+            inputs = Matrix.from_data('inputs',
                     np.ascontiguousarray(data[:, [1, 2]], np.float64))
 
             # Run gr first
@@ -154,7 +154,7 @@ class GR4JTestCases(unittest.TestCase):
             gr.initialise()
             gr.inputs = inputs.data
             gr.run()
-            obs = Matrix.fromdata('obs', gr.outputs[:,0].copy())
+            obs = Matrix.from_data('obs', gr.outputs[:,0].copy())
 
             # Calibrate
             calib.setup(obs, inputs)

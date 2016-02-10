@@ -78,7 +78,7 @@ class GR2MTestCases(unittest.TestCase):
     def test_gr2m_irstea_calib(self):
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
         data = np.loadtxt(fd, delimiter=',', skiprows=1)
-        inputs = Matrix.fromdata('inputs', np.ascontiguousarray(data[:, :2]))
+        inputs = Matrix.from_data('inputs', np.ascontiguousarray(data[:, :2]))
 
         calparams_expected = [650.7, 0.8]
 
@@ -104,7 +104,7 @@ class GR2MTestCases(unittest.TestCase):
             expected = gr.params.copy()
             gr.initialise()
             gr.run()
-            obs = Matrix.fromdata('obs', gr.outputs[:,0].copy())
+            obs = Matrix.from_data('obs', gr.outputs[:,0].copy())
 
             # Calibrate
             calib.setup(obs, inputs)

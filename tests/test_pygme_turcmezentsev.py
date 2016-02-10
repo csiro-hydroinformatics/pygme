@@ -108,8 +108,8 @@ class TurcMezentsevTestCases(unittest.TestCase):
                 1006.3, \
                 1171.0]
 
-        inputs = Matrix.fromdata('inputs', np.array([P, E]).T)
-        obs = Matrix.fromdata('obs', np.array(Q))
+        inputs = Matrix.from_data('inputs', np.array([P, E]).T)
+        obs = Matrix.from_data('obs', np.array(Q))
         calib = CalibrationTurcMezentsev()
         calib.setup(obs, inputs)
         calib.idx_cal = obs.data[:,0] == obs.data[:,0]
