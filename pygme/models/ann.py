@@ -226,7 +226,7 @@ class ANN(Model):
         L1W, L1B, L2W, L2B = self.params2matrix()
 
         self.run()
-        nval, _, _ = self.get_dims('inputs')
+        nval, _, _, _ = self.get_dims('inputs')
         nparams, _ = self.get_dims('params')
         jac = np.zeros((nval, nparams))
         inputs_trans = self.inputs_trans.data

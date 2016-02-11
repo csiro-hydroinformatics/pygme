@@ -27,11 +27,14 @@ def knn_run(int idx_select,
     cdef int ierr
 
     # check dimensions
-    if params.shape[0] != 2:
-        raise ValueError('params.shape[0] != 2')
+    if params.shape[0] != 3:
+        raise ValueError('params.shape[0] != 3')
 
     if weights.shape[0] != var.shape[0]:
         raise ValueError('weights.shape[0] != var.shape[0]')
+
+    if rand.shape[0] != knn_idx.shape[0]:
+        raise ValueError('rand.shape[0] != knn_idx.shape[0]')
 
     ierr = c_knn_run(params.shape[0], \
             var.shape[0], \

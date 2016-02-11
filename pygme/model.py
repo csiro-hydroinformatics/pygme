@@ -171,8 +171,12 @@ class Model(object):
 
     @property
     def states(self):
+        if self._states is None:
+            raise ValueError(('Model {0}: Cannot set states when'+
+                ' states object is None. Please allocate').format(self.name))
+
         # Code needed to sync input/params ensemble with states
-        self._states.iens = self.iens_states
+        self._statesuh.iens = self._states.iens
         return self._states.data
 
     @states.setter
@@ -182,6 +186,10 @@ class Model(object):
 
     @property
     def statesuh(self):
+        if self._statesuh is None:
+            raise ValueError(('Model {0}: Cannot set statesuh when'+
+                ' statesuh object is None. Please allocate').format(self.name))
+
         # Code needed to sync input/params ensemble with states
         self._statesuh.iens = self.iens_states
         return self._statesuh.data
@@ -369,9 +377,13 @@ class Model(object):
 
     def initialise(self, states=None, statesuh=None):
 
+        if self._states is None:
+            raise ValueError(('Model {0}: Cannot initialise when'+
+                ' states is None. Please allocate').format(self.name))
+
         for iens in range(self._states.nens):
             self._states.iens = iens
-            self._states.iens = iens
+            self._statesuh.iens = iens
 
             if states is None:
                 self._states.data = [0.] * self._states.nval

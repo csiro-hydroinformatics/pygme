@@ -24,19 +24,23 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
     double * params,
     double * weights,
     double * var,
-    double * rand,
+    double * rands,
     int * knn_idx)
 {
     int ierr;
-    int i, k, idx;
-    int knn_window, knn_nb, nyears, year;
-    int winstart, winend, nn_rank;
-    int knn_idx[KNN_NKERNEL_MAX];
+    int i, k, idx, knn_rank;
+    int knn_window, knn_nb, ncycles, icycle;
+    int istart, iend;
+    int knn_idx_potential[KNN_NKERNEL_MAX];
 
-    double sum, d, w, delta, rand;
+    double sum, d, w, delta, cycle_length, rnd;
     double kernel[KNN_NKERNEL_MAX];
     double distances[KNN_NKERNEL_MAX];
     double knn_var[KNN_NVAR_MAX];
+
+    ierr = 0;
+
+    fprintf(stdout, "\n\n %s B@%d ierr=%d\n\n", __FILE__, __LINE__, ierr);
 
     /* Check inputs */
     if(nvar > KNN_NVAR_MAX)
@@ -53,8 +57,13 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
     if(knn_nb >= KNN_NKERNEL_MAX)
         return 444;
 
-    /* Number of years in input matrix */
-    nyears = (int)(nval/365.25)+1;
+    /* Duration of cycle (icyclely = cycle_length) */
+    cycle_length = params[2];
+    if(cycle_length < 10)
+        return 444;
+
+    /* Number of cycles in input matrix */
+    ncycles = (int)(nval/cycle_length)+1;
 
     /* Normalise weights */
     sum = 0;
@@ -64,7 +73,7 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
         return 444;
 
     for(i=0; i<nval; i++)
-        weigths[i] = fabs(weights[i])/sum;
+        weights[i] = fabs(weights[i])/sum;
 
     /* Create resampling kernel */
     sum = 0;
@@ -76,7 +85,7 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
         kernel[i] = kernel[i-1] + 1./(double)(i+1)/sum;
 
         /* Initialise list of potential nn candidates */
-        knn_idx[i] = 0;
+        knn_idx_potential[i] = 0;
     }
 
     /* Initialise variables of neighbour */
@@ -88,16 +97,16 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
     for(i=0; i<nrand; i++)
     {
         /* reset distance */
-        for(k=0; k<knn_nb; k++) distance[k] = 0;
+        for(k=0; k<knn_nb; k++) distances[k] = 0;
 
         /* compute distance */
-        for(year=-1; year<nyears; year++)
+        for(icycle=-1; icycle<ncycles; icycle++)
         {
-            istart = (int)(year*365.25 - knn_window + fmod(idx_selec, 365.25));
+            istart = (int)(icycle*cycle_length - knn_window + fmod(idx_select, cycle_length));
             istart = istart < 0 ? 0 :
                     istart >= nval-1 ? nval-1 : istart;
 
-            iend = (int)(year*365.25 + knn_window + fmod(idx_selec, 365.25));
+            iend = (int)(icycle*cycle_length + knn_window + fmod(idx_select, cycle_length));
             iend = iend < 0 ? 0 :
                     iend >= nval-1 ? nval-1 : iend;
 
@@ -110,9 +119,9 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
 
                 /* Computes weighted euclidian distance for potential neighbour */
                 d = 0;
-                for(l=0; l<nvar; l++)
+                for(k=0; k<nvar; k++)
                 {
-                    delta = var[idx+nval*l] - knn_var[l];
+                    delta = var[idx+nval*k] - knn_var[k];
                     d += delta * delta * w;
                 }
 
@@ -126,30 +135,30 @@ int c_knn_run(int nparams, int nval, int nvar, int nrand,
                  * and list of selected vectors */
                 if(knn_rank < knn_nb)
                 {
-                    for(l=knn_nb-1; l>=knn_rank+1; l--)
+                    for(k=knn_nb-1; k>=knn_rank+1; k--)
                     {
-                        knn_idx[l] = knn_idx[l-1];
-                        distances[l] = distances[l-1];
+                        knn_idx_potential[k] = knn_idx[k-1];
+                        distances[k] = distances[k-1];
                     }
 
-                    knn_idx[knn_rank] = idx;
+                    knn_idx_potential[knn_rank] = idx;
                     distances[knn_rank] = d;
                 }
 
             } /* loop on potential neighbours */
 
-        } /* loop on years */
+        } /* loop on cycles */
 
         /* Select neighbours from candidates */
-        rnd = rand[i];
+        rnd = rands[i];
         rnd = rnd < 0 ? 0 : rnd > 1 ? 1 : rnd;
 
-        l=0;
-        while(rnd > kernel && l < knn_nb)
-            l ++;
+        k=0;
+        while(rnd > kernel[k] && k < knn_nb)
+            k ++;
 
         /* Save the following day (key of KNN algorithm!)*/
-        idx_select = knn_idx[l]+1;
+        idx_select = knn_idx[k]+1;
         knn_idx[i] = idx_select;
 
         /* Save knn variables for next iteration */

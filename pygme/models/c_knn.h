@@ -1,6 +1,8 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <stdio.h>
+
 
 /* Maximum size of resampling kernel */
 #define KNN_NKERNEL_MAX 50

@@ -20,26 +20,37 @@ class KNNTestCases(unittest.TestCase):
 
 
     def test_print(self):
-        kn = KNN()
+        nval = 5000
+        nvar = 5
+        knn_var = np.random.uniform(0, 1, (nval, nvar))
+        weights = np.ones(nval)
+
+        kn = KNN(knn_var, weights)
+
         str_kn = '%s' % kn
 
 
     def test_knn_dumb(self):
-        nval = 5000
+        nval = 120
         nvar = 5
-        var = np.random.uniform(0, 1, (nval, nvar))
+
+        ii = np.arange(nval).astype(float)
+        u = np.sin(ii/12-np.pi/2)+1
+        knn_var = np.repeat(u[:, None], nvar, axis=1) + np.random.uniform(-0.1, 0.1, (nval, nvar))
         weights = np.ones(nval)
 
-        kn = KNN(var, weights)
+        kn = KNN(knn_var, weights)
+        kn.params[2] = 12
 
         nrand = 100
         kn.allocate(nrand)
-        gr.initialise(54)
+        kn.initialise()
 
-        rand = random.uniform(0, 1, nval)
-        gr.inputs = rand
+        rand = np.random.uniform(0, 1, nrand)
+        kn.inputs = rand
 
-        gr.run()
+        kn.run()
+        import pdb; pdb.set_trace()
 
 if __name__ == '__main__':
     unittest.main()
