@@ -418,7 +418,7 @@ class Model(object):
         obj.random(distribution, seed)
 
 
-    def run(self):
+    def run(self, seed=None):
         pass
 
     def run_ens(self,

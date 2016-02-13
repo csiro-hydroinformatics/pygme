@@ -21,65 +21,48 @@ class KNNTestCases(unittest.TestCase):
 
 
     def test_print(self):
-        return
-
         nval = 5000
         nvar = 5
-        knn_var = np.random.uniform(0, 1, (nval, nvar))
+        var = np.random.uniform(0, 1, (nval, nvar))
         weights = np.ones(nval)
 
-        kn = KNN(knn_var, weights)
+        kn = KNN(var, weights)
 
         str_kn = '%s' % kn
 
 
     def test_knn_dumb(self):
-        return
+        cycle = 10
+        nval = 4 * cycle
+        nvar = 1
+        cpi = 3
 
-        nval = 120
-        nvar = 5
+        tmp = np.arange(cycle)[range(cpi, cycle) + range(cpi)]
+        tmp = tmp.reshape((cycle, 1)).repeat(nval/cycle, 1)
+        tmp = tmp + 0.1* np.arange(tmp.shape[1])
+        var = tmp.flat[:]
+        kn = KNN(var)
 
-        ii = np.arange(nval).astype(float)
-        u = np.sin(ii/12-np.pi/2)+1
-        knn_var = np.repeat(u[:, None], nvar, axis=1) + np.random.uniform(-0.1, 0.1, (nval, nvar))
+        kn.config['halfwindow'] = 1
+        kn.config['nb_nn'] = 3
+        kn.config['cycle_length'] = cycle
+        kn.config['cycle_position_ini'] = cpi
 
-        kn = KNN(knn_var)
-        kn.params = [2, 4, 12]
-
-        nrand = 10
-        kn.allocate(nrand)
-        kn.initialise()
-        kn.run()
-
-
-    def test_knn_initialise(self):
-
-        i = 10
-        fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
-                self.FHERE, i+1)
-        data = np.loadtxt(fts, delimiter=',')
-
-        dates = pd.Series(data[:,0]).apply(lambda x:
-                        datetime.datetime.strptime('{0:0.0f}'.format(x), '%Y%m%d'))
-
-        knn_var = data[:, [1,2]]
-        kn = KNN(knn_var)
-
-        knn_win = 4
-        knn_nb = 3
-        kn.params = [knn_win, knn_nb, 365.25]
-
-        nrand = data.shape[0]
+        nrand = 2
         kn.allocate(nrand)
 
-        pos = 30
-        kn.initialise(cycle_position=pos, knn_var=[10., 3.])
+        value = 8.3
+        cycle_position = 8
+        states = [value, cycle_position]
+        kn.initialise(states)
 
-        self.assertTrue(np.allclose(kn.states[0], 2588))
+        kn.run(seed=333)
+        import pdb; pdb.set_trace()
 
 
     def test_knn_rainfall(self):
         ''' Test to check that KNN can reproduce rainfall stats '''
+        return
 
         # Function to compute rainfall stats
         def stats(x):
@@ -101,17 +84,17 @@ class KNNTestCases(unittest.TestCase):
             data = np.loadtxt(fts, delimiter=',')
 
             dates = pd.Series(data[:,0]).apply(lambda x:
-                            datetime.datetime.strptime('{0:0.0f}'.format(x), '%Y%m%d'))
+                            datetime.datetime.strptime('{0:0.0f}'.format(x),
+                                '%Y%m%d'))
 
             #nkern = 30
             #cum = np.convolve(data[:, 1], np.ones(nkern), 'same')[:, None]
-            #knn_var = np.concatenate([p_pe, cum], axis=1)
-            knn_var = data[:, [1,2]]
-            kn = KNN(knn_var)
+            #var = np.concatenate([p_pe, cum], axis=1)
+            var = data[:, [1,2]]
+            kn = KNN(var)
 
-            knn_win = 4
-            knn_nb = 3
-            kn.params = [knn_win, knn_nb, 365.25]
+            kn.config['halfwindow'] = 4
+            kn.config['nb_nn'] = 3
 
             nrand = data.shape[0]
             kn.allocate(nrand)
@@ -125,7 +108,6 @@ class KNNTestCases(unittest.TestCase):
                 # KNN sample
                 t0 = time.time()
 
-                kn.seed = k
                 kn.run()
                 import pdb; pdb.set_trace()
 

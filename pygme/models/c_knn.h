@@ -18,19 +18,9 @@
 
 int c_knn_run(int nparams, int nval, int nvar, int nrand,
     int seed,
-    int idx_select,
     double * params,
     double * weights,
     double * var,
+    double * states,
     int * knn_idx);
 
-int c_knn_mindist(int nparams, int nval, int nvar, 
-    int cycle_position, 
-    int knn_var_cycle_position,
-    double * knn_var, 
-    double * params,
-    double * weights,
-    double * var,
-    int * knn_idx);
-
- 
