@@ -1,69 +1,88 @@
 #include "c_knn.h"
 
-#define DEBUG_FLAG 1
+#define DEBUG_FLAG 0
 
+double get_rand(void)
+{
+    return (double)(rand())/RAND_MAX;
+}
+
+double compute_kernel(int ordinate)
+{
+    return 1./(1+ordinate);
+}
 
 int c_knn_getnn(int nval, int nvar,
-                int ncycles, double cycle,
-                int halfwindow, int nb_nn,
-                int cycle_position,
+                int ncycles,
+                double cycle,
+                double halfwindow,
+                int nb_nn,
                 double * var,
                 double * weights,
                 double * states,
                 double * distances,
-                int * idx_potential)
+                double * idx_potential)
 {
-    int ierr, k, icycle, idx, istart, iend;
-    int rank;
+    int ierr, k, icycle;
+    int rank, idx2;
 
-    double w, dst, delta;
+    double idx, istart, iend;
+    double cycle_position, w, dst, delta;
 
     ierr = 0;
+
+    cycle_position = states[nvar];
 
     /* compute distance */
     for(icycle=0; icycle<ncycles; icycle++)
     {
-        /* Skip the first cycle if cycle_position < 0 */
-        if(cycle_position < 0)
-            continue;
-
-        istart = (int)(icycle*cycle - halfwindow
+        /* Start / end of window */
+        istart = (icycle*cycle - halfwindow
                         + cycle_position);
         istart = istart < 0 ? 0 :
                 istart > nval-1 ? nval-1 : istart;
 
-        iend = (int)(icycle*cycle + halfwindow
+        iend = (icycle*cycle + halfwindow
                         + cycle_position);
         iend = iend < 0 ? 0 :
                 iend > nval-1 ? nval-1 : iend;
 
-        if(DEBUG_FLAG == 1)
-            fprintf(stdout, "\tcycle %3d : %d -> %d\n",
+        if(DEBUG_FLAG >= 2)
+            fprintf(stdout, "\n\tcycle %3d : %7.2f -> %7.2f\n",
                     icycle, istart, iend);
 
         /* loop through KNN variables within window and compute distances
             with selected day */
         for(idx=istart; idx<=iend; idx++)
         {
-            w = weights[idx];
+            /* round index */
+            idx2 = (int) rint(idx);
+
+            /* Get weight */
+            w = weights[idx2];
             if(w < KNN_WEIGHT_MIN)
                 continue;
 
-            /* Computes weighted euclidian distance for potential neighbour */
+            /* Computes weighted Euclidian distance with potential neighbours */
             dst = 0;
             for(k=0; k<nvar; k++)
             {
-                delta = var[idx+nval*k] - states[k];
+                delta = var[idx2+nval*k] - states[k];
                 dst += delta * delta * w;
             }
+            dst = dst > KNN_DIST_MAX ? KNN_DIST_MAX : dst;
 
-            /* Check if the distance is lower than one
-             * of the already stored distance */
+            /* Perturb distance to avoid ties */
+            dst += KNN_WEIGHT_MIN * get_rand()/2;
+
+            /* Compute the rank of current neighbour distance
+             * within the ones already computed */
             rank = 0;
             while(dst>distances[rank] && rank < nb_nn)
                 rank ++;
 
-            /* If yes, then rearrange distances */
+            /* If current neighbour is within the closest,
+             * then rearrange distances and store data */
             if(rank < nb_nn)
             {
                 for(k=nb_nn-1; k>=rank+1; k--)
@@ -75,9 +94,14 @@ int c_knn_getnn(int nval, int nvar,
                 idx_potential[rank] = idx;
                 distances[rank] = dst;
 
-                if(DEBUG_FLAG==1)
-                    fprintf(stdout, "\t\tidx %d : dst=%0.10f rank=%d\n",
-                            idx, dst, rank);
+                if(DEBUG_FLAG >= 3)
+                {
+                    fprintf(stdout, "\t\tidx %7.2f (%4d): rank=%d dst=%5.10f ( ",
+                            idx, idx2, rank, dst);
+                    for(k=0; k<nvar; k++)
+                        fprintf(stdout, "%0.3f ", var[idx2+nval*k]);
+                    fprintf(stdout, ")\n");
+                }
             }
 
         } /* loop on potential neighbours */
@@ -115,12 +139,13 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     int * knn_idx)
 {
     int ierr, i, k;
-    int idx_select;
-    int halfwindow, nb_nn, ncycles;
-    int cycle_position, cycle_position_ini;
-    int idx_potential[KNN_NKERNEL_MAX];
+    int nb_nn, ncycles;
+    int cycle_position_ini;
+    int idx_select2;
 
-    double sum, cycle, rnd;
+    double idx_select;
+    double idx_potential[KNN_NKERNEL_MAX];
+    double sum, cycle, rnd, halfwindow;
     double kernel[KNN_NKERNEL_MAX];
     double distances[KNN_NKERNEL_MAX];
 
@@ -134,9 +159,6 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     if(seed != -1)
         srand(seed);
 
-    /* Half temporal window selection */
-    halfwindow = (int)(config[0]);
-
     /* Number of neighbours */
     nb_nn = (int)config[1];
     if(nb_nn >= KNN_NKERNEL_MAX)
@@ -147,105 +169,101 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     if(cycle < 0)
         return 10000+__LINE__;
 
+    /* Half temporal window selection */
+    halfwindow = config[0];
+    if(halfwindow < 0 || halfwindow >= cycle/2)
+        return 10000+__LINE__;
+
     /* Cycle position of first point in var matrix */
     cycle_position_ini = config[3];
-    if(cycle_position_ini < 0 || cycle_position > cycle)
+    if(cycle_position_ini < 0 || cycle_position_ini > cycle)
         return 10000+__LINE__;
 
     /* Number of cycles in input matrix */
     ncycles = (int)(nval/cycle)+1;
 
-    /* Normalise weights */
-    sum = 0;
-    for(i=0; i<nval; i++) sum += fabs(weights[i]);
-
-    if(sum <= 0)
-        return 10000+__LINE__;
-
-    for(i=0; i<nval; i++)
-        weights[i] = fabs(weights[i])/sum;
-
     /* Create resampling kernel */
     sum = 0;
-    for(k=0; k<nb_nn; k++) sum += 1./(double)(k+1);
+    for(k=0; k<nb_nn; k++) sum += compute_kernel(k);
 
     kernel[0] = 1./sum;
     for(k=1; k<nb_nn; k++)
-        kernel[k] = kernel[k-1] + 1./(double)(k+1)/sum;
+        kernel[k] = kernel[k-1] + compute_kernel(k)/sum;
 
     /* reset distance and potential neighbours */
     for(k=0; k<nb_nn; k++)
     {
-        distances[k] = KNN_DIST_INI;
+        distances[k] = KNN_DIST_MAX;
         idx_potential[k] = -1;
     }
 
     /* Check cycle position */
-    cycle_position = states[nvar];
-    cycle_position -= cycle_position_ini;
-    if(cycle_position < 0 || cycle_position >= cycle)
+    states[nvar] -= cycle_position_ini;
+    if(states[nvar] < -cycle || states[nvar] >= cycle)
         return 10000+__LINE__;
 
     /* Select the first KNN index */
     ierr = c_knn_getnn(nval, nvar, ncycles, cycle,
-            halfwindow,  nb_nn, cycle_position,
-            var, weights,
+            halfwindow,  nb_nn, var, weights,
             states, distances, idx_potential);
     idx_select = idx_potential[0];
 
     /* resample */
     for(i=0; i<nrand; i++)
     {
-        if(DEBUG_FLAG == 1)
-            fprintf(stdout, "[%3d] idx select = %d\n", i, idx_select);
+        idx_select2 = (int) rint(idx_select);
 
         /* Initialise KNN variables vector */
         for(k=0; k<nvar; k++)
-            states[k] = var[idx_select+nval*k];
+            states[k] = var[idx_select2+nval*k];
+
+        /* Position within cycle */
+        states[nvar] = fmod(idx_select, cycle);
 
         /* reset distance and potential neighbours */
         for(k=0; k<nb_nn; k++)
         {
-            distances[k] = KNN_DIST_INI;
+            distances[k] = KNN_DIST_MAX;
             idx_potential[k] = -1;
         }
 
-        /* Position within cycle */
-        cycle_position = fmod(idx_select, cycle);
-        cycle_position -= cycle_position_ini;
+        if(DEBUG_FLAG >= 1)
+            fprintf(stdout, "\n[%3d] idx select = %7.2f,  pos = %3.0f\n", i,
+                    idx_select, states[nvar]);
 
         /* Find nearest neighbours */
         ierr = c_knn_getnn(nval, nvar, ncycles, cycle,
-                halfwindow,  nb_nn, cycle_position,
-                var, weights,
+                halfwindow,  nb_nn, var, weights,
                 states, distances, idx_potential);
 
-        if(DEBUG_FLAG == 1)
+        if(DEBUG_FLAG >= 1)
+        {
+            fprintf(stdout, "\n");
             for(k=0; k<nb_nn; k++)
-                fprintf(stdout, " kern(%d)= %0.4f idx=%d d=%0.10f\n",
+                fprintf(stdout, "\tkern(%d)=%0.4f idx=%7.2f  d=%0.10f\n",
                         k,kernel[k], idx_potential[k], distances[k]);
+        }
 
         /* Select neighbours from candidates */
-        rnd = (double)(rand())/RAND_MAX;
+        rnd = get_rand();
 
         k = 0;
         while(rnd > kernel[k] && k < nb_nn) k ++;
 
         /* Save the following day (key of KNN algorithm!)*/
         idx_select = idx_potential[k]+1;
-        idx_select = idx_select < nval ? idx_select : nval-1;
 
         if(idx_select < 0)
             return 10000+__LINE__;
 
-        knn_idx[i] = idx_select;
+        idx_select2 = (int) rint(idx_select);
+        idx_select2 = idx_select2 < nval ? idx_select2 : nval-1;
+        knn_idx[i] = idx_select2;
 
-        if(DEBUG_FLAG == 1)
-            fprintf(stdout, "RND=%0.5f -> idx=%d\n\n", rnd, idx_select);
+        if(DEBUG_FLAG >= 1)
+            fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7.2f\n\n",
+                    rnd, idx_select);
 
-        /* Save knn variables for next iteration */
-        for(k=0; k<nvar; k++)
-            states[k] = var[idx_select+nval*k];
 
     } /* loop on random numbers */
 
