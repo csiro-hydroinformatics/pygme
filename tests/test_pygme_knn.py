@@ -70,7 +70,7 @@ class KNNTestCases(unittest.TestCase):
 
         tmp = np.arange(cycle)[range(cpi, cycle) + range(cpi)]
         tmp = tmp.reshape((cycle, 1)).repeat(nval/cycle, 1)
-        tmp = tmp + 0.01* np.arange(tmp.shape[1])
+        tmp = tmp + 0.1* np.arange(tmp.shape[1])
         var = tmp.T.flat[:]
         kn = KNN(var)
 
@@ -89,6 +89,7 @@ class KNNTestCases(unittest.TestCase):
         kn.run(seed=333)
 
         expected = np.arange(cycle)[range(int(value)+1, cycle) + range(int(value)+1)]
+
         ck = np.allclose(np.floor(kn.outputs[:,0]), expected)
         self.assertTrue(ck)
 

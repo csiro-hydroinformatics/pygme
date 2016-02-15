@@ -42,6 +42,10 @@ int c_knn_getnn(int nval, int nvar,
         istart = istart < 0 ? 0 :
                 istart > nval-1 ? nval-1 : istart;
 
+        /* Skip case of overlapping periods */
+        if(istart == iend)
+            continue;
+
         iend = (icycle*cycle + halfwindow
                         + cycle_position);
         iend = iend < 0 ? 0 :
@@ -221,13 +225,13 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
             states[k] = var[idx_select2+nval*k];
 
         /* Position within cycle */
+        /* This is the logical approach - IT DOES NOT WORK !!! WHY ??? 
         states[nvar] = fmod(idx_select, cycle);
-        /*        
+        */
         if(states[nvar] < cycle)
             states[nvar] += 1;
         else
             states[nvar] = 0;
-        */
 
         /* reset distance and potential neighbours */
         for(k=0; k<nb_nn; k++)
@@ -265,9 +269,10 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
         if(idx_select < 0)
             return 10000+__LINE__;
 
+        /* Selected closest index and loop back to beginning if end of the
+        series is reached */
         idx_select2 = (int) rint(idx_select);
-        idx_select2 = idx_select2 < nval ? idx_select2 : nval-1;
-        knn_idx[i] = idx_select2;
+        knn_idx[i] = idx_select2 < nval ? idx_select2 : 0;
 
         if(DEBUG_FLAG >= 1)
             fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7.2f\n\n",
