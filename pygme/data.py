@@ -376,12 +376,13 @@ class Matrix(object):
 
     @classmethod
     def from_dims(cls, id, nval, nvar, nlead=1, nens=1, ts_index=None, prefix='V'):
-        return cls(id, nval, nvar, nlead, nens, None)
+        return cls(id, nval, nvar, nlead, nens, None, ts_index, prefix)
 
 
     @classmethod
     def from_data(cls, id, data):
         return cls(id, None, None, None, None, data, ts_index=None, prefix='V')
+
 
     @classmethod
     def from_hdf(cls, filename, root_path=''):
@@ -557,6 +558,11 @@ class Matrix(object):
 
 
     @property
+    def ts_index_continuous(self):
+        return self._ts_index_continuous
+
+
+    @property
     def ts_index(self):
         return self._ts_index
 
@@ -568,8 +574,18 @@ class Matrix(object):
         if value.shape[0] != self.nval:
             raise ValueError(('With {0} matrix: tried to set ts_index, got {1} values,' \
                     ' expected {2}').format( \
-                                self.id, value.shape[0], self.nbval))
+                                self.id, value.shape[0], self.nval))
 
+        # Check if matrix has continuous ts indexes
+        diff = np.diff(value)
+        if not np.all(diff>0):
+            raise ValueError(('With {0} matrix: ts_index is not strictly' + \
+                    ' increasing').format(self.id))
+
+        # Check if matrix has continuous ts indexes
+        self._ts_index_continuous = np.all(np.allclose(diff, 1.))
+
+        # Set index
         self._ts_index = value
 
 

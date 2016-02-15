@@ -313,5 +313,35 @@ class MatrixTestCases(unittest.TestCase):
                 self.assertTrue(ck)
 
 
+    def test_matrix10(self):
+        nval = 50
+        nvar = 3
+        nlead = 1
+        nens = 1
+
+        # Create matrix
+        ts_index = np.random.choice(range(1, 5), nval)
+        ts_index = np.cumsum(ts_index)
+        m1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
+                ts_index=ts_index)
+
+        try:
+            ts_index = np.arange(nval-10)
+            m1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
+                    ts_index=ts_index)
+        except ValueError, e:
+            pass
+        self.assertTrue(str(e).startswith('With test matrix: tried to set ts_index'))
+
+        try:
+            ts_index = np.random.choice(range(-5, 5), nval)
+            ts_index = np.cumsum(ts_index)
+            m1.ts_index = ts_index
+        except ValueError, e:
+            pass
+        self.assertTrue(str(e).startswith('With test matrix: ts_index is not strictly'))
+
+
+
 if __name__ == '__main__':
     unittest.main()
