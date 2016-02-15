@@ -336,7 +336,7 @@ class Vector(object):
 
 class Matrix(object):
 
-    def __init__(self, id, nval, nvar, nlead=1, nens=1, data=None, prefix='V'):
+    def __init__(self, id, nval, nvar, nlead=1, nens=1, data=None, ts_index=None, prefix='V'):
         self.id = id
         self.prefix = prefix
         self._iens = 0
@@ -368,15 +368,20 @@ class Matrix(object):
 
         self._names = ['{0}{1}'.format(prefix, i) for i in range(self.nvar)]
 
+        if not ts_index is None:
+            self.ts_index = ts_index
+        else:
+            self.ts_index = np.arange(self._nval)
+
 
     @classmethod
-    def from_dims(cls, id, nval, nvar, nlead=1, nens=1, prefix='V'):
+    def from_dims(cls, id, nval, nvar, nlead=1, nens=1, ts_index=None, prefix='V'):
         return cls(id, nval, nvar, nlead, nens, None)
 
 
     @classmethod
     def from_data(cls, id, data):
-        return cls(id, None, None, None, None, data, prefix='V')
+        return cls(id, None, None, None, None, data, ts_index=None, prefix='V')
 
     @classmethod
     def from_hdf(cls, filename, root_path=''):
@@ -400,6 +405,10 @@ class Matrix(object):
         for k in keys:
             # Remove path
             kk = re.sub('.*/', '', k)
+
+            # Skip ts index
+            if kk.endswith('ts_index'):
+                continue
 
             # Get id, ilead and iens
             match = re.match('(?P<id>[\d\w]+)_ilead(?P<ilead>\d+)_iens(?P<iens>\d+)', kk)
@@ -428,6 +437,11 @@ class Matrix(object):
         nval, nvar = df.shape
         prefix = df.columns[0][0]
         mat = Matrix.from_dims(id, nval, nvar, nlead, nens, prefix=prefix)
+
+        # Reads ts index
+        path = '{0}/{1}_ts_index'.format(root_path, id)
+        df = store[path]
+        mat.ts_index = df.values
 
         # Populate data
         for ilead, iens in product(range(nlead), range(nens)):
@@ -518,7 +532,7 @@ class Matrix(object):
 
         value = int(value)
         if value >= self.nlead or value < 0:
-            raise ValueError(('With {0} vector: ilead {1} ' \
+            raise ValueError(('With {0} matrix: ilead {1} ' \
                     '>= nlead({2}) or < 0').format( \
                                 self.id, value, self.nlead))
 
@@ -535,11 +549,28 @@ class Matrix(object):
 
         value = int(value)
         if value >= self.nens or value < 0:
-            raise ValueError(('With {0} vector: iens {1} ' \
+            raise ValueError(('With {0} matrix: iens {1} ' \
                     '>= nens({2}) or < 0').format( \
                                 self.id, value, self.nens))
 
         self._iens = value
+
+
+    @property
+    def ts_index(self):
+        return self._ts_index
+
+    @ts_index.setter
+    def ts_index(self, value):
+        ''' Set the times series index '''
+
+        value = np.atleast_1d(value).astype(np.int32)
+        if value.shape[0] != self.nval:
+            raise ValueError(('With {0} matrix: tried to set ts_index, got {1} values,' \
+                    ' expected {2}').format( \
+                                self.id, value.shape[0], self.nbval))
+
+        self._ts_index = value
 
 
     def reset(self, value=0.):
@@ -547,7 +578,8 @@ class Matrix(object):
 
 
     def clone(self):
-        clone = Matrix.from_data(self.id, self._data)
+        clone = Matrix.from_data(self.id, self._data,
+                ts_index=self.ts_index, prefix=self.prefix)
 
         return clone
 
@@ -556,6 +588,12 @@ class Matrix(object):
 
         store = pd.HDFStore(filename)
 
+        # Write ts index
+        path = '{0}/{1}_ts_index'.format(root_path, self.id)
+        df = pd.DataFrame(self.ts_index, columns = ['ts_index'])
+        store.put(path, df)
+
+        # Write data
         for ilead, iens in product(range(self.nlead), range(self.nens)):
             self.ilead = ilead
             self.iens = iens
