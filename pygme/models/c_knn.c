@@ -7,6 +7,17 @@ double get_rand(void)
     return (double)(rand())/RAND_MAX;
 }
 
+int get_idx(double idx, int nval)
+{
+    int idx2;
+
+    idx2 = (int) rint(idx);
+    if(idx2 < 0) idx2 = nval - idx2;
+    if(idx2 >= nval) idx2 -= nval;
+
+    return idx2;
+}
+
 double compute_kernel(int ordinate)
 {
     return 1./(1+ordinate);
@@ -32,6 +43,7 @@ int c_knn_getnn(int nval, int nvar,
     ierr = 0;
 
     cycle_position = states[nvar];
+    iend = -1;
 
     /* compute distance */
     for(icycle=0; icycle<ncycles; icycle++)
@@ -39,8 +51,6 @@ int c_knn_getnn(int nval, int nvar,
         /* Start / end of window */
         istart = (icycle*cycle - halfwindow
                         + cycle_position);
-        istart = istart < 0 ? 0 :
-                istart > nval-1 ? nval-1 : istart;
 
         /* Skip case of overlapping periods */
         if(istart == iend)
@@ -48,8 +58,6 @@ int c_knn_getnn(int nval, int nvar,
 
         iend = (icycle*cycle + halfwindow
                         + cycle_position);
-        iend = iend < 0 ? 0 :
-                iend > nval-1 ? nval-1 : iend;
 
         if(DEBUG_FLAG >= 2)
             fprintf(stdout, "\n\tcycle %3d : %7.2f -> %7.2f\n",
@@ -60,7 +68,7 @@ int c_knn_getnn(int nval, int nvar,
         for(idx=istart; idx<=iend; idx++)
         {
             /* round index */
-            idx2 = (int) rint(idx);
+            idx2 = get_idx(idx, nval);
 
             /* Get weight */
             w = weights[idx2];
@@ -214,7 +222,7 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     /* Check cycle position */
     states[nvar] -= cycle_position_ini - 1;
     if(states[nvar] < 0)
-        states[nvar] = cycle - states[nvar]; 
+        states[nvar] = cycle - states[nvar];
 
     if(states[nvar] < 0)
         return 10000+__LINE__;
@@ -280,13 +288,9 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
         /* Save the following day (key of KNN algorithm!)*/
         idx_select = idx_potential[k]+1;
 
-        if(idx_select < 0)
-            return 10000+__LINE__;
-
         /* Selected closest index and loop back to beginning if end of the
         series is reached */
-        idx_select2 = (int) rint(idx_select);
-        knn_idx[i] = idx_select2 < nval ? idx_select2 : 0;
+        knn_idx[i] = get_idx(idx_select, nval);
 
         if(DEBUG_FLAG >= 1)
             fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7.2f\n\n",

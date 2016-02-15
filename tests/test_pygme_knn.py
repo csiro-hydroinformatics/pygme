@@ -82,6 +82,7 @@ class KNNTestCases(unittest.TestCase):
 
 
     def test_knn_dumb(self):
+        return
         cycle = 10
         nval = 4 * cycle
         nvar = 1
@@ -114,19 +115,22 @@ class KNNTestCases(unittest.TestCase):
 
 
     def test_knn_seasonality(self):
-        halfwin = 20
-        nb_nn = 10
-        cycle = 365
+        halfwin = 10
+        nb_nn = 5
+        cycle = 100
 
         ncycle = 30
         nval = ncycle * cycle
         nvar = 1
-        cpi = 300
+        cpi = cycle/3*2
 
-        input_var = np.random.uniform(0, 1, nval)
+        #input_var = np.random.uniform(0, 1, nval)
+        input_var = np.ones(nval)
 
         idx = np.array([range(cpi, cycle) + range(cpi)]).reshape((cycle, 1))
         output_var = np.repeat(idx, ncycle, axis=1).T.flat[:]
+        output_var = np.concatenate([output_var[:, None],
+                                np.arange(nval)[:, None]], axis=1)
         kn = KNN(input_var, output_var = output_var)
 
         kn.config['halfwindow'] = halfwin
@@ -136,24 +140,51 @@ class KNNTestCases(unittest.TestCase):
         kn.config['cycle_position_ini_opt'] = 1
 
         nrand = nval
-        kn.allocate(nrand)
+        kn.allocate(nrand, output_var.shape[1])
 
         states = [input_var[0], cpi]
         kn.initialise(states)
         kn.run(seed=333)
 
-        res = pd.DataFrame({'knn':kn.outputs[:, 0], 'pos':output_var})
-        resp = res.groupby('pos').mean()
-        resp2 = resp['knn'][30:-30]
+        res = pd.DataFrame({'knn_pos':kn.outputs[:, 0], 'knn_idx':kn.outputs[:,1],
+                                'pos':output_var[:,0]})
+        resp1 = res.groupby('pos').mean()
+        resp2 = resp1['knn_pos'][30:-30]
+        resp3 = res['knn_idx'].value_counts().sort_index()
 
         fp = os.path.join(self.FHERE, 'tmp.png')
-        fig, ax = plt.subplots()
-        resp.plot(ax=ax)
+        fig, axs = plt.subplots(ncols=2, nrows=2)
+        axs = axs.flat[:]
+        axs[-1].axis('off')
+
+        ax = axs[0]
+        resp3.plot(ax=ax)
+        ax.set_title('Original idx counts in KNN sample')
+
+        ax = axs[1]
+        resp2.plot(ax=ax)
         ax.plot(np.arange(cycle), np.arange(cycle), '--')
+        ax.set_title('Average pos in KNN sample')
+
+        ax = axs[2]
+        d = res['knn_pos'].diff()
+        d[np.abs(d)>cycle-50] = np.nan
+        ngrp = nval/cycle/5
+        for k in range(ngrp):
+            idx = range(nval*k/ngrp, nval*(k+1)/ngrp)
+            u = d[idx] + float(k)/ngrp/2
+            u.name = '{0:5d}-{1:5d} ({2:0.2f})'.format(idx[0], idx[-1], u.mean())
+            u.plot(kind='hist', ax=ax, bins=50, alpha=0.5)
+        ax.legend(loc=2, framealpha=0.8)
+        ax.set_title('Distribution of pos diff in KNN sample')
+
+        fig.set_size_inches((12,10))
+        fig.tight_layout()
         fig.savefig(fp)
 
-        err = (resp2 - resp2.index.values).mean()
-        print('err = {0}'.format(err))
+        #err = (resp2 - resp2.index.values).mean()
+        #print('err = {0}'.format(err))
+
         import pdb; pdb.set_trace()
         #plot_knn(kn, fp, cycle, cycle * 5)
 
