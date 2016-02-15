@@ -84,7 +84,7 @@ class Vector(object):
             raise ValueError(('With {0} vector: key {1} not in the' +
                 ' list of names').format(self.id, key))
 
-        return np.where(self._names == key)[0]
+        return np.where(self._names == key)[0][0]
 
 
     def __setitem__(self, key, value):

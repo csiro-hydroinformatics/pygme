@@ -199,7 +199,10 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 
     /* Check cycle position */
     states[nvar] -= cycle_position_ini;
-    if(states[nvar] < -cycle || states[nvar] >= cycle)
+    if(states[nvar] < 0)
+        states[nvar] = cycle - states[nvar]; 
+
+    if(states[nvar] < 0)
         return 10000+__LINE__;
 
     /* Select the first KNN index */
@@ -219,6 +222,12 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 
         /* Position within cycle */
         states[nvar] = fmod(idx_select, cycle);
+        /*        
+        if(states[nvar] < cycle)
+            states[nvar] += 1;
+        else
+            states[nvar] = 0;
+        */
 
         /* reset distance and potential neighbours */
         for(k=0; k<nb_nn; k++)

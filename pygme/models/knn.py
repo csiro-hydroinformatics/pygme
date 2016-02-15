@@ -51,7 +51,7 @@ class KNN(Model):
 
         if _output_var.shape[0] != _input_var.shape[0]:
             raise ValueError(('KNN model: output_var.shape[0]({0}) '+
-                '!= input_var.shape[0]({1})').format(_input_weights.shape[0],
+                '!= input_var.shape[0]({1})').format(_output_var.shape[0],
                     _input_var.shape[0]))
 
         # Store special variables
