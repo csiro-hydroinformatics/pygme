@@ -27,8 +27,8 @@ def knn_run(int seed,
     cdef int ierr
 
     # check dimensions
-    if config.shape[0] != 4:
-        raise ValueError('config.shape[0] != 4')
+    if config.shape[0] != 5:
+        raise ValueError('config.shape[0] != 5')
 
     if weights.shape[0] != var.shape[0]:
         raise ValueError('weights.shape[0] != var.shape[0]')

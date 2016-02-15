@@ -8,10 +8,14 @@ import time
 import numpy as np
 import pandas as pd
 
+import matplotlib.pyplot as plt
+
 from pygme.models.knn import KNN, dayofyear
 from pygme import calibration
 from pygme.model import Matrix
 
+
+# Utility function to compute rainfall stats
 def rain_stats(x, plow, nmonths):
     xv = x.values
     return pd.Series({'mean':np.nansum(xv)/nmonths,
@@ -37,10 +41,25 @@ def compute_stats(rain, dates, plow=1):
     tmp2b = tmp['lag1_prod'].groupby(tmp.index.month).apply(rain_stats,
                 plow, nmonths)
 
-    tmp3b = pd.pivot_table(tmp2b.reset_index(), index='level_0', columns='level_1')[0]
+    tmp3b = pd.pivot_table(tmp2b.reset_index(),
+                index='level_0', columns='level_1')[0]
     tmp3['rho'] = (tmp3b['mean2'] - tmp3['mean2']**2)/ tmp3['std']**2
 
     return tmp3.loc[:, ['mean', 'plow', 'std', 'rho']]
+
+
+def plot_knn(kn, fp, cycle, nmax):
+    plt.close('all')
+
+    kk = np.arange(nmax)
+    plt.plot(kn.knn_idx[kk] % cycle, '-o')
+    plt.plot(kk, kk % cycle, '--')
+
+    xx = np.arange(0, nmax, cycle)
+    plt.plot(xx, np.zeros(len(xx)), 'k*', markersize=20)
+
+    plt.savefig(fp)
+
 
 
 class KNNTestCases(unittest.TestCase):
@@ -94,40 +113,87 @@ class KNNTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
 
+    def test_knn_seasonality(self):
+        halfwin = 20
+        nb_nn = 10
+        cycle = 365
+
+        ncycle = 30
+        nval = ncycle * cycle
+        nvar = 1
+        cpi = 300
+
+        input_var = np.random.uniform(0, 1, nval)
+
+        idx = np.array([range(cpi, cycle) + range(cpi)]).reshape((cycle, 1))
+        output_var = np.repeat(idx, ncycle, axis=1).T.flat[:]
+        kn = KNN(input_var, output_var = output_var)
+
+        kn.config['halfwindow'] = halfwin
+        kn.config['nb_nn'] = nb_nn
+        kn.config['cycle_length'] = cycle
+        kn.config['cycle_position_ini'] = cpi
+        kn.config['cycle_position_ini_opt'] = 1
+
+        nrand = nval
+        kn.allocate(nrand)
+
+        states = [input_var[0], cpi]
+        kn.initialise(states)
+        kn.run(seed=333)
+
+        res = pd.DataFrame({'knn':kn.outputs[:, 0], 'pos':output_var})
+        resp = res.groupby('pos').mean()
+        resp2 = resp['knn'][30:-30]
+
+        fp = os.path.join(self.FHERE, 'tmp.png')
+        fig, ax = plt.subplots()
+        resp.plot(ax=ax)
+        ax.plot(np.arange(cycle), np.arange(cycle), '--')
+        fig.savefig(fp)
+
+        err = (resp2 - resp2.index.values).mean()
+        print('err = {0}'.format(err))
+        import pdb; pdb.set_trace()
+        #plot_knn(kn, fp, cycle, cycle * 5)
+
+
     def test_knn_rainfall(self):
         ''' Test to check that KNN can reproduce rainfall stats '''
+
         return
 
-        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
-        params = np.loadtxt(fp, delimiter=',')
+        lf = [os.path.join(self.FHERE, 'data', f)
+                for f in os.listdir(os.path.join(self.FHERE, 'data'))
+                    if f.startswith('KNNTEST')]
 
         nsample = 100
-        nsites = params.shape[0]
+
+        halfwin = 10
+        nb_nn = 5
         lag = 0
 
-        for i in [6]:#np.random.choice(range(nsites), nsites, False):
+        for i in [1]:
 
-            fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
-            data = np.loadtxt(fts, delimiter=',')
+            fts = os.path.join(self.FHERE, 'data', lf[i])
+            data = pd.read_csv(fts, comment='#', index_col=0, parse_dates=True)
 
-            dates = pd.Series(data[:,0]).apply(lambda x:
-                            datetime.datetime.strptime('{0:0.0f}'.format(x),
-                                '%Y%m%d'))
+            dates = data.index
+            data = data.values
 
             # Build lag matrix
             d = []
             nval = data.shape[0]
             for l in range(lag+1):
-                d.append(data[l:nval-lag+l, [1, 2]])
+                d.append(data[l:nval-lag+l, :])
             var_out = np.concatenate(d, axis=1)
 
             # Configure KNN
             var_in = var_out
             kn = KNN(input_var = var_in, output_var = var_out)
 
-            kn.config['halfwindow'] = 5
-            kn.config['nb_nn'] = 8
+            kn.config['halfwindow'] = halfwin
+            kn.config['nb_nn'] = nb_nn
             kn.config['cycle_position_ini'] = 0
 
             cycle = 365.25
@@ -149,20 +215,6 @@ class KNNTestCases(unittest.TestCase):
                 kn.initialise(states)
                 seed = np.random.randint(0, 1000000)
                 kn.run(seed)
-
-                #import matplotlib.pyplot as plt
-                #plt.close('all')
-                #x = np.arange(nrand) % 365.25
-                #kk = np.arange(1000) #len(x))
-                #plt.plot(kn.knn_idx[kk] % cycle, '-o')
-                #plt.plot(kk, kk, '--')
-
-                #xx = np.arange(0, np.max(kk), cycle)
-                #plt.plot(xx, np.zeros(len(xx)), 'x', markersize=20)
-                ##plt.plot(x[kk], kn.knn_idx[kk] % cycle, '-o')
-                ##plt.plot(x[kk], x[kk], '--')
-                #plt.savefig(os.path.join(self.FHERE, 'tmp.png'))
-                #import pdb; pdb.set_trace()
 
                 t1 = time.time()
                 dta += 1000 * (t1-t0)

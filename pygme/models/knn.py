@@ -31,18 +31,18 @@ class KNN(Model):
             output_var = input_var
 
         # Check inputs
-        _input_var = np.atleast_2d(input_var)
+        _input_var = np.atleast_2d(input_var).astype(np.float64)
         if _input_var.shape[0] == 1:
             _input_var = _input_var.T
 
-        _output_var = np.atleast_2d(output_var)
+        _output_var = np.atleast_2d(output_var).astype(np.float64)
         if _output_var.shape[0] == 1:
             _output_var = _output_var.T
 
         if input_weights is None:
-            _input_weights = np.ones(_input_var.shape[0])
+            _input_weights = np.ones(_input_var.shape[0], dtype=np.float64)
         else:
-            _input_weights = np.atleast_1d(input_weights)
+            _input_weights = np.atleast_1d(input_weights).astype(np.float64)
 
         if _input_weights.shape[0] != _input_var.shape[0]:
             raise ValueError(('KNN model: weights.shape[0]({0}) '+
@@ -62,7 +62,7 @@ class KNN(Model):
         self.idx_knn = None
 
         Model.__init__(self, 'knn',
-            nconfig=4,
+            nconfig=5,
             ninputs=1,
             nparams=0,
             nstates=_input_var.shape[1] + 1,
@@ -72,10 +72,12 @@ class KNN(Model):
             nens_outputs=nens_outputs)
 
         self.config.names = ['halfwindow', 'nb_nn',
-                                'cycle_length', 'cycle_position_ini']
-        self.config.min = [4, 3, 10, 0]
-        self.config.max = [50, 50, 366, 366]
-        self.config.default = [20, 10, 365.25, 0]
+                                'cycle_length',
+                                'cycle_position_ini',
+                                'cycle_position_ini_opt']
+        self.config.min = [4, 3, 10, 0, 0]
+        self.config.max = [50, 50, 366, 366, 2]
+        self.config.default = [20, 10, 365.25, 0, 0]
         self.config.reset()
 
 

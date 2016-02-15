@@ -76,6 +76,9 @@ int c_knn_getnn(int nval, int nvar,
             }
             dst = dst > KNN_DIST_MAX ? KNN_DIST_MAX : dst;
 
+            if(isnan(dst))
+                continue;
+
             /* Perturb distance to avoid ties */
             dst += KNN_WEIGHT_MIN * get_rand()/2;
 
@@ -144,10 +147,11 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 {
     int ierr, i, k;
     int nb_nn, ncycles;
-    int cycle_position_ini;
+    int cycle_position_ini_opt;
     int idx_select2;
 
     double idx_select;
+    double cycle_position_ini;
     double idx_potential[KNN_NKERNEL_MAX];
     double sum, cycle, rnd, halfwindow;
     double kernel[KNN_NKERNEL_MAX];
@@ -183,6 +187,12 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     if(cycle_position_ini < 0 || cycle_position_ini > cycle)
         return 10000+__LINE__;
 
+    /* Treat */
+    cycle_position_ini_opt = config[4];
+    if(cycle_position_ini_opt < 0 || cycle_position_ini_opt > 2)
+        return 10000+__LINE__;
+
+
     /* Number of cycles in input matrix */
     ncycles = (int)(nval/cycle)+1;
 
@@ -202,7 +212,7 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     }
 
     /* Check cycle position */
-    states[nvar] -= cycle_position_ini;
+    states[nvar] -= cycle_position_ini - 1;
     if(states[nvar] < 0)
         states[nvar] = cycle - states[nvar]; 
 
@@ -225,13 +235,17 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
             states[k] = var[idx_select2+nval*k];
 
         /* Position within cycle */
-        /* This is the logical approach - IT DOES NOT WORK !!! WHY ??? 
-        states[nvar] = fmod(idx_select, cycle);
-        */
-        if(states[nvar] < cycle)
-            states[nvar] += 1;
-        else
-            states[nvar] = 0;
+        if(cycle_position_ini_opt == 0)
+        {
+            states[nvar] = fmod(idx_select, cycle);
+        }
+        else if(cycle_position_ini_opt == 1)
+        {
+            if(states[nvar] < cycle)
+                states[nvar] += 1;
+            else
+                states[nvar] = 0;
+        }
 
         /* reset distance and potential neighbours */
         for(k=0; k<nb_nn; k++)
