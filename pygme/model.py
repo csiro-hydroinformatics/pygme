@@ -22,7 +22,7 @@ class Model(object):
             nens_outputs=1):
 
         self.name = name
-        self.ninputs = ninputs
+        self._ninputs = ninputs
 
         self.nuhlength = 0
         self.noutputs_max = noutputs_max
@@ -302,6 +302,7 @@ class Model(object):
         nens = None
 
         if item == 'inputs':
+            nvar = self._ninputs
             if not self._inputs is None:
                 nval = self._inputs.nval
                 nvar = self._inputs.nvar
@@ -317,11 +318,28 @@ class Model(object):
             return (nval, nens)
 
         elif item == 'states':
+            nval = self._nstates
             if not self._states is None:
                 nens = self.nens_states
                 nval = self._states.nval
 
             return (nval, nens)
+
+        elif item == 'statesuh':
+            nval = NUHMAXLENGTH
+            if not self._statesuh is None:
+                nens = self.nens_states
+                nval = self._statesuh.nval
+
+            return (nval, nens)
+
+
+        elif item == 'config':
+            nens = 1
+            nval = self.config.nval
+
+            return (nval, nens)
+
 
         elif item == 'outputs':
             if not self._outputs is None:
@@ -350,7 +368,7 @@ class Model(object):
                 self.name, noutputs, self.noutputs_max))
 
         self._inputs = Matrix.from_dims('inputs',
-                nval, self.ninputs, nlead_inputs, nens_inputs, prefix='I')
+                nval, self._ninputs, nlead_inputs, nens_inputs, prefix='I')
 
         # Allocate state vectors with number of ensemble
         nens = self._params.nens * self._inputs.nens * self.nens_states
@@ -459,7 +477,7 @@ class Model(object):
 
         model = Model(self.name,
             self.config.nval,
-            self.ninputs,
+            self._ninputs,
             self._params.nval,
             self._nstates,
             self.noutputs_max,

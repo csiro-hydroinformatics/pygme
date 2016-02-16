@@ -380,8 +380,8 @@ class Matrix(object):
 
 
     @classmethod
-    def from_data(cls, id, data):
-        return cls(id, None, None, None, None, data, ts_index=None, prefix='V')
+    def from_data(cls, id, data, ts_index=None, prefix='V'):
+        return cls(id, None, None, None, None, data, ts_index, prefix)
 
 
     @classmethod

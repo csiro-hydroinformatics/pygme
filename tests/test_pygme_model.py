@@ -158,7 +158,8 @@ class ModelTestCases(unittest.TestCase):
         nval = 1000
         noutputs = 1
         dum.allocate(nval, noutputs)
-        dum.inputs = np.random.uniform(0, 1, (nval, dum.ninputs))
+        _, ninputs, _, _ = dum.get_dims('inputs')
+        dum.inputs = np.random.uniform(0, 1, (nval, ninputs))
 
         dum.idx_start = 10
         dum.idx_end = nval-1
