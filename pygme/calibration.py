@@ -285,10 +285,7 @@ class Calibration(object):
                 ' than model can produce ({1})').format(obsdata.nvar,
                                                 self._model.noutputs_max))
 
-
-        self.model.allocate(inputs.nval, obsdata.nvar,
-                            inputs.nens)
-        self.model._inputs = inputs
+        self.model.allocate(inputs, obsdata.nvar)
 
         self._obsdata = obsdata
 

@@ -100,7 +100,7 @@ class GR4J(Model):
         super(GR4J, self).initialise(states, statesuh)
 
 
-    def run(self):
+    def run(self, seed=None):
 
         _, ninputs, _, _ = self.get_dims('inputs')
         if self._inputs.nvar != ninputs:

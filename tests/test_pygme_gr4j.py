@@ -32,21 +32,21 @@ class GR4JTestCases(unittest.TestCase):
     def test_error1(self):
         gr = GR4J()
         try:
-            gr.allocate(20, 30)
+            gr.allocate(np.random.uniform(0, 1, (200, 2)), 30)
         except ValueError as  e:
             pass
-        self.assertTrue(str(e).startswith('Too many outputs'))
+        self.assertTrue(str(e).startswith('With model gr4j, Number of outputs'))
 
 
     def test_error2(self):
         gr = GR4J()
-        gr.allocate(20, 5)
-        gr.initialise()
+        inputs = np.random.uniform(size=(20, 3))
         try:
-            gr.inputs = np.random.uniform(size=(20, 3))
+            gr.allocate(inputs, 5)
+            gr.initialise()
         except ValueError as  e:
             pass
-        self.assertTrue(str(e).startswith('With inputs matrix: tried setting _dat'))
+        self.assertTrue(str(e).startswith('With model gr4j, Number of inputs'))
 
 
     def test_uh(self):
@@ -65,8 +65,8 @@ class GR4JTestCases(unittest.TestCase):
         p = np.exp(np.random.normal(0, 2, size=nval))
         pe = np.ones(nval) * 5.
 
-        gr.allocate(nval, 9)
-        gr.inputs = np.array([p, pe]).T
+        inputs = np.array([p, pe]).T
+        gr.allocate(inputs, 9)
         gr.initialise()
         gr.run()
 
@@ -90,8 +90,7 @@ class GR4JTestCases(unittest.TestCase):
             inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
 
             # Run gr4j
-            gr.allocate(inputs.shape[0], 1)
-            gr.inputs = inputs
+            gr.allocate(inputs)
 
             t0 = time.time()
 
@@ -126,7 +125,6 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
-
         gr = GR4J()
         warmup = 365*6
 
@@ -150,9 +148,8 @@ class GR4JTestCases(unittest.TestCase):
             params_expected = params[i, [2, 0, 1, 3]]
             gr = calib.model
             gr.params = params_expected
-            gr.allocate(inputs.nval, 1)
+            gr.allocate(inputs, 1)
             gr.initialise()
-            gr.inputs = inputs.data
             gr.run()
             obs = Matrix.from_data('obs', gr.outputs[:,0].copy())
 

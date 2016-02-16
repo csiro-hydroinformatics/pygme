@@ -31,7 +31,7 @@ class Dummy(Model):
         self.reset()
 
 
-    def run(self):
+    def run(self, seed=None):
 
         idx_start = self.idx_start
         idx_end = self.idx_end
@@ -51,7 +51,6 @@ class Dummy(Model):
 
         self.states = list(self.outputs[idx_end, :]) \
                     + [0.] * (2-self.outputs.shape[1])
-
 
     def set_uh(self):
         uh = np.zeros(self._uh.nval)
@@ -78,14 +77,16 @@ class MassiveDummy(Model):
             nens_outputs=nens_outputs)
 
 
-    def run(self):
+    def run(self, seed):
+
+        nval = self.outputs.shape[0]
+        outputs = self.inputs + np.random.uniform(0, 1, (nval, 1))
 
         idx_start = self.idx_start
         idx_end = self.idx_end
+        kk = np.arange(idx_start, idx_end+1)
 
-        nval = self.outputs.shape[0]
-        outputs = self.inputs.data + np.random.uniform(0, 1, (nval, 1))
-        self.outputs[idx_start:idx_end, :] = outputs[idx_start:idx_end, :]
+        self.outputs[kk, :] = outputs[kk, :]
 
 
 

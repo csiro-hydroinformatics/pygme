@@ -136,13 +136,13 @@ class ANN(Model):
         }
 
 
-    def allocate(self, nval, noutputs=1, nens_inputs=1):
+    def allocate(self, inputs, noutputs=1):
         if noutputs !=1:
             raise ValueError('Number of outputs defined for ANN model should be 1')
 
-        super(ANN, self).allocate(nval, noutputs, nens_inputs)
+        super(ANN, self).allocate(inputs, noutputs)
 
-        ninputs = self._inputs.nvar
+        nval, ninputs, _, _ = self.get_dims('inputs')
         self._inputs_trans = Matrix.from_dims('inputs_trans', nval, ninputs)
         self._outputs_trans = Matrix.from_dims('outputs_trans', nval, 1)
 
@@ -161,8 +161,9 @@ class ANN(Model):
     def params2idx(self):
         ''' Returns indices of parameters in the parameter vector '''
         nneurons = self.noutputs_max - 1
-        ninputs = self.ninputs
+
         nparams, _ = self.get_dims('params')
+        _, ninputs, _, _ = self.get_dims('inputs')
 
         idx = np.arange(nparams)
 
@@ -182,7 +183,8 @@ class ANN(Model):
     def params2matrix(self):
         ''' Returns parameter matrices from the parameter vector '''
         nneurons = self.noutputs_max - 1
-        ninputs = self.ninputs
+
+        _, ninputs, _, _ = self.get_dims('inputs')
 
         params = self._params.data
         idxL1W, idxL1B, idxL2W, idxL2B = self.params2idx()

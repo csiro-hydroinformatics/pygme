@@ -26,14 +26,15 @@ class GR2MTestCases(unittest.TestCase):
 
     def test_gr2m_dumb(self):
         gr = GR2M()
-        nval = 100
-        gr.allocate(nval, 9)
-        gr.params = [400, 0.9]
-        gr.initialise()
 
+        nval = 100
         p = np.exp(np.random.normal(0, 2, size=nval))
         pe = np.ones(nval) * 5.
-        gr.inputs = np.concatenate([p[:,None], pe[:, None]], axis=1)
+        inputs = np.concatenate([p[:,None], pe[:, None]], axis=1)
+        gr.allocate(inputs, 9)
+
+        gr.params = [400, 0.9]
+        gr.initialise()
 
         gr.run()
 
@@ -41,13 +42,13 @@ class GR2MTestCases(unittest.TestCase):
     def test_gr2m_irstea(self):
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
         data = np.loadtxt(fd, delimiter=',', skiprows=1)
-        inputs = np.ascontiguousarray(data[:, :2])
 
         params = [650.7, 0.8]
 
         # Run
         gr = GR2M()
-        gr.allocate(len(inputs), 9)
+        inputs = np.ascontiguousarray(data[:, :2])
+        gr.allocate(inputs, 9)
         gr.params = params
         gr.inputs = inputs
         gr.initialise()
@@ -70,7 +71,6 @@ class GR2MTestCases(unittest.TestCase):
             if not ck:
                 print('\tVAR[%d] : max abs err = %0.5f < %0.5f ? %s' % ( \
                         i, np.max(err), err_thresh, ck))
-                import pdb; pdb.set_trace()
 
             self.assertTrue(ck)
 
@@ -78,13 +78,12 @@ class GR2MTestCases(unittest.TestCase):
     def test_gr2m_irstea_calib(self):
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
         data = np.loadtxt(fd, delimiter=',', skiprows=1)
-        inputs = Matrix.from_data('inputs', np.ascontiguousarray(data[:, :2]))
 
         calparams_expected = [650.7, 0.8]
 
         gr = GR2M()
-        gr.allocate(inputs.nval, 1)
-        gr.inputs = inputs.data
+        inputs = Matrix.from_data('inputs', np.ascontiguousarray(data[:, :2]))
+        gr.allocate(inputs, 1)
 
         # Calibration object
         calib = CalibrationGR2M()

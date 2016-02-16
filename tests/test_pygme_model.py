@@ -9,6 +9,7 @@ import numpy as np
 np.seterr(all='print')
 
 from pygme.model import Model
+from pygme.data import Matrix
 
 from dummy import Dummy, MassiveDummy
 
@@ -29,14 +30,14 @@ class ModelTestCases(unittest.TestCase):
     def test_model2(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
+        dum.allocate(inputs)
 
 
     def test_model3(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10., 0.1]
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
+        dum.allocate(inputs)
         dum.params = params
 
 
@@ -44,20 +45,18 @@ class ModelTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10., 0.1]
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
+        dum.allocate(inputs)
         dum.params = params
         dum.initialise(states=[10, 0])
-        dum.inputs = inputs
 
 
     def test_model5(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10., 0.]
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
+        dum.allocate(inputs, 2)
         dum.params = params
         dum.initialise(states=[10, 0])
-        dum.inputs = inputs
 
         dum.idx_start = 0
         dum.idx_end = 999
@@ -75,11 +74,11 @@ class ModelTestCases(unittest.TestCase):
     def test_model6(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10., 0.5]
+
         dum = Dummy()
-        dum.allocate(len(inputs), 2)
+        dum.allocate(inputs)
         dum.params = params
         dum.initialise(states=[10, 0])
-        dum.inputs = inputs
 
         dum.config.data = [10]
 
@@ -96,7 +95,8 @@ class ModelTestCases(unittest.TestCase):
 
     def test_model7(self):
         dum = Dummy()
-        dum.allocate(10, 2)
+        inputs = np.random.uniform(0, 1, (10, 2))
+        dum.allocate(inputs, 2)
 
         uh = [0.25]*4 + [0.] * (len(dum.uh)-4)
         uh = np.array(uh)
@@ -109,7 +109,7 @@ class ModelTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (1000, 1))
         dum = MassiveDummy()
         dum.params = []
-        dum.allocate(len(inputs), 1)
+        dum.allocate(inputs)
         dum.initialise(states=[])
         dum.inputs = inputs
 
@@ -119,7 +119,6 @@ class ModelTestCases(unittest.TestCase):
 
 
     def test_model9(self):
-
         dum = Dummy(nens_params=3,
             nens_states=4,
             nens_outputs=5)
@@ -128,7 +127,8 @@ class ModelTestCases(unittest.TestCase):
         noutputs = 2
         nlead = 10
         nens = 2
-        dum.allocate(nval, noutputs, nlead, nens)
+        inputs = Matrix.from_dims('inputs', nval, 2, nlead, nens)
+        dum.allocate(inputs, noutputs)
 
         self.assertTrue(dum.get_dims('params') == (3, 3))
         self.assertTrue(dum.get_dims('states') == (2, 4))
@@ -143,8 +143,9 @@ class ModelTestCases(unittest.TestCase):
             nens_outputs=5)
 
         nval = 1000
+        inputs = Matrix.from_dims('inputs', nval, 2, 1, 10)
         noutputs = 2
-        dum.allocate(nval, noutputs, nens_inputs = 2)
+        dum.allocate(inputs, noutputs)
 
         dum.random('params', 'uniform')
         dum.random('states')
@@ -157,9 +158,9 @@ class ModelTestCases(unittest.TestCase):
 
         nval = 1000
         noutputs = 1
-        dum.allocate(nval, noutputs)
         _, ninputs, _, _ = dum.get_dims('inputs')
-        dum.inputs = np.random.uniform(0, 1, (nval, ninputs))
+        inputs = np.random.uniform(0, 1, (nval, ninputs))
+        dum.allocate(inputs)
 
         dum.idx_start = 10
         dum.idx_end = nval-1

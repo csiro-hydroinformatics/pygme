@@ -22,11 +22,10 @@ class CalibrationTestCases(unittest.TestCase):
         print('\t=> CalibrationTestCase')
 
     def test_calibration1(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10., 0.]
         dum = Dummy()
-        dum.allocate(inputs.shape[0], 2)
-        dum.inputs = inputs
+        inputs = np.random.uniform(0, 1, (1000, 2))
+        dum.allocate(inputs, 2)
 
         dum.params = params
         dum.run()
@@ -56,9 +55,8 @@ class CalibrationTestCases(unittest.TestCase):
         inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10., 0.]
         dum = Dummy()
-        dum.allocate(inputs.nval, 2)
+        dum.allocate(inputs, 2)
         dum.initialise()
-        dum.inputs = inputs.data
 
         dum.params = params
         dum.run()
@@ -80,8 +78,7 @@ class CalibrationTestCases(unittest.TestCase):
         inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10., 0.]
         dum = Dummy()
-        dum.allocate(inputs.nval, 2)
-        dum.inputs = inputs.data
+        dum.allocate(inputs, 2)
 
         dum.params = params
         dum.run()
@@ -102,11 +99,10 @@ class CrossValidationTestCases(unittest.TestCase):
 
     def test_xv1(self):
 
-        inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (20, 2)))
         dum = Dummy()
-        dum.allocate(inputs.nval, 2)
+        inputs = Matrix.from_data('inputs', np.random.uniform(0, 1, (20, 2)))
+        dum.allocate(inputs, 2)
         dum.initialise()
-        dum.inputs = inputs.data
 
         obs = inputs.clone()
 

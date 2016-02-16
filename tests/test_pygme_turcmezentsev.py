@@ -23,13 +23,12 @@ class TurcMezentsevTestCases(unittest.TestCase):
 
 
     def test_run(self):
+        tm = TurcMezentsev()
+
         P = np.linspace(700, 1200, 20)
         PE = np.linspace(1000, 2000, 20)
         inputs = np.concatenate([P[:,None], PE[:, None]], axis=1)
-
-        tm = TurcMezentsev()
-        tm.allocate(len(inputs), 2)
-        tm.inputs = inputs
+        tm.allocate(inputs, 2)
         tm.run()
         Q1 = tm.outputs[:, 0]
         n = tm.params[0]

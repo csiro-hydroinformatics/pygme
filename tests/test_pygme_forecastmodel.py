@@ -24,7 +24,7 @@ class ForecastModelTestCases(unittest.TestCase):
 
     def test_initialise(self):
         gr = GR4J()
-        gr.allocate(10, 1)
+        gr.allocate(np.random.uniform(0, 1, (10, 2)), 1)
         fc = ForecastModel(gr, 2, 4, 2)
         str_fc = '%s' % fc
 
@@ -48,14 +48,15 @@ class ForecastModelTestCases(unittest.TestCase):
 
 
     def test_run1(self):
-        dum = Dummy()
         nval = 1000
-        dum.allocate(nval, 2)
+        sim_inputs = np.random.uniform(0, 1, (nval, 2))
+
+        dum = Dummy()
+        dum.allocate(sim_inputs, 2)
 
         fc = ForecastModel(dum, 2, 3, 2)
 
         # Prepare simulation model
-        sim_inputs = np.random.uniform(0, 1, (nval, 2))
         params = [0.5, 10., 0.]
         dum = fc.sim_model
         dum.params = params
@@ -75,16 +76,10 @@ class ForecastModelTestCases(unittest.TestCase):
             fc_inputs.data = sim_inputs[ts_index+k+1, :]
 
         # Run forecasts
-        fc.allocate(nval, 2)
+        fc.allocate(fc_inputs)
         fc.params = params
         fc.initialise(states=[10, 0])
-        fc.inputs = fc_inputs
         fc.run()
-
-
-        #fc.allocate()
-
-        #dum.run()
 
 
 

@@ -139,8 +139,7 @@ class KNNTestCases(unittest.TestCase):
         kn.config['cycle_position_ini'] = cpi
         kn.config['cycle_position_ini_opt'] = 1
 
-        nrand = nval
-        kn.allocate(nrand, output_var.shape[1])
+        kn.allocate(np.ones(nval), output_var.shape[1])
 
         states = [input_var[0], cpi]
         kn.initialise(states)

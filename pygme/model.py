@@ -1,4 +1,5 @@
 import math, itertools
+import inspect
 import random
 import numpy as np
 
@@ -83,7 +84,7 @@ class Model(object):
     @property
     def ilead(self):
         if self._inputs is None:
-            raise ValueError(('Model {0}: Cannot get ilead when'+
+            raise ValueError(('With model {0}, Cannot get ilead when'+
                 ' inputs is None. Please allocate').format(self.name))
 
         return self._inputs.ilead
@@ -91,7 +92,7 @@ class Model(object):
     @ilead.setter
     def ilead(self, value):
         if self._inputs is None:
-            raise ValueError(('Model {0}: Cannot set ilead when'+
+            raise ValueError(('With model {0}, Cannot set ilead when'+
                 ' inputs is None. Please allocate').format(self.name))
 
         self._inputs.ilead = value
@@ -105,11 +106,11 @@ class Model(object):
     @idx_start.setter
     def idx_start(self, value):
         if self._inputs is None:
-            raise ValueError(('Model {0}: Cannot set idx_end when'+
+            raise ValueError(('With model {0}, Cannot set idx_end when'+
                 ' inputs is None. Please allocate').format(self.name))
 
         if value < 0 or value >= self._inputs.nval:
-            raise ValueError(('Model {0}: idx_start < 0 or > inputs.nval ({1})').format(self.name,
+            raise ValueError(('With model {0}, idx_start < 0 or > inputs.nval ({1})').format(self.name,
                 self._inputs.nval))
 
         self._idx_start = value
@@ -122,11 +123,11 @@ class Model(object):
     @idx_end.setter
     def idx_end(self, value):
         if self._inputs is None:
-            raise ValueError(('Model {0}: Cannot set idx_end when'+
+            raise ValueError(('With model {0}, Cannot set idx_end when'+
                 ' inputs is None. Please allocate').format(self.name))
 
         if value < 0 or value >= self._inputs.nval:
-            raise ValueError(('Model {0}: idx_end < 0 or > inputs.nval ({1})').format(self.name,
+            raise ValueError(('With model {0}, idx_end < 0 or > inputs.nval ({1})').format(self.name,
                 self._inputs.nval))
 
         self._idx_end = value
@@ -163,7 +164,7 @@ class Model(object):
     def uh(self, value):
         ''' Set UH values '''
         if np.abs(np.sum(value)-1.) > 1e-9:
-            raise ValueError(('Model {0}: Trying to set uhdata '
+            raise ValueError(('With model {0}, Trying to set uhdata '
                     'that do not sum to 1 ({1})').format( \
                                 self.name, np.sum(value)))
         self._uh.data = value
@@ -172,7 +173,7 @@ class Model(object):
     @property
     def states(self):
         if self._states is None:
-            raise ValueError(('Model {0}: Cannot set states when'+
+            raise ValueError(('With model {0}, Cannot set states when'+
                 ' states object is None. Please allocate').format(self.name))
 
         # Code needed to sync input/params ensemble with states
@@ -187,11 +188,11 @@ class Model(object):
     @property
     def statesuh(self):
         if self._statesuh is None:
-            raise ValueError(('Model {0}: Cannot set statesuh when'+
+            raise ValueError(('With model {0}, Cannot set statesuh when'+
                 ' statesuh object is None. Please allocate').format(self.name))
 
         # Code needed to sync input/params ensemble with states
-        self._statesuh.iens = self.iens_states
+        self._statesuh.iens = self._iens_states
         return self._statesuh.data
 
     @statesuh.setter
@@ -220,7 +221,7 @@ class Model(object):
             if not obj is None:
                 return obj.iens
             else:
-                raise ValueError(('Model {0}: getting ensemble number, but item {1}' +
+                raise ValueError(('With model {0}, getting ensemble number, but item {1}' +
                 ' is None. Cannot get ensemble number').format(self.name, item))
 
         elif item == 'states':
@@ -230,7 +231,7 @@ class Model(object):
            return self._outputs_states
 
         else:
-            raise ValueError(('Model {0}: setting ensemble number, but item {1}' +
+            raise ValueError(('With model {0}, setting ensemble number, but item {1}' +
                 ' does not exists').format(self.name, item))
 
 
@@ -244,13 +245,13 @@ class Model(object):
             if not obj is None:
                 obj.iens = value
             else:
-                raise ValueError(('Model {0}: setting ensemble number, but item {1}' +
+                raise ValueError(('With model {0}, setting ensemble number, but item {1}' +
                 ' is None. Cannot get ensemble number').format(self.name, item))
 
 
         elif item == 'states':
             if value >= self.nens_states or value < 0:
-                raise ValueError(('Model {0}: iens_states {1} ' \
+                raise ValueError(('With model {0}, iens_states {1} ' \
                         '>= nens {2} or < 0').format( \
                                     self.name, value, self.nens_states))
 
@@ -270,7 +271,7 @@ class Model(object):
 
         elif item == 'outputs':
             if value >= self.nens_outputs or value < 0:
-                raise ValueError(('Model {0}: iens_outputs {1} ' \
+                raise ValueError(('With model {0}, iens_outputs {1} ' \
                         '>= nens {2} or < 0').format( \
                                     self.name, value, self.nens_outputs))
 
@@ -289,7 +290,7 @@ class Model(object):
             self._outputs_states = value
 
         else:
-            raise ValueError(('Model {0}: setting ensemble number, but item {1}' +
+            raise ValueError(('With model {0}, setting ensemble number, but item {1}' +
                 ' does not exists').format(self.name, item))
 
 
@@ -351,24 +352,30 @@ class Model(object):
             return (nval, nvar, nlead, nens)
 
         else:
-            raise ValueError(('Model {0}: getting dims, but item {1}' +
+            raise ValueError(('With model {0}, getting dims, but item {1}' +
                 ' does not exists').format(self.name, item))
 
 
-    def allocate(self, nval, noutputs=1, nlead_inputs=1, nens_inputs=1):
+    def allocate(self, inputs, noutputs=1):
         ''' We define the number of outputs here to allow more flexible memory allocation '''
 
-        if noutputs <= 0:
-            raise ValueError(('Number of outputs defined' + \
-                ' for model {0} should be >0').format(nval))
+        if noutputs <= 0 or noutputs > self.noutputs_max:
+            raise ValueError(('With model {0}, Number of outputs ({1})' + \
+                ' should be >0 and <={2}').format(self.name,
+                    noutputs, self.noutputs_max))
 
-        if noutputs > self.noutputs_max:
-            raise ValueError(('Too many outputs defined for model {0}:' + \
-                ' noutputs({1}) > noutputs_max({2})').format( \
-                self.name, noutputs, self.noutputs_max))
+        # Allocate inputs
+        if isinstance(inputs, np.ndarray):
+            inputs = Matrix.from_data('inputs', inputs, prefix='I')
 
-        self._inputs = Matrix.from_dims('inputs',
-                nval, self._ninputs, nlead_inputs, nens_inputs, prefix='I')
+
+        if inputs.nvar != self._ninputs:
+            raise ValueError(('With model {0}, Number of inputs ({1})' + \
+                ' should be {2}').format(self.name, inputs.nvar, self._ninputs))
+
+        self._inputs = inputs
+        nval = self._inputs.nval
+        nlead_inputs = inputs.nlead
 
         # Allocate state vectors with number of ensemble
         nens = self._params.nens * self._inputs.nens * self.nens_states
@@ -396,7 +403,7 @@ class Model(object):
     def initialise(self, states=None, statesuh=None):
 
         if self._states is None:
-            raise ValueError(('Model {0}: Cannot initialise when'+
+            raise ValueError(('With model {0}, Cannot initialise when'+
                 ' states is None. Please allocate').format(self.name))
 
         for iens in range(self._states.nens):
@@ -419,7 +426,7 @@ class Model(object):
         obj = getattr(self, '_{0}'.format(item))
 
         if obj is None or obj is None:
-            raise ValueError(('Model {0}: Model does not have attribute _{1}').format( \
+            raise ValueError(('With model {0}, Model does not have attribute _{1}').format( \
                                 self.name, item))
 
         setattr(self, item, obj.default)
@@ -430,14 +437,17 @@ class Model(object):
         obj = getattr(self, '_{0}'.format(item))
 
         if obj is None:
-            raise ValueError(('Model {0}: Model does not have object {1}').format( \
+            raise ValueError(('With model {0}, Model does not have object {1}').format( \
                                 self.name, item))
 
         obj.random(distribution, seed)
 
 
     def run(self, seed=None):
-        pass
+        raise RuntimeError(('With model {0}, ' +
+            'method run is not overridden, ' +
+            'i.e. the model does nothing!').format(self.name))
+
 
     def run_ens(self,
             ens_inputs = None,
@@ -475,16 +485,35 @@ class Model(object):
     def clone(self):
         ''' Clone the current object model '''
 
-        model = Model(self.name,
-            self.config.nval,
-            self._ninputs,
-            self._params.nval,
-            self._nstates,
-            self.noutputs_max,
-            self._params.nens,
-            self.nens_states,
-            self.nens_outputs)
+        # Get its arguments
+        args_base = {
+                'name': self.name,
+                'nconfig': self.config.nval,
+                'ninputs': self._ninputs,
+                'nparams': self._params.nval,
+                'nstates': self._nstates,
+                'nstatesuh': NUHMAXLENGTH,
+                'noutputs_max': self.noutputs_max,
+                'nens_params': self._params.nens,
+                'nens_states': self.nens_states,
+                'nens_outputs': self.nens_states,
+        }
 
+        args = {}
+        for k in inspect.getargspec(self.__init__)[0][1:]:
+            if k in args_base:
+                # Get standard arguments
+                args[k] = args_base[k]
+            else:
+                # Get funny arguments not part of base class
+                args[k] = getattr(self, k)
+
+        import pdb; pdb.set_trace()
+        model = super(self.__class__, self).__init__(**args)
+
+
+
+        # Copy object content
         for item in ['_params', '_uh', '_states',
             '_statesuh', 'config', '_inputs', '_outputs']:
             obj = getattr(self, item)

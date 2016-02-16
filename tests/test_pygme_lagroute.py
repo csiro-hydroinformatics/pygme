@@ -36,35 +36,36 @@ class LagRouteTestCases(unittest.TestCase):
 
         ierr_id = ''
         lr = LagRoute()
-        lr.allocate(20, 2)
-        lr.initialise()
+
         inputs = np.zeros((20, 1))
         inputs[1,0] = 100
-        lr.inputs = inputs
+        lr.allocate(inputs, 2)
+        lr.initialise()
         lr.run()
 
 
     def test_error1(self):
         lr = LagRoute()
         try:
-            lr.allocate(20, 30)
+            inputs = np.zeros((20, 1))
+            lr.allocate(inputs, 30)
         except ValueError as  e:
             pass
 
-        self.assertTrue(str(e).startswith('Too many outputs defined'))
+        self.assertTrue(str(e).startswith('With model lagroute, Number of outputs'))
 
 
     def test_error2(self):
         lr = LagRoute()
-        lr.allocate(20, 2)
-        lr.initialise()
-
         try:
-            lr.inputs = np.random.uniform(size=(20, 3))
+            inputs = np.random.uniform(size=(20, 3))
+            lr.allocate(inputs, 2)
+            lr.initialise()
+
         except ValueError as  e:
             pass
 
-        self.assertTrue(str(e).startswith('With inputs matrix: tried setting _data'))
+        self.assertTrue(str(e).startswith('With model lagroute, Number of inputs'))
 
 
     def test_uh1(self):
@@ -115,8 +116,7 @@ class LagRouteTestCases(unittest.TestCase):
         qstar = 50 # qstar = 50 m3/s
 
         # Set outputs
-        lr.allocate(len(inputs), 4)
-        lr.inputs = inputs
+        lr.allocate(inputs, 4)
 
         for theta2 in [1, 2]:
 
@@ -170,8 +170,7 @@ class LagRouteTestCases(unittest.TestCase):
         lr.config.data = [dt, L, qstar, theta2]
 
         # Set outputs
-        lr.allocate(len(inputs))
-        lr.inputs = inputs
+        lr.allocate(inputs)
 
         # Run
         for U in range(1, 11):

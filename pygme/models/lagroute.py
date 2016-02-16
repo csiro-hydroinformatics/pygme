@@ -80,7 +80,7 @@ class LagRoute(Model):
         self._nuhlength = nuh[0]
 
 
-    def run(self):
+    def run(self, seed=None):
 
         _, ninputs, _, _ = self.get_dims('inputs')
         if self._inputs.nvar != ninputs:

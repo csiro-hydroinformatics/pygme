@@ -86,19 +86,33 @@ class ForecastModel(Model):
         self._forecast_model.params = value[:nparams_model]
 
 
-    def allocate(self, nval, noutputs=1, nlead_inputs=1, nens_inputs=1):
+    def allocate(self, inputs, noutputs=1):
 
         # Allocate self
-        super(ForecastModel, self).allocate(nval,
-                noutputs, nlead_inputs, nens_inputs)
+        super(ForecastModel, self).allocate(inputs, noutputs)
 
         # Allocate forecast model
         # i.e. model with nval= nlead to run model over
         # the whole forecast period
-        self._forecast_model.allocate(nlead_inputs, noutputs,
-                1, nens_inputs)
+        _, nvar, nlead, nens = self.get_dims('inputs')
+        inputs = Matrix.from_dims('fc_inputs', nlead, nvar, 1, nens,
+                prefix='FCI')
+        self._forecast_model.allocate(inputs, noutputs)
 
         # Sim model is expected to be allocated outside !
+
+
+    def initialise(self, states=None, statesuh=None):
+
+        super(ForecastModel, self).initialise(states, statesuh)
+
+        # Initialise simulation model
+        smod = self._sim_model
+        nstates, _ = smod.get_dims('states')
+        nstatesuh, _ = smod.get_dims('statesuh')
+
+        smod.initialise(self.states[:nstates],
+                self.statesuh[:nstatesuh])
 
 
     def update(self, seed):
@@ -106,8 +120,7 @@ class ForecastModel(Model):
         pass
 
 
-
-    def run(self, seed):
+    def run(self, seed=None):
 
         # Get models
         smod = self._sim_model
@@ -122,17 +135,18 @@ class ForecastModel(Model):
             raise ValueError(('Model {0}: Simulation model should have' +
                 'inputs with continuous ts_index'.format(self.name)))
 
-        if not smod._inputs.ts_index[0] != 0:
+        if smod._inputs.ts_index[0] != 0:
             raise ValueError(('Model {0}: Simulation model should have' +
-                'inputs with continuous ts_index starting at idx=0' +
+                ' inputs with continuous ts_index starting at idx=0' +
                 ' (currently {1})').format(self.name,
                     smod._inputs.ts_index[0]))
 
         # Loop through forecast time indexes
         idx_start = 0
-        idx_max = np.max(sim_ts_index)
+        fc_ts_index = fmod._inputs.ts_index
+        idx_max = np.max(smod._inputs._ts_index)
 
-        for (ifc, idx_end) in enumerate(fmod._inputs.ts_index):
+        for (ifc, idx_end) in enumerate(fc_ts_index):
 
             # Check validity of ts_index
             if idx_end > idx_max:
@@ -149,19 +163,17 @@ class ForecastModel(Model):
 
             # Run simulation
             self._sim_model.run()
-            self.sim_states[ifc, :] = self._sim_model.states
-            self.sim_statesuh[ifc, :] = self._sim_model.statesuh
 
             # Update states and initialise forecast model
             self.update(seed)
-            self._forecast_model.initialise(smod.states, smod.statesuh)
+            fmod.initialise(smod.states, smod.statesuh)
 
             # Run forecast for all lead times
-            fmod.inputs = self._inputs.data[ifc, :, :, iens_inputs].T
-            fmod.run(seed)
+            fmod.inputs = self._inputs._data[ifc, :, :, iens_inputs].T
+            fmod.run(seed=-2)
 
             # Store outputs
-            fmod._outputs.data[ifc, :, :, iens_outputs] = fmod.outputs.T
+            self._outputs._data[ifc, :, :, iens_outputs] = fmod.outputs.T
 
 
     def clone(self):

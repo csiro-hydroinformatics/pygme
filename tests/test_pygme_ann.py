@@ -66,8 +66,7 @@ class ANNTestCases(unittest.TestCase):
 
             # Set inputs
             inputs = Matrix.from_data('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
-            ann.allocate(inputs.nval)
-            ann.inputs = inputs.data
+            ann.allocate(inputs)
 
             # Standardize inputs
             params_std = get_standardize_params(inputs.data)
@@ -103,8 +102,7 @@ class ANNTestCases(unittest.TestCase):
 
             # Set inputs
             inputs = Matrix.from_data('inputs', np.random.uniform(-1, 1, (nval, ninputs)))
-            ann.allocate(inputs.nval)
-            ann.inputs = inputs.data
+            ann.allocate(inputs)
 
             # Standardize inputs
             params_std = get_standardize_params(inputs.data)

@@ -60,7 +60,7 @@ class GR2M(Model):
 
 
 
-    def run(self):
+    def run(self, seed=None):
 
         ierr = c_pygme_models_gr2m.gr2m_run(self._params.data, \
             self._inputs.data, \

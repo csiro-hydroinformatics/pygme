@@ -360,7 +360,7 @@ class Matrix(object):
                 _data = data.copy()
 
             self._nval, self._nvar, self._nlead, self._nens = _data.shape
-            self._data = _data
+            self._data = np.ascontiguousarray(_data)
 
         else:
             raise ValueError(('With {0} matrix, ' + \
@@ -513,20 +513,20 @@ class Matrix(object):
 
     @data.setter
     def data(self, value):
-        _value = np.atleast_2d(value)
+        _value = np.ascontiguousarray(np.atleast_2d(value))
 
         if _value.shape[0] == 1:
             _value = _value.T
 
         if _value.shape[1] != self.nvar:
             raise ValueError(('With {0} matrix: tried setting _data,' + \
-                    ' got wrong number of values ' + \
+                    ' got wrong number of variables ' + \
                     '({1} instead of {2})').format( \
                     self.id, _value.shape[1], self.nvar))
 
         if _value.shape[0] != self.nval:
             raise ValueError(('With {0} matrix: tried setting _data,' + \
-                    ' got wrong number of variables ' + \
+                    ' got wrong number of values ' + \
                     '({1} instead of {2})').format( \
                     self.id, _value.shape[0], self.nval))
 
