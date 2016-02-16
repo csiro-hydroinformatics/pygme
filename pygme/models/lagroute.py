@@ -82,10 +82,11 @@ class LagRoute(Model):
 
     def run(self):
 
-        if self._inputs.nvar != self.ninputs:
+        _, ninputs, _, _ = self.get_dims('inputs')
+        if self._inputs.nvar != ninputs:
             raise ValueError(('Model LagRoute, self.inputs.nvar({0}) != ' + \
                     'self.ninputs({1})').format( \
-                    self._inputs.nvar, self._ninputs))
+                    self._inputs.nvar, ninputs))
 
         ierr = c_pygme_models_lagroute.lagroute_run(self._nuhlength, \
             self.config.data, \

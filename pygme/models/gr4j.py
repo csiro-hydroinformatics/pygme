@@ -102,10 +102,11 @@ class GR4J(Model):
 
     def run(self):
 
-        if self._inputs.nvar != self.ninputs:
+        _, ninputs, _, _ = self.get_dims('inputs')
+        if self._inputs.nvar != ninputs:
             raise ValueError(('Model GR4J, self._inputs.nvar({0}) != ' +
                     'self._ninputs({1})').format(
-                    self._inputs.nvar, self.ninputs))
+                    self._inputs.nvar, ninputs))
 
         ierr = c_pygme_models_gr4j.gr4j_run(self._nuh1,
             self._nuh2,
