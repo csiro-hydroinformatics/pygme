@@ -286,7 +286,8 @@ class MatrixTestCases(unittest.TestCase):
         # Create matrix and write to file
         mat1 = {}
         for i in range(4):
-            m1 = Matrix.from_dims('test{0}'.format(i), nval, nvar, nlead, nens)
+            m1 = Matrix.from_dims('test{0}'.format(i), nval, nvar, nlead, nens,
+                    prefix='LONG')
 
             for ilead, iens in product(range(nlead), range(nens)):
                 m1.ilead = ilead
@@ -323,6 +324,7 @@ class MatrixTestCases(unittest.TestCase):
         ts_index = np.random.choice(range(1, 5), nval)
         ts_index = np.cumsum(ts_index)
         m1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
+                prefix='TEST',
                 ts_index=ts_index)
 
         try:
@@ -340,7 +342,6 @@ class MatrixTestCases(unittest.TestCase):
         except ValueError, e:
             pass
         self.assertTrue(str(e).startswith('With test matrix: ts_index is not strictly'))
-
 
 
 if __name__ == '__main__':

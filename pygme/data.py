@@ -433,16 +433,26 @@ class Matrix(object):
         nlead = np.max(leads) + 1
         nens = np.max(ens) + 1
 
-        # Allocate matrix
-        df = store[keys[0]]
-        nval, nvar = df.shape
-        prefix = df.columns[0][0]
-        mat = Matrix.from_dims(id, nval, nvar, nlead, nens, prefix=prefix)
-
         # Reads ts index
         path = '{0}/{1}_ts_index'.format(root_path, id)
         df = store[path]
-        mat.ts_index = df.values
+        ts_index = df.values
+
+        # Allocate matrix
+        df = store[keys[0]]
+        nval, nvar = df.shape
+
+        match = re.search('^[a-zA-Z]+', str(df.columns[0]))
+        try:
+            prefix = match.group()
+        except AttributeError:
+            raise ValueError(('Cannot get variable prefix from {0},' +
+                ' table {2}. Cannot process column name {1}, it ' +
+                ' does not start with characters').format(filename,
+                    df.columns[0], keys[0]))
+
+        mat = Matrix.from_dims(id, nval, nvar, nlead, nens,
+                prefix=prefix, ts_index=ts_index)
 
         # Populate data
         for ilead, iens in product(range(nlead), range(nens)):
