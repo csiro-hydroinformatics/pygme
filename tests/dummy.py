@@ -85,7 +85,7 @@ class MassiveDummy(Model):
 
         nval = self.outputs.shape[0]
         outputs = self.inputs.data + np.random.uniform(0, 1, (nval, 1))
-        self.outputs.data = outputs[idx_start:idx_end, :]
+        self.outputs[idx_start:idx_end, :] = outputs[idx_start:idx_end, :]
 
 
 

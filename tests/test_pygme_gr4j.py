@@ -7,7 +7,7 @@ import time
 import numpy as np
 
 from pygme import calibration
-from pygme.model import Matrix
+from pygme.data import Matrix
 from pygme.models.gr4j import GR4J, CalibrationGR4J
 
 

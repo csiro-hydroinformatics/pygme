@@ -9,7 +9,7 @@ import numpy as np
 
 from pygme.models.gr2m import GR2M, CalibrationGR2M
 from pygme import calibration
-from pygme.model import Matrix
+from pygme.data import Matrix
 
 class GR2MTestCases(unittest.TestCase):
 

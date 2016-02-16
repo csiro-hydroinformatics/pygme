@@ -1,150 +1,171 @@
 import math
 import numpy as np
 
-from pygme.model import Model, Matrix
-
-
-class ForecastData(object):
-
-    def __init__(self, nlead):
-        self._nlead = nlead
-        self._inputs = None
-        self._outputs = None
-        self._states = None
-        self._statesuh = None
-
-    @property
-    def inputs(self):
-        return self._inputs
-
-    @inputs.setter
-    def inputs(self, value):
-        if self._inputs is None:
-            self._inputs = Matrix.from_data('inputs', value)
-
-            nval = self._inputs.nval
-            if nval != self._nlead:
-                raise ValueError(('Number of values in input data({0}) ' + \
-                    'does not match nlead({1})').format(nval, self._nlead))
-        else:
-            self._inputs.data = value
-
-
-    @property
-    def outputs(self):
-        return self._outputs
-
-    @outputs.setter
-    def outputs(self, value):
-        if self._outputs is None:
-            self._outputs = Matrix.from_data('outputs', value)
-
-            nval = self._outputs.nval
-            if nval != self._nlead:
-                raise ValueError(('Number of values in output data({0}) ' + \
-                    'does not match nlead({1})').format(nval, self._nlead))
-        else:
-            self._outputs.data = value
-
-
-    @property
-    def states(self):
-        return self._states
-
-    @states.setter
-    def states(self, value):
-        if self._states is None:
-            self._states = Vector('states', len(value))
-
-        self._states.data = value
-
-
-    @statesuh.setter
-    def statesuh(self, value):
-        if self._statesuh is None:
-            self._statesuh = Vector('statesuh', len(value))
-
-        self._statesuh.data = value
-
+from pygme.model import Model
+from pygme.data import Matrix
 
 
 class ForecastModel(Model):
 
-    def __init__(self, model, nwarmup, nlead, nparams)
+    def __init__(self, model,
+            ninputs, nparams, nstates,
+            nens_params=1,
+            nens_states=1,
+            nens_outputs=1):
 
-        self._model = model
-        self._nwarmup = nwarmup
-        self._nlead = nlead
+        name = '{0}#forecast'.format(model.name)
 
-        outputs_names = ['F{0:03d}'.format(i) for i in range(nlead)]
+        # Check sim model is allocated
+        if model._states is None or model._statesuh is None \
+            or model._inputs is None:
+            raise ValueError(('Model {0}: In model {1}, either states, statesuh or inputs' +
+                '  is None. Please allocate').format(name, model.name))
+
+        self._sim_model = model
+        self._forecast_model = model.clone()
+
+        # Check dimensions
+        _, ninputs2, _, _ = model.get_dims('inputs')
+        if ninputs < ninputs2:
+            raise ValueError(('Model {0}: Number of inputs in forecast ' +
+                'model ({1}) lower than number of model'+
+                ' inputs ({2})').format(name, ninputs, ninputs2))
+
+        nparams_model, _ = model.get_dims('params')
+        if nparams < nparams_model:
+            raise ValueError(('Model {0}: Number of parameters in forecast ' +
+                'model ({1}) lower than number of model'+
+                ' parameters ({2})').format(name, nparams, nparams_model))
+
+        _, nstates2 = model.get_dims('states')
+        if nstates < model._nstates:
+            raise ValueError(('Model {0}: Number of states in forecast ' +
+                'model ({1}) lower than number of model'+
+                ' parameters ({2})').format(name, nstates, nstates2))
+
+        # Initialise model
+        nconfig, _ = model.get_dims('config')
 
         Model.__init__(self,
-            name='{0}-forecast'.format(model.name),
-            nconfig=1, \
-            ninputs=1, \
-            nparams=nparams, \
-            nstates=1, \
-            noutputs_max = nlead, \
-            inputs_names = [''], \
-            outputs_names = outputs_names)
-
-        self._fcdata = {}
-
-
-    def __str__(self):
-
-        str = '\n{0} Forecast model implementation\n'.format( \
-            self._name)
-        str += '  ninputs      = {0}\n'.format(self._model._ninputs)
-        str += '  nuhmaxlength = {0}\n'.format(self._model._statesuh.nval)
-        str += '  nuhlength    = {0}\n'.format(self._model._nuhlength)
-
-        str += '  {0}\n'.format(self._model._config)
-        str += '  {0}\n'.format(self._model._states)
-        str += '  {0}\n'.format(self._model._params)
-
-        if not self._inputs is None:
-            str += '  {0}\n'.format(self._model._inputs)
-
-        if not self._outputs is None:
-            str += '  {0}\n'.format(self._model._outputs)
-
-        return str
+            name=name,
+            nconfig=nconfig,
+            ninputs=ninputs,
+            nparams=nparams,
+            nstates=nstates,
+            noutputs_max = model.noutputs_max,
+            nens_params=nens_params,
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
 
 
     @property
-    def nlead(self):
-        return self._nlead
-
-
-    @property
-    def model(self):
-        return self._model
-
+    def sim_model(self):
+        return self._sim_model
 
     @property
-    def fcdata(self):
-        return self._fcdata
+    def forecast_model(self):
+        return self._forecast_model
+
+    @property
+    def sim_states(self):
+        return self._sim_states.data
+
+    @property
+    def sim_statesuh(self):
+        return self._sim_statesuh.data
+
+    @property
+    def params(self):
+        return self.params
+
+    @params.setter
+    def params(self, value):
+        nparams_model, _ = self._sim_model.get_dims('params')
+
+        self._sim_model.params = value[:nparams_model]
+        self._forecast_model.params = value[:nparams_model]
 
 
-    def allocate_forecast_data(self, idx, iens):
-        self._fcdata[(idx, iens)] = ForecastData(self._nlead)
+    def allocate(self, nval, noutputs=1, nlead_inputs=1, nens_inputs=1):
+
+        # Allocate self
+        super(ForecastModel, self).allocate(nval,
+                noutputs, nlead_inputs, nens_inputs)
+
+        # Allocate forecast model
+        # i.e. model with nval= nlead to run model over
+        # the whole forecast period
+        self._forecast_model.allocate(nlead_inputs, noutputs,
+                1, nens_inputs)
+
+        # Sim model is expected to be allocated outside !
 
 
-    def run(self):
-
-        # Run model
-        self._model.run()
-
-
-        # Loop through forecast data
-        for k in self._fcdata:
-            states =
+    def update(self, seed):
+        ''' Performs states updating '''
         pass
 
 
+
+    def run(self, seed):
+
+        # Get models
+        smod = self._sim_model
+        fmod = self._forecast_model
+
+        # ensemble numbers
+        iens_inputs = self._inputs.iens
+        iens_outputs = self._outputs.iens
+
+        # Check model inputs are continuous ts_index
+        if not smod._inputs.ts_index_continuous:
+            raise ValueError(('Model {0}: Simulation model should have' +
+                'inputs with continuous ts_index'.format(self.name)))
+
+        if not smod._inputs.ts_index[0] != 0:
+            raise ValueError(('Model {0}: Simulation model should have' +
+                'inputs with continuous ts_index starting at idx=0' +
+                ' (currently {1})').format(self.name,
+                    smod._inputs.ts_index[0]))
+
+        # Loop through forecast time indexes
+        idx_start = 0
+        idx_max = np.max(sim_ts_index)
+
+        for (ifc, idx_end) in enumerate(fmod._inputs.ts_index):
+
+            # Check validity of ts_index
+            if idx_end > idx_max:
+                raise ValueError(('Model {0}: Tried forecasting for ts_index {1}' +
+                    ', but simulation model has a max ts_index' +
+                    ' equal to {2}').format(self.name, idx_end, idx_max))
+
+            if not ((idx_start >= self.idx_start) & (idx_end <= self.idx_end)):
+                continue
+
+            # Set start/end of simulation
+            self._sim_model.idx_start = idx_start
+            self._sim_model.idx_end = idx_end
+
+            # Run simulation
+            self._sim_model.run()
+            self.sim_states[ifc, :] = self._sim_model.states
+            self.sim_statesuh[ifc, :] = self._sim_model.statesuh
+
+            # Update states and initialise forecast model
+            self.update(seed)
+            self._forecast_model.initialise(smod.states, smod.statesuh)
+
+            # Run forecast for all lead times
+            fmod.inputs = self._inputs.data[ifc, :, :, iens_inputs].T
+            fmod.run(seed)
+
+            # Store outputs
+            fmod._outputs.data[ifc, :, :, iens_outputs] = fmod.outputs.T
+
+
     def clone(self):
-        model_clone = self._model.clone()
+        pass
 
 
 
