@@ -336,7 +336,7 @@ class Vector(object):
 
 class Matrix(object):
 
-    def __init__(self, id, nval, nvar, nlead=1, nens=1, data=None, ts_index=None, prefix='V'):
+    def __init__(self, id, nval, nvar, nlead=1, nens=1, data=None, index=None, prefix='V'):
         self.id = id
         self.prefix = prefix
         self._iens = 0
@@ -368,20 +368,20 @@ class Matrix(object):
 
         self._names = ['{0}{1}'.format(prefix, i) for i in range(self.nvar)]
 
-        if not ts_index is None:
-            self.ts_index = ts_index
+        if not index is None:
+            self.index = index
         else:
-            self.ts_index = np.arange(self._nval)
+            self.index = np.arange(self._nval)
 
 
     @classmethod
-    def from_dims(cls, id, nval, nvar, nlead=1, nens=1, ts_index=None, prefix='V'):
-        return cls(id, nval, nvar, nlead, nens, None, ts_index, prefix)
+    def from_dims(cls, id, nval, nvar, nlead=1, nens=1, index=None, prefix='V'):
+        return cls(id, nval, nvar, nlead, nens, None, index, prefix)
 
 
     @classmethod
-    def from_data(cls, id, data, ts_index=None, prefix='V'):
-        return cls(id, None, None, None, None, data, ts_index, prefix)
+    def from_data(cls, id, data, index=None, prefix='V'):
+        return cls(id, None, None, None, None, data, index, prefix)
 
 
     @classmethod
@@ -408,7 +408,7 @@ class Matrix(object):
             kk = re.sub('.*/', '', k)
 
             # Skip ts index
-            if kk.endswith('ts_index'):
+            if kk.endswith('index'):
                 continue
 
             # Get id, ilead and iens
@@ -434,9 +434,9 @@ class Matrix(object):
         nens = np.max(ens) + 1
 
         # Reads ts index
-        path = '{0}/{1}_ts_index'.format(root_path, id)
+        path = '{0}/{1}_index'.format(root_path, id)
         df = store[path]
-        ts_index = df.values
+        index = df.values
 
         # Allocate matrix
         df = store[keys[0]]
@@ -452,7 +452,7 @@ class Matrix(object):
                     df.columns[0], keys[0]))
 
         mat = Matrix.from_dims(id, nval, nvar, nlead, nens,
-                prefix=prefix, ts_index=ts_index)
+                prefix=prefix, index=index)
 
         # Populate data
         for ilead, iens in product(range(nlead), range(nens)):
@@ -568,35 +568,35 @@ class Matrix(object):
 
 
     @property
-    def ts_index_continuous(self):
-        return self._ts_index_continuous
+    def index_continuous(self):
+        return self._index_continuous
 
 
     @property
-    def ts_index(self):
-        return self._ts_index
+    def index(self):
+        return self._index
 
-    @ts_index.setter
-    def ts_index(self, value):
+    @index.setter
+    def index(self, value):
         ''' Set the times series index '''
 
         value = np.atleast_1d(value).astype(np.int32)
         if value.shape[0] != self.nval:
-            raise ValueError(('With {0} matrix: tried to set ts_index, got {1} values,' \
+            raise ValueError(('With {0} matrix: tried to set index, got {1} values,' \
                     ' expected {2}').format( \
                                 self.id, value.shape[0], self.nval))
 
         # Check if matrix has continuous ts indexes
         diff = np.diff(value)
         if not np.all(diff>0):
-            raise ValueError(('With {0} matrix: ts_index is not strictly' + \
+            raise ValueError(('With {0} matrix: index is not strictly' + \
                     ' increasing').format(self.id))
 
         # Check if matrix has continuous ts indexes
-        self._ts_index_continuous = np.all(np.allclose(diff, 1.))
+        self._index_continuous = np.all(np.allclose(diff, 1.))
 
         # Set index
-        self._ts_index = value
+        self._index = value
 
 
     def reset(self, value=0.):
@@ -606,7 +606,7 @@ class Matrix(object):
     def clone(self):
         clone = copy.deepcopy(self)
         #clone = Matrix.from_data(self.id, self._data,
-        #        ts_index=self.ts_index, prefix=self.prefix)
+        #        index=self.index, prefix=self.prefix)
 
         return clone
 
@@ -616,8 +616,8 @@ class Matrix(object):
         store = pd.HDFStore(filename)
 
         # Write ts index
-        path = '{0}/{1}_ts_index'.format(root_path, self.id)
-        df = pd.DataFrame(self.ts_index, columns = ['ts_index'])
+        path = '{0}/{1}_index'.format(root_path, self.id)
+        df = pd.DataFrame(self.index, columns = ['index'])
         store.put(path, df)
 
         # Write data

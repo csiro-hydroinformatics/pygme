@@ -18,7 +18,7 @@ class ForecastModel(Model):
         # Check sim model is allocated
         if model._states is None or model._statesuh is None \
             or model._inputs is None:
-            raise ValueError(('Model {0}: In model {1}, either states, statesuh or inputs' +
+            raise ValueError(('With {0} model, In model {1}, either states, statesuh or inputs' +
                 '  is None. Please allocate').format(name, model.name))
 
         self._sim_model = model
@@ -27,19 +27,19 @@ class ForecastModel(Model):
         # Check dimensions
         _, ninputs2, _, _ = model.get_dims('inputs')
         if ninputs < ninputs2:
-            raise ValueError(('Model {0}: Number of inputs in forecast ' +
+            raise ValueError(('With {0} model, Number of inputs in forecast ' +
                 'model ({1}) lower than number of model'+
                 ' inputs ({2})').format(name, ninputs, ninputs2))
 
         nparams_model, _ = model.get_dims('params')
         if nparams < nparams_model:
-            raise ValueError(('Model {0}: Number of parameters in forecast ' +
+            raise ValueError(('With {0} model, Number of parameters in forecast ' +
                 'model ({1}) lower than number of model'+
                 ' parameters ({2})').format(name, nparams, nparams_model))
 
         _, nstates2 = model.get_dims('states')
         if nstates < model._nstates:
-            raise ValueError(('Model {0}: Number of states in forecast ' +
+            raise ValueError(('With {0} model, Number of states in forecast ' +
                 'model ({1}) lower than number of model'+
                 ' parameters ({2})').format(name, nstates, nstates2))
 
@@ -100,6 +100,7 @@ class ForecastModel(Model):
         self._forecast_model.allocate(inputs, noutputs)
 
         # Sim model is expected to be allocated outside !
+        # Nothing to do here
 
 
     def initialise(self, states=None, statesuh=None):
@@ -130,43 +131,45 @@ class ForecastModel(Model):
         iens_inputs = self._inputs.iens
         iens_outputs = self._outputs.iens
 
-        # Check model inputs are continuous ts_index
-        if not smod._inputs.ts_index_continuous:
-            raise ValueError(('Model {0}: Simulation model should have' +
-                'inputs with continuous ts_index'.format(self.name)))
+        # Check model inputs are continuous index
+        if not smod._inputs.index_continuous:
+            raise ValueError(('With {0} model, Simulation model should have' +
+                'inputs with continuous index'.format(self.name)))
 
-        if smod._inputs.ts_index[0] != 0:
-            raise ValueError(('Model {0}: Simulation model should have' +
-                ' inputs with continuous ts_index starting at idx=0' +
+        if smod._inputs.index[0] != 0:
+            raise ValueError(('With {0} model, Simulation model should have' +
+                ' inputs with continuous index starting at idx=0' +
                 ' (currently {1})').format(self.name,
-                    smod._inputs.ts_index[0]))
+                    smod._inputs.index[0]))
 
         # Loop through forecast time indexes
         idx_start = 0
-        fc_ts_index = fmod._inputs.ts_index
-        idx_max = np.max(smod._inputs._ts_index)
+        fc_index = self._inputs.index
+        idx_max = np.max(smod._inputs._index)
 
-        for (ifc, idx_end) in enumerate(fc_ts_index):
+        for (ifc, idx_end) in enumerate(fc_index):
 
-            # Check validity of ts_index
+            # Check validity of index
             if idx_end > idx_max:
-                raise ValueError(('Model {0}: Tried forecasting for ts_index {1}' +
-                    ', but simulation model has a max ts_index' +
-                    ' equal to {2}').format(self.name, idx_end, idx_max))
+                raise ValueError(('With {0} model, forecast index idx_end ({1}) '+
+                    'greater than max(input.index) ({2})').format(self.name,
+                        idx_end, idx_max))
 
             if not ((idx_start >= self.idx_start) & (idx_end <= self.idx_end)):
                 continue
 
-            # Set start/end of simulation
-            self._sim_model.idx_start = idx_start
-            self._sim_model.idx_end = idx_end
+            if idx_end-1 >= idx_start:
+                # Set start/end of simulation
+                smod.idx_start = idx_start
+                smod.idx_end = idx_end-1
 
-            # Run simulation
-            self._sim_model.run()
+                # Run simulation
+                smod.run()
 
             # Update states and initialise forecast model
             self.update(seed)
             fmod.initialise(smod.states, smod.statesuh)
+            print(ifc, idx_start, idx_end, smod.states[0])
 
             # Run forecast for all lead times
             fmod.inputs = self._inputs._data[ifc, :, :, iens_inputs].T
@@ -175,10 +178,8 @@ class ForecastModel(Model):
             # Store outputs
             self._outputs._data[ifc, :, :, iens_outputs] = fmod.outputs.T
 
-
-    def clone(self):
-        pass
-
+            # Update index for next forecast
+            idx_start = idx_end
 
 
 

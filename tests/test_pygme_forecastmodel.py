@@ -32,19 +32,19 @@ class ForecastModelTestCases(unittest.TestCase):
             fc = ForecastModel(gr, 1, 4, 2)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('Model gr4j#forecast: Number of inputs'))
+        self.assertTrue(str(e).startswith('With gr4j#forecast model, Number of inputs'))
 
         try:
             fc = ForecastModel(gr, 2, 3, 1)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('Model gr4j#forecast: Number of parameters'))
+        self.assertTrue(str(e).startswith('With gr4j#forecast model, Number of parameters'))
 
         try:
             fc = ForecastModel(gr, 2, 4, 1)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('Model gr4j#forecast: Number of states'))
+        self.assertTrue(str(e).startswith('With gr4j#forecast model, Number of states'))
 
 
     def test_run1(self):
@@ -67,20 +67,32 @@ class ForecastModelTestCases(unittest.TestCase):
 
         # Prepare forecast inputs
         fc_nval = 10
-        ts_index = np.arange(0, nval, nval/fc_nval)
+        nlead = 50
+        index = np.arange(0, nval, nval/fc_nval)
         fc_inputs = Matrix.from_dims('fc', fc_nval,
-                2, 50, ts_index=ts_index)
+                2, nlead, index=index)
 
-        for k in range(fc_inputs.nlead):
+        for k in range(nlead):
             fc_inputs.ilead = k
-            fc_inputs.data = sim_inputs[ts_index+k+1, :]
+            fc_inputs.data = sim_inputs[index+k+1, :]
 
         # Run forecasts
-        fc.allocate(fc_inputs)
+        fc.allocate(fc_inputs, 2)
         fc.params = params
         fc.initialise(states=[10, 0])
         fc.run()
 
+        # Check simulation
+        err = np.abs(fc._sim_model.outputs - expected)
+        self.assertTrue(np.allclose(err, 0.))
+
+        # Check forecasts
+        for k in range(fc_nval):
+
+            kk = range(index[k]+1, index[k]+nlead+1)
+            res = fc._outputs._data[k, :, :, 0].T
+
+            err = np.abs(expected[kk] - res)
 
 
     def test_run2(self):
