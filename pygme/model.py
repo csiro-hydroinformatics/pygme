@@ -1,5 +1,5 @@
 import math, itertools
-import inspect
+import copy
 import random
 import numpy as np
 
@@ -485,41 +485,43 @@ class Model(object):
     def clone(self):
         ''' Clone the current object model '''
 
-        # Get its arguments
-        args_base = {
-                'name': self.name,
-                'nconfig': self.config.nval,
-                'ninputs': self._ninputs,
-                'nparams': self._params.nval,
-                'nstates': self._nstates,
-                'nstatesuh': NUHMAXLENGTH,
-                'noutputs_max': self.noutputs_max,
-                'nens_params': self._params.nens,
-                'nens_states': self.nens_states,
-                'nens_outputs': self.nens_states,
-        }
+        model = copy.deepcopy(self)
 
-        args = {}
-        for k in inspect.getargspec(self.__init__)[0][1:]:
-            if k in args_base:
-                # Get standard arguments
-                args[k] = args_base[k]
-            else:
-                # Get funny arguments not part of base class
-                args[k] = getattr(self, k)
+        ## Get its arguments
+        #args_base = {
+        #        'name': self.name,
+        #        'nconfig': self.config.nval,
+        #        'ninputs': self._ninputs,
+        #        'nparams': self._params.nval,
+        #        'nstates': self._nstates,
+        #        'nstatesuh': NUHMAXLENGTH,
+        #        'noutputs_max': self.noutputs_max,
+        #        'nens_params': self._params.nens,
+        #        'nens_states': self.nens_states,
+        #        'nens_outputs': self.nens_states,
+        #}
 
-        import pdb; pdb.set_trace()
-        model = super(self.__class__, self).__init__(**args)
+        #args = {}
+        #for k in inspect.getargspec(self.__init__)[0][1:]:
+        #    if k in args_base:
+        #        # Get standard arguments
+        #        args[k] = args_base[k]
+        #    else:
+        #        # Get funny arguments not part of base class
+        #        args[k] = getattr(self, k)
+
+        #import pdb; pdb.set_trace()
+        #model = super(self.__class__, self).__init__(**args)
 
 
 
-        # Copy object content
-        for item in ['_params', '_uh', '_states',
-            '_statesuh', 'config', '_inputs', '_outputs']:
-            obj = getattr(self, item)
+        ## Copy object content
+        #for item in ['_params', '_uh', '_states',
+        #    '_statesuh', 'config', '_inputs', '_outputs']:
+        #    obj = getattr(self, item)
 
-            if not obj is None:
-                setattr(model, item, obj.clone())
+        #    if not obj is None:
+        #        setattr(model, item, obj.clone())
 
         return model
 

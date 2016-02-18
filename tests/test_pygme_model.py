@@ -83,6 +83,7 @@ class ModelTestCases(unittest.TestCase):
         dum.config.data = [10]
 
         dum2 = dum.clone()
+        dum2.inputs = dum2.inputs
 
         d1 = dum.inputs
         d2 = dum2.inputs
@@ -171,8 +172,7 @@ class ModelTestCases(unittest.TestCase):
             dum.idx_end = nval+1
         except Exception, e:
             pass
-
-        self.assertTrue(e.message.startswith('Model dummy: idx_end < 0'))
+        self.assertTrue(e.message.startswith('With model dummy, idx_end < 0'))
 
 
 

@@ -1,4 +1,4 @@
-
+import copy
 import re
 from itertools import product
 
@@ -604,8 +604,9 @@ class Matrix(object):
 
 
     def clone(self):
-        clone = Matrix.from_data(self.id, self._data,
-                ts_index=self.ts_index, prefix=self.prefix)
+        clone = copy.deepcopy(self)
+        #clone = Matrix.from_data(self.id, self._data,
+        #        ts_index=self.ts_index, prefix=self.prefix)
 
         return clone
 

@@ -77,7 +77,7 @@ class MassiveDummy(Model):
             nens_outputs=nens_outputs)
 
 
-    def run(self, seed):
+    def run(self, seed=None):
 
         nval = self.outputs.shape[0]
         outputs = self.inputs + np.random.uniform(0, 1, (nval, 1))
