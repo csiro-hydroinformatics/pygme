@@ -51,24 +51,25 @@ class ModelTestCases(unittest.TestCase):
 
 
     def test_model5(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
+        nval = 100
+        inputs = np.random.uniform(0, 1, (nval, 2))
         params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs, 2)
         dum.params = params
-        dum.initialise(states=[10, 0])
+        dum.config['continuous'] = 1
+
+        states = np.array([10., 0.])
+        dum.initialise(states=states)
 
         dum.idx_start = 0
-        dum.idx_end = 999
+        dum.idx_end = nval-1
         dum.run()
 
-        expected1 = params[0] + params[1] * np.cumsum(inputs[:, 0])
-        ck1 = np.allclose(expected1, dum.outputs[:, 0])
-        self.assertTrue(ck1)
-
-        expected2 = params[0] + params[1] * np.cumsum(inputs[:, 1])
-        ck2 = np.allclose(expected2, dum.outputs[:, 1])
-        self.assertTrue(ck2)
+        expected = params[1] * np.cumsum(params[0] + inputs, 0)
+        expected += states
+        ck = np.allclose(expected, dum.outputs)
+        self.assertTrue(ck)
 
 
     def test_model6(self):

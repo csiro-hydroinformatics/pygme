@@ -106,12 +106,18 @@ class CrossValidationTestCases(unittest.TestCase):
 
         obs = inputs.clone()
 
-        per = [[2, 5], [6, 9], [10, 13], [14, 17]]
+        per = [[0, 5], [4, 9], [8, 13], [12, 17]]
+        params = []
         for i in range(4):
             dum.params = [(i+1.)/10, i+1., 0.]
-            dum.run()
+            params.append(dum.params.copy())
 
             idx = range(per[i][0], per[i][1]+1)
+            dum.initialise()
+            dum.idx_start = idx[0]
+            dum.idx_end = idx[-1]
+            dum.run()
+
             obs.data[idx, :] = dum.outputs[idx, :]
 
         calib = CalibrationDummy()
@@ -136,11 +142,12 @@ class CrossValidationTestCases(unittest.TestCase):
                         [8, 13, 10, 13], [12, 17, 14 ,17]]
         self.assertTrue(start_end == expected)
 
+        # Run XV scheme
         xv.run()
 
         for i, per in enumerate(xv._calperiods):
-            params = per['params']
-            expected = [(i+1.)/10, i+1., 0.]
-            self.assertTrue(np.allclose(params, expected))
+            test = per['params']
+            expected = params[i]
+            self.assertTrue(np.allclose(test, expected))
 
 

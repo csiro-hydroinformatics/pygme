@@ -48,7 +48,7 @@ class LagRoute(Model):
         self.reset()
 
 
-    def set_uh(self):
+    def post_params_setter(self):
 
         # Lag = alpha * U * L / dt
         config = self.config

@@ -18,7 +18,8 @@ class ForecastModel(Model):
         # Check sim model is allocated
         if model._states is None or model._statesuh is None \
             or model._inputs is None:
-            raise ValueError(('With {0} model, In model {1}, either states, statesuh or inputs' +
+            raise ValueError(('With {0} model, In model {1}, either states, ' +
+                'statesuh or inputs' +
                 '  is None. Please allocate').format(name, model.name))
 
         self._sim_model = model
@@ -115,13 +116,76 @@ class ForecastModel(Model):
         smod.initialise(self.states[:nstates],
                 self.statesuh[:nstatesuh])
 
+        # Initialise forecast model
+        fmod = self._forecast_model
+        fmod.initialise(self.states, self.statesuh)
 
-    def update(self, seed):
+
+    def update(self, seed=None):
         ''' Performs states updating '''
         pass
 
+    def check_model(self, periodlength=10):
+        ''' Check that simulation model correctly update the outputs
+            when states are updated sequentially
+
+        '''
+
+        # get simulation model
+        smod = self._sim_model
+
+        # define 2 consecutive periods
+        idx_start = self.idx_start
+        idx_end = self.idx_end
+
+        if idx_start == idx_end:
+            idx_end = idx_start + periodlength
+
+        idx_mid = idx_start + (idx_end-idx_start)/2
+
+
+        # Run the model for the first two time steps
+        # sequentially
+        smod.initialise()
+        smod.idx_start = idx_start
+        smod.idx_end = idx_mid
+        smod.run()
+
+        smod.idx_start = idx_mid+1
+        smod.idx_end = idx_end
+        smod.run()
+        o1 = smod.outputs[idx_end, :].copy()
+
+        # Run the model for the first two time steps
+        # jointly
+        smod.initialise()
+        smod.idx_start = 0
+        smod.idx_end = 10
+        smod.run()
+        o2 = smod.outputs[idx_end, :].copy()
+
+        # Check that model does not have random outputs
+        # by running second simulation twice
+        smod.initialise()
+        smod.run()
+        o3 = smod.outputs[idx_end, :].copy()
+
+        # It is expected that both
+        # results will be identical
+        ck_a = np.allclose(o1, o2)
+        ck_b = np.allclose(o2, o3)
+
+        if not ck_a and ck_b:
+            raise ValueError(('With model {0}, simulation model does not ' +
+                'implement continuous state updating' +
+                ' (test for idx_start={1} idx_end={2})').format(self.name,
+                    idx_start, idx_end))
+
 
     def run(self, seed=None):
+
+        # Check model continous state updating
+        self.check_model()
 
         # Get models
         smod = self._sim_model
@@ -150,30 +214,35 @@ class ForecastModel(Model):
         for (ifc, idx_end) in enumerate(fc_index):
 
             # Check validity of index
-            if idx_end > idx_max:
+            if idx_end-1 > idx_max:
                 raise ValueError(('With {0} model, forecast index idx_end ({1}) '+
-                    'greater than max(input.index) ({2})').format(self.name,
+                    'greater than max(input.index)+1 ({2})').format(self.name,
                         idx_end, idx_max))
 
+            # Do not run forecast if is outside the forecast model
+            # Start/End period
             if not ((idx_start >= self.idx_start) & (idx_end <= self.idx_end)):
                 continue
 
-            if idx_end-1 >= idx_start:
-                # Set start/end of simulation
-                smod.idx_start = idx_start
-                smod.idx_end = idx_end-1
+            # Set start/end of simulation model
+            smod.idx_start = idx_start
+            smod.idx_end = idx_end-1
 
-                # Run simulation
-                smod.run()
+            if idx_end-1 > idx_start:
+                raise ValueError(('With {0} model, forecast index idx_end ({1}) '+
+                    'smaller than idx_start+1 ({2})').format(self.name,
+                        idx_end, idx_start+1))
+
+            # Run simulation
+            smod.run()
 
             # Update states and initialise forecast model
             self.update(seed)
             fmod.initialise(smod.states, smod.statesuh)
-            print(ifc, idx_start, idx_end, smod.states[0])
 
             # Run forecast for all lead times
             fmod.inputs = self._inputs._data[ifc, :, :, iens_inputs].T
-            fmod.run(seed=-2)
+            fmod.run(seed)
 
             # Store outputs
             self._outputs._data[ifc, :, :, iens_outputs] = fmod.outputs.T
@@ -182,4 +251,12 @@ class ForecastModel(Model):
             idx_start = idx_end
 
 
+    def get_forecast(self, index):
+        ''' Extract forecast at index up to lead time = nlead '''
 
+        k = np.where(self._outputs.index == index)[0]
+        iens = self.get_iens('outputs')
+        fc = self._outputs._data[k, :, :, iens][0].T
+        idx = np.arange(index, index+self._outputs.nlead)
+
+        return fc, idx

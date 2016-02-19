@@ -248,7 +248,9 @@ class Vector(object):
         else:
             value = (value * np.ones(self.nval)).astype(np.float64)
 
-        value = np.clip(value.flatten(), self.min, self.max)
+        if self.has_minmax:
+            value = np.clip(value.flatten(), self.min, self.max)
+
         self._data = np.repeat(np.atleast_2d(value), self.nens, axis=0)
 
 

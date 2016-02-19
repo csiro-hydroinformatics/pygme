@@ -26,7 +26,8 @@ class Dummy(Model):
         self._params.min = [-10., -10., -10.]
         self._params.max = [10., 10., 10.]
 
-        self.config.names = 'Config1'
+        self.config.names = 'continuous'
+        self.config.reset(0.)
 
         self.reset()
 
@@ -36,23 +37,25 @@ class Dummy(Model):
         idx_start = self.idx_start
         idx_end = self.idx_end
 
-        par1 = self.params[0]
-        par2 = self.params[1]
-        par3 = self.params[2]
-
         nval, nvar = self.outputs.shape
+        par1, par2, par3 = self.params
 
-        outputs = par1 + par2 * np.cumsum(self.inputs, 0)
+        kk = np.arange(idx_start, idx_end+1)
+        outputs = par2 * np.cumsum(par1 + self.inputs[kk, :], 0)
+
+        if np.allclose(self.config['continuous'], 1):
+            outputs = self.states + outputs
 
         if par3 > 1e-10:
-            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(nval, ))
+            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20,
+                                size=(len(kk), ))
 
-        self.outputs[idx_start:idx_end+1, :] = outputs[idx_start:idx_end+1, :nvar]
+        self.outputs[idx_start:idx_end+1, :] = outputs[:, :nvar]
 
         self.states = list(self.outputs[idx_end, :]) \
                     + [0.] * (2-self.outputs.shape[1])
 
-    def set_uh(self):
+    def post_params_setter(self):
         uh = np.zeros(self._uh.nval)
         uh[:4] = 0.25
         self.uh =  uh

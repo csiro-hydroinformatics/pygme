@@ -153,7 +153,7 @@ class Model(object):
 
         # When setting params, check uh are in sync
         self._uh.iens = self._params.iens
-        self.set_uh()
+        self.post_params_setter()
 
 
     @property
@@ -214,25 +214,26 @@ class Model(object):
         return self._iens_outputs
 
 
-    def get_iens(item='params'):
+    def get_iens(self, item='params'):
         ''' Set ensemble member for model attributes '''
         if item in ['params', 'inputs']:
             obj = getattr(self, '_{0}'.format(item))
             if not obj is None:
                 return obj.iens
             else:
-                raise ValueError(('With model {0}, getting ensemble number, but item {1}' +
-                ' is None. Cannot get ensemble number').format(self.name, item))
+                raise ValueError(('With model {0}, getting ensemble number, ' +
+                    'but item {1} is None. Cannot get ' +
+                    'ensemble number').format(self.name, item))
 
         elif item == 'states':
             return self._iens_states
 
         elif item == 'outputs':
-           return self._outputs_states
+           return self._iens_outputs
 
         else:
-            raise ValueError(('With model {0}, setting ensemble number, but item {1}' +
-                ' does not exists').format(self.name, item))
+            raise ValueError(('With model {0}, setting ensemble number, ' +
+                'but item {1} does not exists').format(self.name, item))
 
 
 
@@ -245,8 +246,9 @@ class Model(object):
             if not obj is None:
                 obj.iens = value
             else:
-                raise ValueError(('With model {0}, setting ensemble number, but item {1}' +
-                ' is None. Cannot get ensemble number').format(self.name, item))
+                raise ValueError(('With model {0}, setting ensemble number, ' +
+                    'but item {1} is None. Cannot get ' +
+                    'ensemble number').format(self.name, item))
 
 
         elif item == 'states':
@@ -255,9 +257,10 @@ class Model(object):
                         '>= nens {2} or < 0').format( \
                                     self.name, value, self.nens_states))
 
-            # Determines the state ensemble number given the input ensemble and the parameter ensemble
-            # It is assumed that the loop will go first on inputs then on parameters
-            # and finally on random states ensembles
+            # Determines the state ensemble number given the input ensemble
+            # and the parameter ensemble. It is assumed that the loop will go
+            # first on inputs then on parameters and finally on random states
+            # ensembles
             n1 = self._params.nens
             n2 = self.nens_states
             iens = n1 * n2  * self._inputs.iens
@@ -275,9 +278,10 @@ class Model(object):
                         '>= nens {2} or < 0').format( \
                                     self.name, value, self.nens_outputs))
 
-            # Determines the state ensemble number given the input ensemble and the parameter ensemble
-            # It is assumed that the loop will go first on inputs then on parameters
-            # and finally on random states ensembles
+            # Determines the state ensemble number given the input
+            # ensemble and the parameter ensemble.
+            # It is assumed that the loop will go first on inputs then
+            # on parameters and finally on random states ensembles
             n1 = self._params.nens
             n2 = self.nens_states
             n3 = self.nens_outputs
@@ -290,8 +294,8 @@ class Model(object):
             self._outputs_states = value
 
         else:
-            raise ValueError(('With model {0}, setting ensemble number, but item {1}' +
-                ' does not exists').format(self.name, item))
+            raise ValueError(('With model {0}, setting ensemble number, '
+                'but item {1} does not exists').format(self.name, item))
 
 
     def get_dims(self, item='params'):
@@ -381,22 +385,25 @@ class Model(object):
         nens = self._params.nens * self._inputs.nens * self.nens_states
         self._states = Vector('states', self._nstates, nens,
                                 prefix='S', has_minmax=False)
+        self._states.default = np.zeros(self._nstates)
 
         self._statesuh = Vector('statesuh', NUHMAXLENGTH, nens,
                                 prefix='SUH')
         self._statesuh.min = np.zeros(NUHMAXLENGTH)
+        self._statesuh.default = np.zeros(NUHMAXLENGTH)
 
         # Allocate output matrix with number of final ensemble
         nens *= self.nens_outputs
         self._outputs = Matrix.from_dims('outputs',
-                nval, noutputs, nlead_inputs, nens, prefix='O')
+                nval, noutputs, nlead_inputs, nens,
+                index=inputs.index, prefix='O')
 
         # Set up start and end to beginning and end of simulation
         self.idx_start = 0
         self.idx_end = nval-1
 
 
-    def set_uh(self):
+    def post_params_setter(self):
         pass
 
 
@@ -411,12 +418,12 @@ class Model(object):
             self._statesuh.iens = iens
 
             if states is None:
-                self._states.data = [0.] * self._states.nval
+                self._states.reset()
             else:
                 self._states.data = states
 
             if statesuh is None:
-                self._statesuh.data = [0.] * self._statesuh.nval
+                self._statesuh.reset()
             else:
                 self._statesuh.data = statesuh
 

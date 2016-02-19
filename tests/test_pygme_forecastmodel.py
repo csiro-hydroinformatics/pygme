@@ -32,43 +32,75 @@ class ForecastModelTestCases(unittest.TestCase):
             fc = ForecastModel(gr, 1, 4, 2)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('With gr4j#forecast model, Number of inputs'))
+        self.assertTrue(str(e).startswith('With gr4j#forecast model, ' +
+            'Number of inputs'))
 
         try:
             fc = ForecastModel(gr, 2, 3, 1)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('With gr4j#forecast model, Number of parameters'))
+        self.assertTrue(str(e).startswith('With gr4j#forecast model, ' +
+            'Number of parameters'))
 
         try:
             fc = ForecastModel(gr, 2, 4, 1)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('With gr4j#forecast model, Number of states'))
+        self.assertTrue(str(e).startswith('With gr4j#forecast model, ' +
+            'Number of states'))
 
-
-    def test_run1(self):
+    def test_continuous(self):
+        # Prepare simulation model
         nval = 1000
         sim_inputs = np.random.uniform(0, 1, (nval, 2))
-
         dum = Dummy()
         dum.allocate(sim_inputs, 2)
 
-        fc = ForecastModel(dum, 2, 3, 2)
+        # Prepare forecast inputs
+        fc_nval = 10
+        nlead = 5
+        index = np.arange(1, fc_nval+1)
+        fc_inputs = Matrix.from_dims('fc', fc_nval,
+                2, nlead, index=index)
 
+        # Run forecasts
+        dum.config['continuous'] = 0
+        fc = ForecastModel(dum, 2, 3, 2)
+        fc.allocate(fc_inputs, 2)
+        fc.params = [1, 10, 0.]
+        fc.initialise()
+
+        try:
+            fc.run()
+        except ValueError, e:
+            pass
+
+        self.assertTrue(str(e).startswith('With model dummy#forecast, ' +
+                'simulation model does not implement'))
+
+
+    def test_run1(self):
         # Prepare simulation model
+        dum = Dummy()
+        dum.config['continuous'] = 1
+        nval = 1000
+        sim_inputs = np.random.uniform(0, 1, (nval, 2))
+        dum.allocate(sim_inputs, 2)
+
         params = [0.5, 10., 0.]
-        dum = fc.sim_model
         dum.params = params
-        dum.initialise(states=[10, 0])
-        dum.inputs = sim_inputs
+
+        states = [10, 0]
+        dum.initialise(states=states)
         dum.run()
         expected = dum.outputs.copy()
+        #dum._outputs.reset(np.nan)
 
         # Prepare forecast inputs
         fc_nval = 10
-        nlead = 50
-        index = np.arange(0, nval, nval/fc_nval)
+        nlead = 5
+        #index = np.arange(0, nval, nval/fc_nval)
+        index = np.arange(1, fc_nval+1)
         fc_inputs = Matrix.from_dims('fc', fc_nval,
                 2, nlead, index=index)
 
@@ -77,22 +109,17 @@ class ForecastModelTestCases(unittest.TestCase):
             fc_inputs.data = sim_inputs[index+k+1, :]
 
         # Run forecasts
+        fc = ForecastModel(dum, 2, 3, 2)
         fc.allocate(fc_inputs, 2)
         fc.params = params
-        fc.initialise(states=[10, 0])
+        fc.initialise(states=states)
         fc.run()
-
-        # Check simulation
-        err = np.abs(fc._sim_model.outputs - expected)
-        self.assertTrue(np.allclose(err, 0.))
 
         # Check forecasts
         for k in range(fc_nval):
+            res, idx = fc.get_forecast(index[k])
+            err = np.abs(expected[idx, :] - res)
 
-            kk = range(index[k]+1, index[k]+nlead+1)
-            res = fc._outputs._data[k, :, :, 0].T
-
-            err = np.abs(expected[kk] - res)
 
 
     def test_run2(self):
@@ -111,18 +138,12 @@ class ForecastModelTestCases(unittest.TestCase):
             inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
 
             # Run gr4j
-            gr.allocate(inputs.shape[0], 1)
-            gr.inputs = inputs
-
-            t0 = time.time()
+            gr.allocate(inputs, 1)
 
             gr.params = params[i, [2, 0, 1, 3]]
             gr.initialise()
             gr.run()
             qsim = gr.outputs[:,0]
 
-            t1 = time.time()
-            dta = 1000 * (t1-t0)
-            dta /= len(qsim)/365.25
 
 

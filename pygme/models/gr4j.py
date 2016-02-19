@@ -41,16 +41,15 @@ class GR4J(Model):
         self._params.max = [20000., 50., 5000., 100.]
         self._params.default = [400., -1., 50., 0.5]
 
-        self.reset()
 
+    def post_params_setter(self):
 
-    def set_uh(self):
+        super(GR4J, self).post_params_setter()
 
-        super(GR4J, self).set_uh()
-
+        # Get parameters
         params = self.params
 
-        # First uh
+        # Set first uh
         nuh1 = np.zeros(1).astype(np.int32)
         uh1 = np.zeros(NUHMAXLENGTH).astype(np.float64)
         ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH,
@@ -64,7 +63,7 @@ class GR4J(Model):
 
         self.uh[:self._nuh1] = uh1[:self._nuh1]
 
-        # Second uh
+        # Set second uh
         nuh2 = np.zeros(1).astype(np.int32)
         uh2 = np.zeros(NUHMAXLENGTH).astype(np.float64)
         ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH, \
@@ -80,24 +79,13 @@ class GR4J(Model):
         self.uh[self._nuh1:] = uh2[:nend]
         self._nuhlength = self._nuh1 + self._nuh2
 
-
-    def initialise(self, states=None, statesuh=None):
-
-        params = self.params
-
+        # Set default initial states
         if self._states is None:
             raise ValueError(('{0} model: states are None,' +
                     ' please allocate').format(self.name))
 
-        # initialise GR4J with reservoir levels
-        if states is None:
-            states = np.zeros(self._states.nval)
-            states[0] = params[0] * 0.5
-            states[1] = params[2] * 0.4
+        self._states.default = [params[0] * 0.5, params[2] * 0.4]
 
-            statesuh = np.zeros(self._statesuh.nval)
-
-        super(GR4J, self).initialise(states, statesuh)
 
 
     def run(self, seed=None):

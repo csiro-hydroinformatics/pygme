@@ -51,6 +51,7 @@ class GR4JTestCases(unittest.TestCase):
 
     def test_uh(self):
         gr = GR4J()
+        gr.allocate(np.zeros((10, 2)))
         for x4 in np.linspace(0, 50, 100):
             gr.params = [400, -1, 50, x4]
 
@@ -68,6 +69,7 @@ class GR4JTestCases(unittest.TestCase):
         inputs = np.array([p, pe]).T
         gr.allocate(inputs, 9)
         gr.initialise()
+        gr.reset('params')
         gr.run()
 
         out = gr.outputs
@@ -147,8 +149,8 @@ class GR4JTestCases(unittest.TestCase):
             # Run gr first
             params_expected = params[i, [2, 0, 1, 3]]
             gr = calib.model
-            gr.params = params_expected
             gr.allocate(inputs, 1)
+            gr.params = params_expected
             gr.initialise()
             gr.run()
             obs = Matrix.from_data('obs', gr.outputs[:,0].copy())
