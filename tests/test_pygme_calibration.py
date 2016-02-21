@@ -44,7 +44,7 @@ class CalibrationTestCases(unittest.TestCase):
         calib = CalibrationDummy()
 
         try:
-            calib.idx_cal = obs==obs
+            calib.index_cal = obs==obs
         except ValueError as e:
             pass
 
@@ -64,7 +64,7 @@ class CalibrationTestCases(unittest.TestCase):
 
         calib = CalibrationDummy()
         calib.setup(obs, inputs)
-        calib.idx_cal = np.arange(obs.nval)
+        calib.index_cal = np.arange(obs.nval)
 
         start, explo, explo_ofun = calib.explore(iprint=0, nsamples=50)
 
@@ -85,8 +85,8 @@ class CalibrationTestCases(unittest.TestCase):
         obs = Matrix.from_data('obs', dum.outputs[:, 0])
 
         calib = CalibrationDummy()
-        idx_cal = np.arange(obs.nval)
-        calib.fullfit(obs, inputs, idx_cal, iprint=0,
+        index_cal = np.arange(obs.nval)
+        calib.run(obs, inputs, index_cal, iprint=0,
                 maxfun=100000, ftol=1e-8)
 
         self.assertTrue(np.allclose(calib.model.params, params))
@@ -114,8 +114,8 @@ class CrossValidationTestCases(unittest.TestCase):
 
             idx = range(per[i][0], per[i][1]+1)
             dum.initialise()
-            dum.idx_start = idx[0]
-            dum.idx_end = idx[-1]
+            dum.index_start = idx[0]
+            dum.index_end = idx[-1]
             dum.run()
 
             obs.data[idx, :] = dum.outputs[idx, :]
@@ -127,15 +127,15 @@ class CrossValidationTestCases(unittest.TestCase):
 
         # Set leaveout scheme
         xv.set_periods(scheme='leaveout', nperiods=9, warmup=2)
-        start_end = [[per['idx_start'], per['idx_end'],
-                        per['idx_cal'][0], per['idx_cal'][-1]]
+        start_end = [[per['index_start'], per['index_end'],
+                        per['index_cal'][0], per['index_cal'][-1]]
                             for per in xv._calperiods]
 
 
         # Set split sample test scheme
         xv.set_periods(scheme='split', nperiods=4, warmup=2)
-        start_end = [[per['idx_start'], per['idx_end'],
-                        per['idx_cal'][0], per['idx_cal'][-1]]
+        start_end = [[per['index_start'], per['index_end'],
+                        per['index_cal'][0], per['index_cal'][-1]]
                             for per in xv._calperiods]
 
         expected = [[0, 5, 2, 5], [4 ,9, 6, 9],

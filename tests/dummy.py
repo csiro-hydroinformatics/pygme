@@ -27,32 +27,38 @@ class Dummy(Model):
         self._params.max = [10., 10., 10.]
 
         self.config.names = 'continuous'
-        self.config.reset(0.)
-
-        self.reset()
+        self.config.default = 1
 
 
     def run(self, seed=None):
 
-        idx_start = self.idx_start
-        idx_end = self.idx_end
+        index = self._inputs.index
+        index_start = self.index_start
+        index_end = self.index_end
+
+        par1 = self.params[0]
+        par2 = self.params[1]
+        par3 = self.params[2]
 
         nval, nvar = self.outputs.shape
-        par1, par2, par3 = self.params
 
-        kk = np.arange(idx_start, idx_end+1)
-        outputs = par2 * np.cumsum(par1 + self.inputs[kk, :], 0)
+        outputs = par1 + par2 *self.inputs
 
         if np.allclose(self.config['continuous'], 1):
-            outputs = self.states + outputs
+            outputs = outputs + self.states
+
+        outputs = np.cumsum(outputs, 0)
 
         if par3 > 1e-10:
-            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20,
-                                size=(len(kk), ))
+            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(nval, ))
 
-        self.outputs[idx_start:idx_end+1, :] = outputs[:, :nvar]
+        # Write data to selected output indexes
+        kk = (index >= index_start) & (index <= index_end)
+        self.outputs[kk, :] = outputs[kk, :nvar]
 
-        self.states = list(self.outputs[idx_end, :]) \
+        # Store states
+        kk = np.where(index == index_end)[0]
+        self.states = list(self.outputs[kk, :]) \
                     + [0.] * (2-self.outputs.shape[1])
 
     def post_params_setter(self):
@@ -85,9 +91,9 @@ class MassiveDummy(Model):
         nval = self.outputs.shape[0]
         outputs = self.inputs + np.random.uniform(0, 1, (nval, 1))
 
-        idx_start = self.idx_start
-        idx_end = self.idx_end
-        kk = np.arange(idx_start, idx_end+1)
+        index_start = self.index_start
+        index_end = self.index_end
+        kk = np.arange(index_start, index_end+1)
 
         self.outputs[kk, :] = outputs[kk, :]
 

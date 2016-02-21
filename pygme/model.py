@@ -59,8 +59,8 @@ class Model(object):
         self._inputs = None
         self._outputs = None
 
-        self._idx_start = 0
-        self._idx_end = 0
+        self._index_start = 0
+        self._index_end = 0
 
 
     def __str__(self):
@@ -100,37 +100,41 @@ class Model(object):
 
 
     @property
-    def idx_start(self):
-        return self._idx_start
+    def index_start(self):
+        return self._index_start
 
-    @idx_start.setter
-    def idx_start(self, value):
+    @index_start.setter
+    def index_start(self, value):
         if self._inputs is None:
-            raise ValueError(('With model {0}, Cannot set idx_end when'+
+            raise ValueError(('With model {0}, Cannot set index_end when'+
                 ' inputs is None. Please allocate').format(self.name))
 
-        if value < 0 or value >= self._inputs.nval:
-            raise ValueError(('With model {0}, idx_start < 0 or > inputs.nval ({1})').format(self.name,
-                self._inputs.nval))
+        index = self._inputs.index
 
-        self._idx_start = value
+        if not np.all(np.in1d(value, index)):
+            raise ValueError(('With model {0}, index_start ({1})' +
+                    ' not within input indexes').format(self.name, value))
+
+        self._index_start = value
 
 
     @property
-    def idx_end(self):
-        return self._idx_end
+    def index_end(self):
+        return self._index_end
 
-    @idx_end.setter
-    def idx_end(self, value):
+    @index_end.setter
+    def index_end(self, value):
         if self._inputs is None:
-            raise ValueError(('With model {0}, Cannot set idx_end when'+
+            raise ValueError(('With model {0}, cannot set index_end when'+
                 ' inputs is None. Please allocate').format(self.name))
 
-        if value < 0 or value >= self._inputs.nval:
-            raise ValueError(('With model {0}, idx_end < 0 or > inputs.nval ({1})').format(self.name,
-                self._inputs.nval))
+        index = self._inputs.index
 
-        self._idx_end = value
+        if not np.all(np.in1d(value, index)):
+            raise ValueError(('With model {0}, index_end ({1})' +
+                    ' not within input indexes').format(self.name, value))
+
+        self._index_end = value
 
 
     @property
@@ -399,8 +403,8 @@ class Model(object):
                 index=inputs.index, prefix='O')
 
         # Set up start and end to beginning and end of simulation
-        self.idx_start = 0
-        self.idx_end = nval-1
+        self.index_start = inputs.index[0]
+        self.index_end = inputs.index[-1]
 
 
     def post_params_setter(self):

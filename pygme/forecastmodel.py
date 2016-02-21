@@ -135,40 +135,48 @@ class ForecastModel(Model):
         smod = self._sim_model
 
         # define 2 consecutive periods
-        idx_start = self.idx_start
-        idx_end = self.idx_end
+        index = smod._inputs.index
 
-        if idx_start == idx_end:
-            idx_end = idx_start + periodlength
+        index_start = smod.index_start
+        kstart = np.where(index == index_start)[0][0]
 
-        idx_mid = idx_start + (idx_end-idx_start)/2
+        nts = 4
+        if smod._inputs.nval < 4:
+            raise ValueError(('With model {0}, not enough' +
+                ' values in simulation model () to perform' +
+                ' check').format(self.name, smod._input.nval))
 
+        index_end = index[kstart + nts]
+
+        kend = np.where(index == index_end)[0][0]
+        index_mid = index[(kstart+kend)/2]
+        index_midb = index[(kstart+kend)/2+1]
 
         # Run the model for the first two time steps
         # sequentially
         smod.initialise()
-        smod.idx_start = idx_start
-        smod.idx_end = idx_mid
+        smod.index_start = index_start
+        smod.index_end = index_mid
         smod.run()
 
-        smod.idx_start = idx_mid+1
-        smod.idx_end = idx_end
+        smod.index_start = index_midb
+        smod.index_end = index_end
         smod.run()
-        o1 = smod.outputs[idx_end, :].copy()
+        o1 = smod.outputs[kend, :].copy()
 
         # Run the model for the first two time steps
         # jointly
         smod.initialise()
-        smod.idx_start = 0
-        smod.idx_end = 10
+        smod.index_start = index_start
+        smod.index_end = index_end
         smod.run()
-        o2 = smod.outputs[idx_end, :].copy()
+        o2 = smod.outputs[kend, :].copy()
 
         # Check that model does not have random outputs
         # by running second simulation twice
         smod.initialise()
         smod.run()
-        o3 = smod.outputs[idx_end, :].copy()
+        o3 = smod.outputs[index_end, :].copy()
 
         # It is expected that both
         # results will be identical
@@ -178,8 +186,8 @@ class ForecastModel(Model):
         if not ck_a and ck_b:
             raise ValueError(('With model {0}, simulation model does not ' +
                 'implement continuous state updating' +
-                ' (test for idx_start={1} idx_end={2})').format(self.name,
-                    idx_start, idx_end))
+                ' (test for index_start={1} index_end={2})').format(self.name,
+                    index_start, index_end))
 
 
     def run(self, seed=None):
@@ -207,31 +215,31 @@ class ForecastModel(Model):
                     smod._inputs.index[0]))
 
         # Loop through forecast time indexes
-        idx_start = 0
+        index_start = 0
         fc_index = self._inputs.index
         idx_max = np.max(smod._inputs._index)
 
-        for (ifc, idx_end) in enumerate(fc_index):
+        for (ifc, index_end) in enumerate(fc_index):
 
             # Check validity of index
-            if idx_end-1 > idx_max:
-                raise ValueError(('With {0} model, forecast index idx_end ({1}) '+
+            if index_end-1 > idx_max:
+                raise ValueError(('With {0} model, forecast index index_end ({1}) '+
                     'greater than max(input.index)+1 ({2})').format(self.name,
-                        idx_end, idx_max))
+                        index_end, idx_max))
 
             # Do not run forecast if is outside the forecast model
             # Start/End period
-            if not ((idx_start >= self.idx_start) & (idx_end <= self.idx_end)):
+            if not ((index_start >= self.index_start) & (index_end <= self.index_end)):
                 continue
 
             # Set start/end of simulation model
-            smod.idx_start = idx_start
-            smod.idx_end = idx_end-1
+            smod.index_start = index_start
+            smod.index_end = index_end-1
 
-            if idx_end-1 > idx_start:
-                raise ValueError(('With {0} model, forecast index idx_end ({1}) '+
-                    'smaller than idx_start+1 ({2})').format(self.name,
-                        idx_end, idx_start+1))
+            if index_end-1 > index_start:
+                raise ValueError(('With {0} model, forecast index index_end ({1}) '+
+                    'smaller than index_start+1 ({2})').format(self.name,
+                        index_end, index_start+1))
 
             # Run simulation
             smod.run()
@@ -248,7 +256,7 @@ class ForecastModel(Model):
             self._outputs._data[ifc, :, :, iens_outputs] = fmod.outputs.T
 
             # Update index for next forecast
-            idx_start = idx_end
+            index_start = index_end
 
 
     def get_forecast(self, index):

@@ -147,7 +147,7 @@ class VectorTestCases(unittest.TestCase):
         except ValueError as e:
             pass
         self.assertTrue(str(e).startswith('With test vector:' +
-            ' key P20 not in the list of names'))
+            ' key "P20" not in the list of names'))
 
 
     def test_vector11(self):

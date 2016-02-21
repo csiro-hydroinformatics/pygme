@@ -81,7 +81,7 @@ class Vector(object):
 
     def __findname__(self, key):
         if not key in self._names:
-            raise ValueError(('With {0} vector: key {1} not in the' +
+            raise ValueError(('With {0} vector: key "{1}" not in the' +
                 ' list of names').format(self.id, key))
 
         return np.where(self._names == key)[0][0]

@@ -40,6 +40,8 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(inputs)
         dum.params = params
 
+        self.assertTrue(np.allclose(dum._params.data, params))
+
 
     def test_model4(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
@@ -47,7 +49,11 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         dum.allocate(inputs)
         dum.params = params
-        dum.initialise(states=[10, 0])
+
+        states = [10, 0]
+        dum.initialise(states)
+
+        self.assertTrue(np.allclose(dum._states.data, states))
 
 
     def test_model5(self):
@@ -62,12 +68,13 @@ class ModelTestCases(unittest.TestCase):
         states = np.array([10., 0.])
         dum.initialise(states=states)
 
-        dum.idx_start = 0
-        dum.idx_end = nval-1
+        dum.index_start = 0
+        dum.index_end = nval-1
         dum.run()
 
-        expected = params[1] * np.cumsum(params[0] + inputs, 0)
-        expected += states
+        expected = params[0] + params[1] * inputs
+        expected = expected + states
+        expected = np.cumsum(expected, 0)
         ck = np.allclose(expected, dum.outputs)
         self.assertTrue(ck)
 
@@ -99,6 +106,7 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         inputs = np.random.uniform(0, 1, (10, 2))
         dum.allocate(inputs, 2)
+        dum.params = np.zeros(3)
 
         uh = [0.25]*4 + [0.] * (len(dum.uh)-4)
         uh = np.array(uh)
@@ -115,8 +123,8 @@ class ModelTestCases(unittest.TestCase):
         dum.initialise(states=[])
         dum.inputs = inputs
 
-        dum.idx_start = 0
-        dum.idx_end = len(inputs)-1
+        dum.index_start = 0
+        dum.index_end = len(inputs)-1
         dum.run()
 
 
@@ -164,16 +172,16 @@ class ModelTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (nval, ninputs))
         dum.allocate(inputs)
 
-        dum.idx_start = 10
-        dum.idx_end = nval-1
+        dum.index_start = 10
+        dum.index_end = nval-1
         dum.run_ens()
         self.assertTrue(np.all(np.isnan(dum.outputs[:10, 0])))
 
         try:
-            dum.idx_end = nval+1
+            dum.index_end = nval+1
         except Exception, e:
             pass
-        self.assertTrue(e.message.startswith('With model dummy, idx_end < 0'))
+        self.assertTrue(e.message.startswith('With model dummy, index_end (1001)'))
 
 
 
