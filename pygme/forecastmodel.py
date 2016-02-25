@@ -4,16 +4,44 @@ import numpy as np
 from pygme.model import Model
 from pygme.data import Matrix
 
+def get_perfect_forecast(matrix, nlead=2):
+    ''' Turn a standard input matrix into a perfect forecast matrix '''
+
+    if not matrix.index_continuous:
+        raise ValueError('Perfect forecast cannot be produced' +
+                ' for non continuous matrix index')
+
+    nval = matrix.nval
+    nvar = matrix.nvar
+    nens = matrix.nens
+    fc = Matrix.from_dims('fc', nval, nvar, nlead, nens,
+            index=matrix.index)
+
+    for l in range(nens):
+        matrix.iens = l
+
+        for k in range(nlead):
+            data = np.roll(matrix.data, -k, 0)
+            data[range(nval-k, nval), :] = np.nan
+            fc.ilead = k
+            fc.iens = l
+            fc.data = data
+
+    fc.ilead = 0
+
+    return fc
+
+
 
 class ForecastModel(Model):
 
     def __init__(self, model,
-            ninputs, nparams, nstates,
+            ninputs=None, nparams=None, nstates=None,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
 
-        name = '{0}#forecast'.format(model.name)
+        name = '{0}-forecast'.format(model.name)
 
         # Check sim model is allocated
         if model._states is None or model._statesuh is None \
@@ -24,6 +52,17 @@ class ForecastModel(Model):
 
         self._sim_model = model
         self._forecast_model = model.clone()
+
+        # Affect model dimensions to forecast model if not defined
+        if ninputs is None:
+            _, ninputs, _, _ = model.get_dims('inputs')
+
+        if nparams is None:
+            nparams, _ = model.get_dims('params')
+
+        if nstates is None:
+            nstates, _ = model.get_dims('states')
+
 
         # Check dimensions
         _, ninputs2, _, _ = model.get_dims('inputs')
@@ -93,10 +132,16 @@ class ForecastModel(Model):
         super(ForecastModel, self).allocate(inputs, noutputs)
 
         # Allocate forecast model
-        # i.e. model with nval= nlead to run model over
-        # the whole forecast period
+        # i.e. model with nval= nlead-1 to run model over
+        # the whole forecast period excluding the current instant
         _, nvar, nlead, nens = self.get_dims('inputs')
-        inputs = Matrix.from_dims('fc_inputs', nlead, nvar, 1, nens,
+
+        if nlead <= 1:
+            raise ValueError('With {0} model, cannot allocate a ' +
+                    'forecast model with inputs having nlead({1}) <= 1'.format(
+                        self.name, nlead))
+
+        inputs = Matrix.from_dims('fc_inputs', nlead-1, nvar, 1, nens,
                 prefix='FCI')
         self._forecast_model.allocate(inputs, noutputs)
 
@@ -113,26 +158,33 @@ class ForecastModel(Model):
         nstates, _ = smod.get_dims('states')
         nstatesuh, _ = smod.get_dims('statesuh')
 
-        smod.initialise(self.states[:nstates],
-                self.statesuh[:nstatesuh])
+        if not states is None:
+            states = self.states[:nstates]
+        if not statesuh is None:
+            staesuh = self.statesuh[:nstatesuh]
 
-        # Initialise forecast model
-        fmod = self._forecast_model
-        fmod.initialise(self.states, self.statesuh)
+        smod.initialise(states, statesuh)
 
 
     def update(self, seed=None):
         ''' Performs states updating '''
         pass
 
+
     def check_model(self, periodlength=10):
         ''' Check that simulation model correctly update the outputs
             when states are updated sequentially
 
         '''
-
         # get simulation model
         smod = self._sim_model
+        states = smod.states.copy()
+        statesuh = smod.statesuh.copy()
+
+        if smod._inputs.nval < periodlength:
+            raise ValueError(('With model {0}, not enough' +
+                ' values in simulation model () to perform' +
+                ' check').format(self.name, smod._input.nval))
 
         # define 2 consecutive periods
         index = smod._inputs.index
@@ -140,21 +192,14 @@ class ForecastModel(Model):
         index_start = smod.index_start
         kstart = np.where(index == index_start)[0][0]
 
-        nts = 4
-        if smod._inputs.nval < 4:
-            raise ValueError(('With model {0}, not enough' +
-                ' values in simulation model () to perform' +
-                ' check').format(self.name, smod._input.nval))
-
-        index_end = index[kstart + nts]
+        index_end = index[kstart + periodlength]
+        index_mid = index[kstart + periodlength/2]
+        index_midb = index[kstart + periodlength/2 + 1]
 
         kend = np.where(index == index_end)[0][0]
-        index_mid = index[(kstart+kend)/2]
-        index_midb = index[(kstart+kend)/2+1]
 
-        # Run the model for the first two time steps
-        # sequentially
-        smod.initialise()
+        # Run the model in two steps
+        smod.initialise(states=states, statesuh=statesuh)
         smod.index_start = index_start
         smod.index_end = index_mid
         smod.run()
@@ -164,17 +209,16 @@ class ForecastModel(Model):
         smod.run()
         o1 = smod.outputs[kend, :].copy()
 
-        # Run the model for the first two time steps
-        # jointly
-        smod.initialise()
+        # Run the model over the whole period
+        smod.initialise(states=states, statesuh=statesuh)
         smod.index_start = index_start
         smod.index_end = index_end
         smod.run()
         o2 = smod.outputs[kend, :].copy()
 
         # Check that model does not have random outputs
-        # by running second simulation twice
-        smod.initialise()
+        # by running the whole period twice
+        smod.initialise(states=states, statesuh=statesuh)
         smod.run()
         o3 = smod.outputs[index_end, :].copy()
 
@@ -188,6 +232,9 @@ class ForecastModel(Model):
                 'implement continuous state updating' +
                 ' (test for index_start={1} index_end={2})').format(self.name,
                     index_start, index_end))
+
+        # Reset model to previous state
+        smod.initialise(states=states, statesuh=statesuh)
 
 
     def run(self, seed=None):
@@ -208,63 +255,77 @@ class ForecastModel(Model):
             raise ValueError(('With {0} model, Simulation model should have' +
                 'inputs with continuous index'.format(self.name)))
 
-        if smod._inputs.index[0] != 0:
-            raise ValueError(('With {0} model, Simulation model should have' +
-                ' inputs with continuous index starting at idx=0' +
-                ' (currently {1})').format(self.name,
-                    smod._inputs.index[0]))
-
         # Loop through forecast time indexes
         index_start = 0
         fc_index = self._inputs.index
+        sim_index = self._sim_model._inputs.index
         idx_max = np.max(smod._inputs._index)
+
+        inp = smod.params[0] + smod.params[1] * smod._inputs.data[:, 0]
+        sinp = smod.states[0] + np.cumsum(inp)
 
         for (ifc, index_end) in enumerate(fc_index):
 
             # Check validity of index
-            if index_end-1 > idx_max:
+            if index_end > idx_max:
                 raise ValueError(('With {0} model, forecast index index_end ({1}) '+
                     'greater than max(input.index)+1 ({2})').format(self.name,
                         index_end, idx_max))
 
             # Do not run forecast if is outside the forecast model
             # Start/End period
-            if not ((index_start >= self.index_start) & (index_end <= self.index_end)):
+            if not ((index_end >= self.index_start) & (index_end <= self.index_end)):
                 continue
 
             # Set start/end of simulation model
             smod.index_start = index_start
-            smod.index_end = index_end-1
-
-            if index_end-1 > index_start:
-                raise ValueError(('With {0} model, forecast index index_end ({1}) '+
-                    'smaller than index_start+1 ({2})').format(self.name,
-                        index_end, index_start+1))
+            smod.index_end = index_end
 
             # Run simulation
             smod.run()
+
+            # Store outputs in simulation mode
+            # i.e. ilead = 0
+            kend = np.where(index_end == sim_index)[0][0]
+            self._outputs._data[ifc, :, 0, iens_outputs] = smod.outputs[kend, :]
 
             # Update states and initialise forecast model
             self.update(seed)
             fmod.initialise(smod.states, smod.statesuh)
 
             # Run forecast for all lead times
-            fmod.inputs = self._inputs._data[ifc, :, :, iens_inputs].T
+            fmod.inputs = self._inputs._data[ifc, :, 1:, iens_inputs].T
             fmod.run(seed)
 
-            # Store outputs
-            self._outputs._data[ifc, :, :, iens_outputs] = fmod.outputs.T
+            # Store outputs in forecast mode
+            # Forecast data starts when ilead >= 1 !!!
+            # ilead = 0 is the simulation mode
+            self._outputs._data[ifc, :, 1:, iens_outputs] = fmod.outputs.T
 
             # Update index for next forecast
-            index_start = index_end
+            index_start = index_end+1
 
 
     def get_forecast(self, index):
-        ''' Extract forecast at index up to lead time = nlead '''
+        ''' Extract forecast at index up to lead time = nlead. First value is the simulation mode '''
 
-        k = np.where(self._outputs.index == index)[0]
+        # Extract forecast data
+        kidx = np.where(self._outputs.index == index)[0][0]
         iens = self.get_iens('outputs')
-        fc = self._outputs._data[k, :, :, iens][0].T
-        idx = np.arange(index, index+self._outputs.nlead)
+        fc = self._outputs._data[kidx, :, :, iens].T
+
+        # Forecast index
+        # Use the index defined for the simulation model
+        sim_index = self._sim_model._inputs.index
+        nval = self._sim_model._inputs.nval
+        kidx = np.where(sim_index == index)[0][0]
+        kidx2 = min(nval, kidx+self._outputs.nlead)
+        idx = sim_index[range(kidx, kidx2)]
+
+        # Fill up with nan if we reach the end of the index vector
+        idx = np.concatenate([idx,
+            [np.nan] * (len(fc) - len(idx))]).astype(np.int32)
+        # TODO define index lead for matrix
 
         return fc, idx
+

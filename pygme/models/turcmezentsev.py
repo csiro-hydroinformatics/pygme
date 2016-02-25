@@ -40,15 +40,18 @@ class TurcMezentsev(Model):
 
 
     def run(self):
-        P = self.inputs[:,0]
-        PE = self.inputs[:,1]
+        start, end = self.startend
+        kk = range(start, end+1)
+
+        P = self.inputs[kk,0]
+        PE = self.inputs[kk,1]
         n = self.params[0]
         Q = P*(1.-1./(1.+(P/PE)**n)**(1./n))
         E = P-Q
-        self.outputs[:, 0] = Q
+        self.outputs[kk, 0] = Q
 
         if self.outputs.shape[1] > 1:
-            self.outputs[:, 1] = E
+            self.outputs[kk, 1] = E
 
 
 

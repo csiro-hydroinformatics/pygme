@@ -147,6 +147,7 @@ int c_knn_getnn(int nval, int nvar,
 
 int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     int seed,
+    int start, int end,
     double * config,
     double * weights,
     double * var,
@@ -169,7 +170,13 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 
     /* Check dimensions */
     if(nvar > KNN_NVAR_MAX)
-        return 10000+__LINE__;
+        return ESIZE_CONFIG;
+
+    if(start < 0)
+        return ESIZE_OUTPUTS;
+
+    if(end >= nval)
+        return ESIZE_OUTPUTS;
 
     /* Set seed */
     if(seed != -1)

@@ -95,8 +95,10 @@ class KNN(Model):
         nval, _, _, _ = self.get_dims('outputs')
         self.knn_idx = np.zeros(nval, dtype=np.int32)
 
+        start, end = self.startend
+
         # Run model
-        ierr = c_pygme_models_knn.knn_run(seed,
+        ierr = c_pygme_models_knn.knn_run(seed, start, end,
             self.config.data,
             self.input_weights,
             self.input_var,

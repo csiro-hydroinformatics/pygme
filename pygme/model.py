@@ -138,6 +138,14 @@ class Model(object):
 
 
     @property
+    def startend(self):
+        index = self._inputs.index
+        k1 = np.where(index == self.index_start)[0][0]
+        k2 = np.where(index == self.index_end)[0][0]
+        return (k1, k2)
+
+
+    @property
     def inputs(self):
         return self._inputs.data
 

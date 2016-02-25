@@ -9,14 +9,14 @@
 #include <errno.h>
 
 /* Define Error message for vector size errors */
-#define ESIZE_OUTPUTS 500
-#define ESIZE_INPUTS 600
-#define ESIZE_PARAMS 700
-#define ESIZE_STATES 800
-#define ESIZE_STATESUH 900
-#define ESIZE_CONFIG 1000
+#define ESIZE_OUTPUTS 5000+__LINE__
+#define ESIZE_INPUTS 5000+__LINE__
+#define ESIZE_PARAMS 5000+__LINE__
+#define ESIZE_STATES 5000+__LINE__
+#define ESIZE_STATESUH 5000+__LINE__
+#define ESIZE_CONFIG 5000+__LINE__
 
-#define EMODEL_RUN 2000
+#define EMODEL_RUN 5000+__LINE__
 
 int c_utils_getesize(int * esize);
 

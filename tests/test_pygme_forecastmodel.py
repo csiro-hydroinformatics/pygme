@@ -7,7 +7,7 @@ import time
 import numpy as np
 
 from pygme import calibration
-from pygme.forecastmodel import ForecastModel
+from pygme.forecastmodel import ForecastModel, get_perfect_forecast
 from pygme.models.gr4j import GR4J
 from pygme.data import Matrix
 
@@ -32,21 +32,21 @@ class ForecastModelTestCases(unittest.TestCase):
             fc = ForecastModel(gr, 1, 4, 2)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('With gr4j#forecast model, ' +
+        self.assertTrue(str(e).startswith('With gr4j-forecast model, ' +
             'Number of inputs'))
 
         try:
             fc = ForecastModel(gr, 2, 3, 1)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('With gr4j#forecast model, ' +
+        self.assertTrue(str(e).startswith('With gr4j-forecast model, ' +
             'Number of parameters'))
 
         try:
             fc = ForecastModel(gr, 2, 4, 1)
         except ValueError, e:
             pass
-        self.assertTrue(str(e).startswith('With gr4j#forecast model, ' +
+        self.assertTrue(str(e).startswith('With gr4j-forecast model, ' +
             'Number of states'))
 
     def test_continuous(self):
@@ -75,8 +75,25 @@ class ForecastModelTestCases(unittest.TestCase):
         except ValueError, e:
             pass
 
-        self.assertTrue(str(e).startswith('With model dummy#forecast, ' +
-                'simulation model does not implement'))
+        self.assertTrue(str(e).startswith(('With model {0}, ' +
+                'simulation model does not implement').format(fc.name)))
+
+    def test_perfect_forecast(self):
+        nval = 100
+        nvar = 3
+        inputs = Matrix.from_data('inputs', np.random.uniform(size=(nval, nvar)))
+
+        nlead = 20
+        fc_inputs = get_perfect_forecast(inputs, nlead)
+
+        for k in range(nlead):
+            v = inputs.data[range(k, nval), :]
+            v = np.concatenate([v, np.nan * np.ones((k, nvar))], 0)
+
+            fc_inputs.ilead = k
+            kk = range(nval-k, k)
+            ck = np.allclose(fc_inputs.data[kk], v[kk])
+            self.assertTrue(ck)
 
 
     def test_run1(self):
@@ -94,19 +111,14 @@ class ForecastModelTestCases(unittest.TestCase):
         dum.initialise(states=states)
         dum.run()
         expected = dum.outputs.copy()
-        #dum._outputs.reset(np.nan)
 
         # Prepare forecast inputs
         fc_nval = 10
         nlead = 5
-        #index = np.arange(0, nval, nval/fc_nval)
-        index = np.arange(1, fc_nval+1)
-        fc_inputs = Matrix.from_dims('fc', fc_nval,
-                2, nlead, index=index)
+        index = np.arange(0, nval, nval/fc_nval)
 
-        for k in range(nlead):
-            fc_inputs.ilead = k
-            fc_inputs.data = sim_inputs[index+k+1, :]
+        fc_inputs = get_perfect_forecast(dum._inputs, nlead)
+        fc_inputs = fc_inputs.slice(index)
 
         # Run forecasts
         fc = ForecastModel(dum, 2, 3, 2)
@@ -120,10 +132,11 @@ class ForecastModelTestCases(unittest.TestCase):
             res, idx = fc.get_forecast(index[k])
             err = np.abs(expected[idx, :] - res)
 
+            ck = np.allclose(err, 0.)
+            self.assertTrue(ck)
 
 
     def test_run2(self):
-        return
         warmup = 365 * 5
         gr = GR4J()
 
@@ -136,14 +149,54 @@ class ForecastModelTestCases(unittest.TestCase):
                     self.FHERE, i+1)
             data = np.loadtxt(fts, delimiter=',')
             inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
+            nval = inputs.shape[0]
 
             # Run gr4j
-            gr.allocate(inputs, 1)
+            nout = 1
+            gr.allocate(inputs, nout)
 
-            gr.params = params[i, [2, 0, 1, 3]]
+            pp = params[i, [2, 0, 1, 3]]
+            gr.params = pp
             gr.initialise()
             gr.run()
             qsim = gr.outputs[:,0]
+
+            # Create input forecast matrix
+            # -> 30 day forecast, produced every week
+            nlead = 30
+            nfc = nval/7
+
+            fc_inputs = get_perfect_forecast(gr._inputs, nlead)
+            index = np.arange(0, nval, nval/nfc)
+            index = index[index+nlead <= nval]
+            nfc = len(index)
+
+            fc_inputs = fc_inputs.slice(index)
+
+            # Create forecast model
+            fc = ForecastModel(gr)
+            fc.allocate(fc_inputs, nout)
+
+            # Run
+            t0 = time.time()
+
+            fc.params = pp
+            fc.initialise()
+            fc.run()
+
+            t1 = time.time()
+            dta = 1000 * (t1-t0)
+            dta2 = dta/nlead/nfc * 365.25
+            print(('\t\tTEST {0:2d} : nlead={2}, nfc={3} ~ runtime' +
+                ' {1:0.5f}ms/yr (total {4:0.5}ms)').format(i+1,
+                    dta2, nlead, nfc, dta))
+
+            # Check output
+            for i in index:
+                res, idx = fc.get_forecast(i)
+                expected = qsim[idx]
+                ck = np.allclose(res.flat[:], expected)
+
 
 
 

@@ -17,15 +17,16 @@
 /* Number of outputs returned by LAG ROUTE run */
 #define LAGROUTE_NOUTPUTS 10
 
-int c_lagroute_run(int nval, 
-        int nparams, 
-        int nuh, 
-        int ninputs, 
-        int nconfig, 
-        int nstates, 
+int c_lagroute_run(int nval,
+        int nparams,
+        int nuh,
+        int ninputs,
+        int nconfig,
+        int nstates,
         int noutputs,
+        int start, int end,
         double * config,
-	double * params,
+	    double * params,
         double * uh,
 	double * inputs,
         double * statesuh,

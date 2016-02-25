@@ -6,10 +6,11 @@ np.import_array()
 # -- HEADERS --
 
 cdef extern from 'c_gr4j.h':
-    int c_gr4j_run(int nval, int nparams, 
+    int c_gr4j_run(int nval, int nparams,
             int nuh1, int nuh2,
             int ninputs,
             int nstates, int noutputs,
+            int start, int end,
     	    double * params,
             double * uh1,
             double * uh2,
@@ -21,8 +22,9 @@ cdef extern from 'c_gr4j.h':
 def __cinit__(self):
     pass
 
-def gr4j_run(int nuh1, 
+def gr4j_run(int nuh1,
         int nuh2,
+        int start, int end,
         np.ndarray[double, ndim=1, mode='c'] params not None,
         np.ndarray[double, ndim=1, mode='c'] uh1 not None,
         np.ndarray[double, ndim=1, mode='c'] uh2 not None,
@@ -36,7 +38,7 @@ def gr4j_run(int nuh1,
     # check dimensions
     if params.shape[0] != 4:
         raise ValueError('params.shape[0] != 4')
-    
+
     if states.shape[0] < 2:
         raise ValueError('states.shape[0] < 2')
 
@@ -53,13 +55,14 @@ def gr4j_run(int nuh1,
         raise ValueError('uh2.shape[0] < nuh2')
 
     # Run model
-    ierr = c_gr4j_run(inputs.shape[0], 
+    ierr = c_gr4j_run(inputs.shape[0],
             params.shape[0], \
-            nuh1, 
+            nuh1,
             nuh2, \
             inputs.shape[1], \
             states.shape[0], \
             outputs.shape[1], \
+            start, end,
             <double*> np.PyArray_DATA(params), \
             <double*> np.PyArray_DATA(uh1), \
             <double*> np.PyArray_DATA(uh2), \

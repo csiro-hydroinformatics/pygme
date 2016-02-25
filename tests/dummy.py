@@ -42,19 +42,19 @@ class Dummy(Model):
 
         nval, nvar = self.outputs.shape
 
-        outputs = par1 + par2 *self.inputs
+        kk = (index >= index_start) & (index <= index_end)
+        outputs = par1 + par2 *self.inputs[kk, :]
+
+        outputs = np.cumsum(outputs, 0)
 
         if np.allclose(self.config['continuous'], 1):
             outputs = outputs + self.states
 
-        outputs = np.cumsum(outputs, 0)
-
         if par3 > 1e-10:
-            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(nval, ))
+            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(np.sum(kk), ))
 
         # Write data to selected output indexes
-        kk = (index >= index_start) & (index <= index_end)
-        self.outputs[kk, :] = outputs[kk, :nvar]
+        self.outputs[kk, :] = outputs[:, :nvar]
 
         # Store states
         kk = np.where(index == index_end)[0]

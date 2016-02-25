@@ -118,7 +118,6 @@ class GR4JTestCases(unittest.TestCase):
                 print(('\t\tTEST %2d : max abs err = '
                     '%0.5f < %0.5f ? %s ~ %0.5fms/yr') % (i+1, \
                     np.max(err), err_thresh, ck, dta))
-                import pdb; pdb.set_trace()
             else:
                 print('\t\tTEST %2d : max abs err = %0.5f ~ %0.5fms/yr' % ( \
                     i+1, np.max(err), dta))

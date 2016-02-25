@@ -263,8 +263,7 @@ class Vector(object):
 
         if (self._means is None or self._covar is None) and distribution=='uniform':
             raise ValueError(('With {0} vector: Cannot randomize with normal ' +
-                ' distribution if vector has no._means or._covar').format(self.id))
-
+                ' distribution if vector has no means and covar').format(self.id))
 
         # Sample vector data
         if distribution == 'normal':
@@ -275,8 +274,8 @@ class Vector(object):
             self._data = np.random.uniform(self.min, self.max,
                     (self.nens, self.nval))
         else:
-            raise ValueError(('With {0} vector: Random, distribution ' +
-                '{1} not allowed').format(self.id, distribution))
+            raise ValueError(('With {0} vector: cannot randomize with distribution ' +
+                '{1}, only "normal" and "uniform" allowed').format(self.id, distribution))
 
 
     def clone(self, nens=None):
@@ -431,6 +430,7 @@ class Matrix(object):
 
             leads.append(int(match['ilead']))
             ens.append(int(match['iens']))
+
 
         nlead = np.max(leads) + 1
         nens = np.max(ens) + 1
@@ -601,14 +601,29 @@ class Matrix(object):
         self._index = value
 
 
+    def slice(self, index):
+        ''' Returns a slice of the matrix data '''
+
+        if not np.all(np.in1d(index, self.index)):
+            raise ValueError('index contains elements ' +
+                    'outside of matrix index ')
+
+        sliced = Matrix.from_dims('{0}_sliced'.format(self.id),
+                    len(index), self.nvar, self.nlead, self.nens,
+                    index=index)
+
+        kk = [np.where(i == self.index)[0][0] for i in index]
+        sliced._data = self._data[kk, :, :, :]
+
+        return sliced
+
+
     def reset(self, value=0.):
         self._data.fill(value)
 
 
     def clone(self):
         clone = copy.deepcopy(self)
-        #clone = Matrix.from_data(self.id, self._data,
-        #        index=self.index, prefix=self.prefix)
 
         return clone
 

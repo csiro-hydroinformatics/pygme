@@ -21,7 +21,6 @@ class LagRoute(Model):
             nens_states=1,
             nens_outputs=1):
 
-
         Model.__init__(self, 'lagroute',
             nconfig=4,
             ninputs=1,
@@ -88,7 +87,10 @@ class LagRoute(Model):
                     'self.ninputs({1})').format( \
                     self._inputs.nvar, ninputs))
 
+        start, end = self.startend
+
         ierr = c_pygme_models_lagroute.lagroute_run(self._nuhlength, \
+            start, end,
             self.config.data, \
             self._params.data, \
             self._uh.data, \

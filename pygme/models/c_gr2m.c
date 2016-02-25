@@ -131,17 +131,18 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
 
     if(noutputs>8)
         outputs[8] = R;
-    
+
     return ierr;
 }
 
 
 // --------- Component runner --------------------------------------------------
-int c_gr2m_run(int nval, 
-    int nparams, 
+int c_gr2m_run(int nval,
+    int nparams,
     int ninputs,
-    int nstates, 
+    int nstates,
     int noutputs,
+    int start, int end,
     double * params,
     double * inputs,
     double * statesini,
@@ -162,18 +163,24 @@ int c_gr2m_run(int nval,
     if(noutputs > 9)
         return ESIZE_OUTPUTS;
 
+    if(start < 0)
+        return ESIZE_OUTPUTS;
+
+    if(end >=nval)
+        return ESIZE_OUTPUTS;
+
     /* Check parameters */
     ierr = gr2m_minmaxparams(nparams, params);
 
     /* Run timeseries */
-    for(i = 0; i < nval; i++)
+    for(i = start; i <= end; i++)
     {
        /* Run timestep model and update states */
-    	ierr = c_gr2m_runtimestep(nparams, 
+    	ierr = c_gr2m_runtimestep(nparams,
                 ninputs,
-                nstates, 
+                nstates,
                 noutputs,
-    		params,
+    		    params,
                 &(inputs[ninputs*i]),
                 statesini,
                 &(outputs[noutputs*i]));

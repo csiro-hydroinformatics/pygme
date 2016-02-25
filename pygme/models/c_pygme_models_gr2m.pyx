@@ -8,6 +8,7 @@ np.import_array()
 cdef extern from 'c_gr2m.h':
     int c_gr2m_run(int nval, int nparams, int ninputs,
             int nstates, int noutputs,
+            int start, int end,
     	    double * params,
     	    double * inputs,
     	    double * statesini,
@@ -16,7 +17,8 @@ cdef extern from 'c_gr2m.h':
 def __cinit__(self):
     pass
 
-def gr2m_run(np.ndarray[double, ndim=1, mode='c'] params not None,
+def gr2m_run(int start, int end,
+        np.ndarray[double, ndim=1, mode='c'] params not None,
         np.ndarray[double, ndim=2, mode='c'] inputs not None,
         np.ndarray[double, ndim=1, mode='c'] statesini not None,
         np.ndarray[double, ndim=2, mode='c'] outputs not None):
@@ -41,6 +43,7 @@ def gr2m_run(np.ndarray[double, ndim=1, mode='c'] params not None,
             inputs.shape[1], \
             statesini.shape[0], \
             outputs.shape[1], \
+            start, end,
             <double*> np.PyArray_DATA(params), \
             <double*> np.PyArray_DATA(inputs), \
             <double*> np.PyArray_DATA(statesini), \

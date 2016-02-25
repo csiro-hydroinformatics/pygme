@@ -205,6 +205,7 @@ int c_gr4j_run(int nval, int nparams,
     int ninputs,
     int nstates,
     int noutputs,
+    int start, int end,
     double * params,
     double * uh1,
     double * uh2,
@@ -228,11 +229,17 @@ int c_gr4j_run(int nval, int nparams,
     if(nuh1 <= 0 || nuh2 <= 0)
         return ESIZE_STATESUH;
 
+    if(start < 0)
+        return ESIZE_OUTPUTS;
+
+    if(end >= nval)
+        return ESIZE_OUTPUTS;
+
     /* Check parameters */
     ierr = gr4j_minmaxparams(nparams, params);
 
     /* Run timeseries */
-    for(i = 0; i < nval; i++)
+    for(i = start; i <= end; i++)
     {
         /* Run timestep model and update states */
     	ierr = gr4j_runtimestep(nparams,

@@ -8,6 +8,7 @@ np.import_array()
 cdef extern from 'c_knn.h':
     int c_knn_run(int nconfig, int nval, int nvar, int nrand,
         int seed,
+        int start, int end,
         double * config,
         double * weights,
         double * var,
@@ -17,7 +18,7 @@ cdef extern from 'c_knn.h':
 def __cinit__(self):
     pass
 
-def knn_run(int seed,
+def knn_run(int seed, int start, int end,
         np.ndarray[double, ndim=1, mode='c'] config not None,
         np.ndarray[double, ndim=1, mode='c'] weights not None,
         np.ndarray[double, ndim=2, mode='c'] var not None,
@@ -40,7 +41,7 @@ def knn_run(int seed,
             var.shape[0], \
             var.shape[1], \
             knn_idx.shape[0], \
-            seed,
+            seed, start, end,
             <double*> np.PyArray_DATA(config), \
             <double*> np.PyArray_DATA(weights), \
             <double*> np.PyArray_DATA(var), \

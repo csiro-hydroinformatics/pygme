@@ -139,6 +139,7 @@ int c_lagroute_run(int nval,
         int nconfig,
         int nstates,
         int noutputs,
+        int start, int end,
         double * config,
         double * params,
         double * uh,
@@ -166,6 +167,11 @@ int c_lagroute_run(int nval,
     if(noutputs > LAGROUTE_NOUTPUTS)
         return ESIZE_OUTPUTS;
 
+    if(start < 0)
+        return ESIZE_OUTPUTS;
+
+    if(end >= nval)
+        return ESIZE_OUTPUTS;
 
     /* Config data */
     dt = config[0];
@@ -197,7 +203,7 @@ int c_lagroute_run(int nval,
     ierr = lagroute_minmaxparams(nparams, params);
 
     /* Run timeseries */
-    for(i = 0; i < nval; i++)
+    for(i = start; i <= end; i++)
     {
        /* Run timestep model and update states */
     	ierr = c_lagroute_runtimestep(nparams, nuh, ninputs,

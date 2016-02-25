@@ -286,7 +286,7 @@ class MatrixTestCases(unittest.TestCase):
         # Create matrix and write to file
         mat1 = {}
         for i in range(4):
-            m1 = Matrix.from_dims('test{0}'.format(i), nval, nvar, nlead, nens,
+            m1 = Matrix.from_dims('test{0}_qqqq'.format(i), nval, nvar, nlead, nens,
                     prefix='LONG')
 
             for ilead, iens in product(range(nlead), range(nens)):
@@ -342,6 +342,22 @@ class MatrixTestCases(unittest.TestCase):
         except ValueError, e:
             pass
         self.assertTrue(str(e).startswith('With test matrix: index is not strictly'))
+
+    def test_matrix11(self):
+        nval = 100
+        nvar = 5
+        index = np.cumsum(np.random.randint(1, 4, nval))
+        data = np.random.uniform(size=(nval, nvar))
+        m1 = Matrix.from_data('data', data, index=index)
+
+        kk = np.cumsum(np.random.randint(1, 3, 10))
+        index2 = index[kk]
+        m2 = m1.slice(index2)
+
+        ck = np.allclose(m1.data[kk, :], m2.data)
+        ck = ck & np.allclose(index2, m2.index)
+        self.assertTrue(ck)
+
 
 
 if __name__ == '__main__':

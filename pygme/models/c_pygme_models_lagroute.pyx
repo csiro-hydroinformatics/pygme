@@ -5,13 +5,14 @@ np.import_array()
 
 # -- HEADERS --
 cdef extern from 'c_lagroute.h':
-    int c_lagroute_run(int nval, 
-            int nparams, 
+    int c_lagroute_run(int nval,
+            int nparams,
             int nuh,
             int nconfig,
             int ninputs,
-            int nstates, 
+            int nstates,
             int noutputs,
+            int start, int end,
     	    double * config,
     	    double * params,
             double * uh,
@@ -23,7 +24,7 @@ cdef extern from 'c_lagroute.h':
 def __cinit__(self):
     pass
 
-def lagroute_run(int nuh, 
+def lagroute_run(int nuh, int start, int end,
         np.ndarray[double, ndim=1, mode='c'] config not None,
         np.ndarray[double, ndim=1, mode='c'] params not None,
         np.ndarray[double, ndim=1, mode='c'] uh not None,
@@ -37,7 +38,7 @@ def lagroute_run(int nuh,
     # check dimensions
     if params.shape[0] != 2:
         raise ValueError('params.shape[0] != 2')
-    
+
     if states.shape[0] < 1:
         raise ValueError('states.shape[0] < 1')
 
@@ -51,13 +52,14 @@ def lagroute_run(int nuh,
         raise ValueError('uh.shape[0] < nuh')
 
     # Run model
-    ierr = c_lagroute_run(inputs.shape[0], 
+    ierr = c_lagroute_run(inputs.shape[0],
             params.shape[0], \
-            nuh, 
+            nuh,
             inputs.shape[1], \
             config.shape[1], \
             states.shape[0], \
             outputs.shape[1], \
+            start, end,
             <double*> np.PyArray_DATA(config), \
             <double*> np.PyArray_DATA(params), \
             <double*> np.PyArray_DATA(uh), \

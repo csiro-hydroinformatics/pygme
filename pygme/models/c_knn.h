@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "c_utils.h"
 
 /* Maximum size of resampling kernel */
 #define KNN_NKERNEL_MAX 50
@@ -18,6 +19,7 @@
 
 int c_knn_run(int nparams, int nval, int nvar, int nrand,
     int seed,
+    int start, int end,
     double * params,
     double * weights,
     double * var,

@@ -96,8 +96,10 @@ class GR4J(Model):
                     'self._ninputs({1})').format(
                     self._inputs.nvar, ninputs))
 
+        start, end = self.startend
+
         ierr = c_pygme_models_gr4j.gr4j_run(self._nuh1,
-            self._nuh2,
+            self._nuh2, start, end,
             self._params.data,
             self._uh.data,
             self._uh.data[self._nuh1:],

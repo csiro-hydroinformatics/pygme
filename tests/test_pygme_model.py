@@ -73,8 +73,8 @@ class ModelTestCases(unittest.TestCase):
         dum.run()
 
         expected = params[0] + params[1] * inputs
-        expected = expected + states
         expected = np.cumsum(expected, 0)
+        expected = expected + states
         ck = np.allclose(expected, dum.outputs)
         self.assertTrue(ck)
 
