@@ -24,4 +24,10 @@ double c_utils_minmax(double min,double max,double input);
 
 double c_utils_tanh(double x);
 
+int c_utils_isleapyear(int year);
+
+int c_utils_daysinmonth(int year, int month);
+
+int c_utils_add1day(int date[3]);
+
 #endif

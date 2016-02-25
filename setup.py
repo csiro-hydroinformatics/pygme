@@ -58,6 +58,14 @@ ext_knn=Extension(name='c_pygme_models_knn',
     include_dirs=[numpy.get_include()])
 
 
+ext_demand=Extension(name='c_pygme_models_demand',
+    sources=[
+        'pygme/models/c_pygme_models_demand.pyx',
+        'pygme/models/c_demand.c',
+    ],
+    include_dirs=[numpy.get_include()])
+
+
 cmdclass = versioneer.get_cmdclass()
 cmdclass['build_ext'] = build_ext
 
@@ -82,7 +90,8 @@ setup(
         ext_gr4j,
         ext_gr2m,
         ext_lagroute,
-        ext_knn
+        ext_knn,
+        ext_demand,
     ],
     test_suite='nose.collector',
     tests_require=['nose'],
