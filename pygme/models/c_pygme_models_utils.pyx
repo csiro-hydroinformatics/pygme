@@ -7,6 +7,12 @@ np.import_array()
 cdef extern from 'c_utils.h':
     int c_utils_geterror(int * esize)
 
+cdef extern from 'c_utils.h':
+    int c_utils_daysinmonth(int year, int month)
+
+cdef extern from 'c_utils.h':
+    int c_utils_add1day(int * date)
+
 cdef extern from 'c_uh.h':
     int c_uh_getnuhmaxlength()
 
@@ -15,9 +21,9 @@ cdef extern from 'c_uh.h':
 
 cdef extern from 'c_uh.h':
     int c_uh_getuh(int nuhlengthmax,
-            int uhid, 
+            int uhid,
             double lag,
-            int * nuh, 
+            int * nuh,
             double * uh)
 
 def __cinit__(self):
@@ -36,11 +42,30 @@ def uh_getuh(int nuhlengthmax, int uhid, double lag,
     cdef int ierr
 
     ierr = c_uh_getuh(nuhlengthmax,
-            uhid, 
+            uhid,
             lag,
             <int*> np.PyArray_DATA(nuh),
             <double*> np.PyArray_DATA(uh))
 
     return ierr
+
+
+def daysinmonth(int year, int month):
+
+    cdef int nb
+
+    nb = c_utils_daysinmonth(year, month)
+
+    return nb
+
+
+def add1day(np.ndarray[int, ndim=1, mode='c'] date not None):
+
+    cdef int ierr
+
+    ierr = c_utils_add1day(<int*> np.PyArray_DATA(date))
+
+    return ierr
+
 
 

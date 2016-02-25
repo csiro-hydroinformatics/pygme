@@ -43,20 +43,27 @@ int c_utils_daysinmonth(int year, int month)
     int n;
     int days_in_month[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+    if(month < 1 || month > 12)
+        return -1;
+
 	n = days_in_month[month];
 
     return c_utils_isleapyear(year) == 1 && month == 2 ? n+1 : n;
 }
 
-int c_utils_add1day(int date[3])
+
+int c_utils_add1day(int * date)
 {
     int nbday;
 
-    nbday = c_utils_dayinmonth(year, month);
+    nbday = c_utils_daysinmonth(date[0], date[1]);
+    if(nbday < 0)
+        return 6000+__LINE__;
+
     if(date[2] < nbday)
     {
         date[2] += 1;
-        return;
+        return 0;
     }
     else {
         /* change month */
@@ -65,14 +72,14 @@ int c_utils_add1day(int date[3])
         if(date[1] < 12)
         {
             date[1] += 1;
-            return;
+            return 0;
         }
         else
         {
             /* change year */
             date[1] = 1;
             date[0] += 1;
-            return;
+            return 0;
         }
     }
 
