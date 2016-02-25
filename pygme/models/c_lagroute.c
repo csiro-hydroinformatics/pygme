@@ -13,7 +13,7 @@ int lagroute_minmaxparams(int nparams, double * params)
         double p1, p2;
 
         if(nparams<2)
-            return EMODEL_RUN;
+            return 5000 + __LINE__;
 
         p1 = params[0];
         params[0] = p1 < 1e-2 ? 1e-2 :
@@ -196,7 +196,7 @@ int c_lagroute_run(int nval,
     {
         fprintf(stderr, "%s:%d:ERROR: theta2(%f) is neither 1 nor 2\n",
             __FILE__, __LINE__, theta2);
-        return EMODEL_RUN;
+        return 6000 + __LINE__;
     }
 
     /* Check parameters */

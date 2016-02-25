@@ -185,27 +185,27 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     /* Number of neighbours */
     nb_nn = (int)config[1];
     if(nb_nn >= KNN_NKERNEL_MAX)
-        return 10000+__LINE__;
+        return 7000 + __LINE__;
 
     /* Duration of cycle (icyclely = cycle) */
     cycle = config[2];
     if(cycle < 0)
-        return 10000+__LINE__;
+        return 7000 + __LINE__;
 
     /* Half temporal window selection */
     halfwindow = config[0];
     if(halfwindow < 0 || halfwindow >= cycle/2)
-        return 10000+__LINE__;
+        return 7000 + __LINE__;
 
     /* Cycle position of first point in var matrix */
     cycle_position_ini = config[3];
     if(cycle_position_ini < 0 || cycle_position_ini > cycle)
-        return 10000+__LINE__;
+        return 7000 + __LINE__;
 
     /* Treat */
     cycle_position_ini_opt = config[4];
     if(cycle_position_ini_opt < 0 || cycle_position_ini_opt > 2)
-        return 10000+__LINE__;
+        return 7000 + __LINE__;
 
 
     /* Number of cycles in input matrix */
@@ -232,7 +232,7 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
         states[nvar] = cycle - states[nvar];
 
     if(states[nvar] < 0)
-        return 10000+__LINE__;
+        return 7000 + __LINE__;
 
     /* Select the first KNN index */
     ierr = c_knn_getnn(nval, nvar, ncycles, cycle,

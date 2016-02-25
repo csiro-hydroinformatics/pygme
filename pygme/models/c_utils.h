@@ -9,14 +9,14 @@
 #include <errno.h>
 
 /* Define Error message for vector size errors */
-#define ESIZE_OUTPUTS 5000+__LINE__
-#define ESIZE_INPUTS 5000+__LINE__
-#define ESIZE_PARAMS 5000+__LINE__
-#define ESIZE_STATES 5000+__LINE__
-#define ESIZE_STATESUH 5000+__LINE__
-#define ESIZE_CONFIG 5000+__LINE__
+#define ESIZE_OUTPUTS  1000+__LINE__
+#define ESIZE_INPUTS   1000+__LINE__
+#define ESIZE_PARAMS   1000+__LINE__
+#define ESIZE_STATES   1000+__LINE__
+#define ESIZE_STATESUH 1000+__LINE__
+#define ESIZE_CONFIG   1000+__LINE__
 
-#define EMODEL_RUN 5000+__LINE__
+#define EMODEL_RUN     1000+__LINE__
 
 int c_utils_getesize(int * esize);
 
@@ -29,5 +29,7 @@ int c_utils_isleapyear(int year);
 int c_utils_daysinmonth(int year, int month);
 
 int c_utils_add1day(int * date);
+
+int c_utils_getdate(double day, int * date);
 
 #endif

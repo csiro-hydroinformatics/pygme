@@ -5,7 +5,7 @@
 int gr4j_minmaxparams(int nparams, double * params)
 {
     if(nparams<4)
-        return ESIZE_PARAMS;
+        return 4000 + __LINE__;
 
 	params[0] = c_utils_minmax(1,1e5,params[0]); 	// S
 	params[1] = c_utils_minmax(-50,50,params[1]);	// IGF
@@ -183,7 +183,7 @@ int gr4j_runtimestep(int nparams,
     if(noutputs>6)
 	outputs[6] = PERC;
     else
-	return ierr;
+	    return ierr;
 
     if(noutputs>7)
 	    outputs[7] = states[0];

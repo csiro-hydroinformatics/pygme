@@ -2,6 +2,9 @@
 import numpy as np
 import pandas as pd
 
+from calendar import month_abbr as month
+
+import c_pygme_models_demand
 from pygme.model import Model
 
 class Demand(Model):
@@ -11,9 +14,9 @@ class Demand(Model):
             nens_states=1,
             nens_outputs=1):
 
-        Model.__init__(self, 'gr4j',
+        Model.__init__(self, 'demand',
             nconfig=12,
-            ninputs=1,
+            ninputs=2,
             nparams=0,
             nstates=2,
             noutputs_max=3,
@@ -21,8 +24,19 @@ class Demand(Model):
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
-        self.config.names = ['demand_{0:2.2d}'.format(m)
-                                for m in range(1, 13)]
+        self.config.names = [month[m]  for m in range(1, 13)]
+        self.config.default = [0.] * 12
+
+
+    def initialise(self, states=None, statesuh=None):
+
+        # Set default initial states
+        if states is None:
+            states = [20100101., 0.]
+
+        super(Demand, self).initialise(states, statesuh)
+
+
 
     def run(self, seed=None):
 
@@ -35,7 +49,7 @@ class Demand(Model):
         start, end = self.startend
 
         ierr = c_pygme_models_demand.demand_run(start, end,
-            self._config.data,
+            self.config.data,
             self._inputs.data,
             self._states.data,
             self._outputs.data)

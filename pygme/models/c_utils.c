@@ -65,7 +65,7 @@ int c_utils_add1day(int * date)
         date[2] += 1;
         return 0;
     }
-    else {
+    else if(date[2] == nbday) {
         /* change month */
         date[2] = 1;
 
@@ -82,7 +82,31 @@ int c_utils_add1day(int * date)
             return 0;
         }
     }
+    else {
+        return 2000 + __LINE__;
+    }
 
     return 0;
 }
 
+int c_utils_getdate(double day, int * date)
+{
+    int year, month, nday, nbday;
+
+    year = (int)(day * 1e-4);
+    month = (int)(day * 1e-2) - year * 100;
+    nday = (int)(day) - year * 10000 - month * 100;
+
+    if(month < 0 || month > 12)
+        return 2000 + __LINE__;
+
+    nbday = c_utils_daysinmonth(year, month);
+    if(nday < 0 || nday > nbday)
+        return 2000 + __LINE__;
+
+    date[0] = year;
+    date[1] = month;
+    date[2] = nday;
+
+    return 0;
+}

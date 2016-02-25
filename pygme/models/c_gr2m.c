@@ -3,8 +3,8 @@
 
 int gr2m_minmaxparams(int nparams, double * params)
 {
-        if(nparams<4)
-            return EINVAL;
+    if(nparams<4)
+        return 3000 + __LINE__;
 
 	params[0] = c_utils_minmax(1,1e5,params[0]); 	// S
 	params[1] = c_utils_minmax(0,3,params[1]);	// IGF
