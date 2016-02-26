@@ -25,33 +25,64 @@ class CompositeModelTestCases(unittest.TestCase):
 
     def test_compositemodel1(self):
 
-        nd1 = Node(1, 1)
-
         nval = 100
-        inputs = np.random.uniform(0, 1, (nval,1))
-        nd1.allocate(inputs)
+        def get_node(nin, nout):
+            nd = Node(nin, nout)
+            inputs = np.random.uniform(0, 1, (nval,nin))
+            nd.allocate(inputs)
+            return nd
 
-        nd2 = Node(2, 1)
-        inputs = np.random.uniform(0, 1, (nval,2))
-        nd2.allocate(inputs)
-
+        # Connections
+        # nd1 ->             -> outputs[0]
+        #        nd3  -> nd4        -> outputs[1]
+        # nd2 ->             -> nd5
+        #                           -> outputs[2]
         components = [
-            ['nd1', 'nd3', 0, 0],
-            ['nd2', 'nd3', 1, 0],
-            ['nd3', 'nd4', 0, 0],
-            ['nd4', None, 0, 0]
+            ['nd1', 'nd3', 0, 0, [(0, 0)], None],
+            ['nd2', 'nd3', 0, 1, [(1, 0)], None],
+            ['nd3', 'nd4', 0, 0, None, None],
+            ['nd4', None, 0, 0, None, [(0, 0)]],
+            ['nd4', 'nd5', 1, 0, None, None],
+            ['nd5', None, 0, 0, None, [(0, 1), (1, 2)],
         ]
 
-        cm = CompositeModel('cm', 5, 3, 1)
+        cm = CompositeModel('cm', 2, 3, 1)
 
-        for c in components:
-            if c[0] == 'nd3':
-                model = nd2.clone()
+        # Add links
+        for (i, c) in enumerate(components):
+            if c[0] in ['nd4', 'nd5']:
+                model = get_node(1, 2)
+            elif c[0] == 'nd3':
+                model = get_node(2, 1)
             else:
-                model = nd1.clone()
+                model = get_node(1, 1)
 
-            cm.add_link(id=c[0], model=model,
+            if i > 0:
+                if c[0] == components[i-1][0]:
+                    model = None
+
+            cm.add_link(id=c[0],
+                model=model,
                 child_id=c[1],
-                child_input_index=c[2],
-                parent_output_index=c[3])
+                child_input_index=c[3],
+                parent_output_index=c[2],
+                composite_inputs_index=c[4],
+                composite_outputs_index=c[5])
+
+        # Compute run order
+        cm.compute_run_order()
+
+        # Allocate
+        inputs = np.random.uniform(0, 1, (nval,2))
+        cm.allocate(inputs, 2)
+
+        # run
+        cm.run()
+
+        o1 = cm.outputs
+        o2 = np.dot(np.repeat(np.sum(inputs, axis=1).reshape((nval, 1)), 2, 1),
+                np.diag([0.5, 0.5]))
+        ck = np.allclose(o1, o2)
+
+        import pdb; pdb.set_trace()
 

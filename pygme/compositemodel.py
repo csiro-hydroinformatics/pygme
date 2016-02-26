@@ -8,6 +8,108 @@ from pygme.data import Matrix
 NOUTPUTSMAX = 100
 
 
+class Node(object):
+
+    def __init__(self, id, model):
+        self._id = id
+        self._var_mapping = {}
+        self._model = model
+        self._run_order = None
+        self.children = {}
+
+    @property
+    def id(self):
+        return self._id
+
+
+    @property
+    def model(self):
+        return self._model
+
+
+    @property
+    def run_order(self):
+        return self._run_order
+
+
+    def add_child(self, child, run_after_parent=False):
+        self._children[child] = run_after_parent
+
+
+    def add_mapping(self,
+            idx_node, idx_composite, type='inputs'):
+        self._var_mapping[type].append({'node':idx_node,
+                    'composite': idx_composite)
+
+
+class Network(object):
+
+    def __init__(self):
+        self._nodes = {}
+        self._max_runorder = 0
+
+
+    def get_node(self, id):
+        return self._nodes[id]
+
+
+    def add_node(self, node):
+        self._nodes[node['id']] = node
+
+
+    @property
+    def max_runorder(self):
+        return self._max_runorder
+
+
+    def compute_run_order(self):
+        ''' Compute component run order '''
+
+        # Look for head nodes (nodes with no parent)
+        head = set(self._nodes.keys())
+        for id in self._nodes:
+
+            # Look for nodes that point to id
+            for id2 in self._nodes:
+                if id == id2:
+                    continue
+
+                # Remove the id from head nodes
+                nd = self._nodes[id2]
+                if id in nd['children'] and id in parents:
+                    head.remove(id)
+
+        # Populate network by recurrence and check circularity
+        def update(parents, done, order):
+            # Find nodes
+            children = []
+            for id in parents:
+                link = self._nodes[id]
+
+                # Increase run order if relevant
+                if link['run_after_parent']:
+                    link['run_order'] = order
+
+                    if id in done:
+                        raise ValueError('Circularity detected in network')
+
+                done.append(id)
+
+                # Add the children nodes
+                children.extend(link['children'].keys())
+
+            # Remove duplicates
+            children = set(children)
+
+            if len(children)>0:
+                update(children, done, order+1)
+                self._max_runorder += 1
+
+        update(parents, [], 0)
+
+
+
+
 class CompositeModel(Model):
 
 
@@ -28,46 +130,8 @@ class CompositeModel(Model):
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
-        self._network = {}
-
-
-    def add_link(self, id,
-        model=None,
-        composite_inputs_index=None,
-        child_id=None,
-        child_input_index=0,
-        parent_output_index=0,
-        run_after_parent=True):
-
-        if id in self._network:
-            link = self._network[id]
-
-            # Check model is defined twice
-            if not link['model'] is None and not model is None:
-                raise ValueError('model cannot be defined twice' +
-                    ' for an existing link, set model=None')
-
-            # Check run_after_parent is defined twice
-            if not links['run_after_parent'] == run_after_parent:
-                raise ValueError('run_after_parent cannot be changed' +
-                    ' for an existing link')
-
-        else:
-            link = {
-                'model': model,
-                'run_after_parent': run_after_parent,
-                'run_order' : None,
-                'composite_inputs_index' : composite_inputs_index,
-                'children' : []
-                'inputs_mapping': []
-            }
-            self._network[id] = link
-
-        # Add connections
-        if not child_id is None:
-            link['children'].append((child_id, parent_output_index,
-                                        child_output_index))
-
+        self._nodes = {}
+        self._max_runorder = 0
 
 
     def post_params_setter(self):
@@ -77,51 +141,54 @@ class CompositeModel(Model):
 
     def allocate(self, inputs, noutputs=1):
 
-        super(CompositeModel).allocate(inputs, noutputs)
+        super(CompositeModel, self).allocate(inputs, noutputs)
 
         # Affect inputs to components
-        for id, link in self._network.iteritems():
-            pass
+        for id, link in self._nodes.iteritems():
+            model = link['model']
+
+            # Check inputs size
+            nval1, nvar, _, _ = self.get_dims('inputs')
+            nval2, _, _, _ = model.get_dims('inputs')
+            if nval1 != nval2:
+                raise ValueError(('With {0} model,'+
+                    ' composite model inputs nval ({1}) different' +
+                    ' from component {2} nval ({3})').format(
+                        self.name, nval1, link['id'], nval2))
+
+            # Loop through inputs indexes
+            idx = link['composite_inputs_index']
+
+            if idx is None:
+                continue
+
+            for i1, i2 in idx:
+                if i2 >= nvar:
+                    raise ValueError(('With {0} model,'+
+                        ' component input index ({1}) is greater or equal' +
+                        ' to number of inputs in composite model ({2})').format(
+                            self.name, i2, nvar))
+
+                model.inputs[:, i2] = self.inputs[:, i1]
 
 
     def run(self, seed=None):
 
-        pass
+        start, end = self.startend
+        kk = np.arange(start, end + 1)
 
 
-    def compute_run_order(self):
-        ''' Compute component run order '''
+        for order in range(self._max_runorder+1):
 
-        # Look for link with no parent
-        top_nodes = []
-        for id in self._network:
-            link = self._network[id]
-            if len(link['parents']) == 0:
-                top_nodes.append(id)
+            for id, link in self._nodes.iteritems():
 
-        # Populate network by recurrence and check circularity
-        def update(parents, done):
-            # Find nodes
-            children = []
-            for id in parents:
-                link = self._network[id]
+                # Run models with appropriate run order
+                if link['run_order'] == order:
+                    model = link['model']
+                    model.run(seed)
 
-                # Increase run order if relevant
-                if link['run_after_parent']:
-                    link['run_order'] += 1
-
-                    if id in done:
-                        raise ValueError('Circularity detected in network')
-
-                done.append(id)
-
-                # Add the children nodes
-                children_list.append([k[0] for k in link['children']])
-
-            if len(children)>0:
-                update(children, done)
-
-        update(top_nodes)
-
-
+                    oidx = link['composite_outputs_index']
+                    if not oidx is None:
+                        for i1, i2 in oidx:
+                            self.outputs[kk, i2] = model.outputs[kk, i1]
 
