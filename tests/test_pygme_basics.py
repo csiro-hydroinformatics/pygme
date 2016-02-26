@@ -10,7 +10,7 @@ import pandas as pd
 
 from calendar import month_abbr as month
 
-from pygme.models.basics import MonthlyPattern, Clip
+from pygme.models.basics import MonthlyPattern, Clip, Node
 
 
 class MonthlyPatternTestCases(unittest.TestCase):
@@ -77,4 +77,55 @@ class ClipTestCases(unittest.TestCase):
         ck = np.allclose(dm.outputs[:, 0], clip)
 
         self.assertTrue(ck)
+
+
+class NodeTestCases(unittest.TestCase):
+
+    def setUp(self):
+        print('\t=> NodeTestCase')
+
+    def test_print(self):
+        nd = Node(4, 2)
+        str_nd = '%s' % nd
+
+    def test_node1(self):
+        ninputs = 4
+        nd = Node(ninputs)
+
+        nval = 100
+        inputs = np.random.uniform(0, 1, (nval, ninputs))
+        nd.allocate(inputs)
+
+        nd.run()
+        ss = inputs.sum(axis=1)
+        ck = np.allclose(ss, nd.outputs[:, 0])
+
+        self.assertTrue(ck)
+
+    def test_node2(self):
+        ninputs = 4
+        noutputs = 5
+        nd = Node(ninputs, noutputs)
+
+        nval = 100
+        inputs = np.random.uniform(0, 1, (nval, ninputs))
+        nd.allocate(inputs, noutputs)
+
+        nd.run()
+        ss = inputs.sum(axis=1)
+        p = np.diag([1./noutputs] * noutputs)
+        o = np.dot(np.repeat(ss.reshape((nval, 1)), noutputs, axis=1), p)
+        ck = np.allclose(o, nd.outputs)
+        self.assertTrue(ck)
+
+        nd.params = range(1, noutputs+1)
+        nd.run()
+        ss = inputs.sum(axis=1)
+        p = np.diag(nd.params/np.sum(nd.params))
+        o = np.dot(np.repeat(ss.reshape((nval, 1)), noutputs, axis=1), p)
+        ck = np.allclose(o, nd.outputs)
+        self.assertTrue(ck)
+
+
+
 
