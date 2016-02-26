@@ -58,11 +58,11 @@ ext_knn=Extension(name='c_pygme_models_knn',
     include_dirs=[numpy.get_include()])
 
 
-ext_demand=Extension(name='c_pygme_models_demand',
+ext_basics=Extension(name='c_pygme_models_basics',
     sources=[
-        'pygme/models/c_pygme_models_demand.pyx',
+        'pygme/models/c_pygme_models_basics.pyx',
         'pygme/models/c_utils.c',
-        'pygme/models/c_demand.c',
+        'pygme/models/c_basics.c',
     ],
     include_dirs=[numpy.get_include()])
 
@@ -92,7 +92,7 @@ setup(
         ext_gr2m,
         ext_lagroute,
         ext_knn,
-        ext_demand
+        ext_basics
     ],
     test_suite='nose.collector',
     tests_require=['nose'],
