@@ -33,6 +33,7 @@ class CompositeModel(Model):
 
     def add_link(self, id,
         model=None,
+        composite_inputs_index=None,
         child_id=None,
         child_input_index=0,
         parent_output_index=0,
@@ -40,35 +41,52 @@ class CompositeModel(Model):
 
         if id in self._network:
             link = self._network[id]
+
+            # Check model is defined twice
+            if not link['model'] is None and not model is None:
+                raise ValueError('model cannot be defined twice' +
+                    ' for an existing link, set model=None')
+
+            # Check run_after_parent is defined twice
+            if not links['run_after_parent'] == run_after_parent:
+                raise ValueError('run_after_parent cannot be changed' +
+                    ' for an existing link')
+
         else:
             link = {
                 'model': model,
                 'run_after_parent': run_after_parent,
                 'run_order' : None,
+                'composite_inputs_index' : composite_inputs_index,
                 'children' : []
+                'inputs_mapping': []
             }
             self._network[id] = link
 
-        # Check model is defined twice
-        if link['model'] is None and not model is None:
-            link['model'] = model
-        elif not link['model'] is None and model is None:
-            pass
-        else:
-            raise ValueError('model cannot be defined twice for an existing link, ' +
-                    'set model=None')
-
-        # Check run_after_parent is defined twice
-        if not links['run_after_parent'] == run_after_parent:
-            raise ValueError('run_after_parent cannot be changed for an existing link')
-
         # Add connections
         if not child_id is None:
-            link['children'].append((child_id, parent_output_index, child_output_index))
+            link['children'].append((child_id, parent_output_index,
+                                        child_output_index))
 
 
-    def params_mapping(self):
+
+    def post_params_setter(self):
         raise ValueError('No params mapping. Please override')
+
+
+
+    def allocate(self, inputs, noutputs=1):
+
+        super(CompositeModel).allocate(inputs, noutputs)
+
+        # Affect inputs to components
+        for id, link in self._network.iteritems():
+            pass
+
+
+    def run(self, seed=None):
+
+        pass
 
 
     def compute_run_order(self):
@@ -82,7 +100,7 @@ class CompositeModel(Model):
                 top_nodes.append(id)
 
         # Populate network by recurrence and check circularity
-        def update(parents):
+        def update(parents, done):
             # Find nodes
             children = []
             for id in parents:
@@ -92,11 +110,16 @@ class CompositeModel(Model):
                 if link['run_after_parent']:
                     link['run_order'] += 1
 
+                    if id in done:
+                        raise ValueError('Circularity detected in network')
+
+                done.append(id)
+
                 # Add the children nodes
                 children_list.append([k[0] for k in link['children']])
 
             if len(children)>0:
-                update(children)
+                update(children, done)
 
         update(top_nodes)
 
