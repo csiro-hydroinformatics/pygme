@@ -1,8 +1,10 @@
 import math
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 from pygme.model import Model
-from pygme.data import Matrix
+from pygme.data import Matrix, Vector
 
 # Maximum outputs from a composite models (can be updated when loading package)
 NOUTPUTSMAX = 100
@@ -10,14 +12,24 @@ NOUTPUTSMAX = 100
 
 class CompositeNode(object):
 
-    def __init__(self, id, model, metadata=None):
+    def __init__(self, model, id=None,
+            x=np.random.uniform(),
+            y=np.random.uniform()):
         self._id = id
-        self._var_mapping = {}
+        self._var_mapping = {'inputs':[], 'outputs':[]}
         self._model = model
-        self._run_order = None
+        self._runorder = 0
         self.children = {}
-        self.metadata = metadata
+        self.x = x
+        self.y = y
 
+
+    def __str__(self):
+        str = ('Node {0} : model {1}, run order {2}, xy ' +
+                '({3}, {4})').format(
+                self.id, self.model.name, self.runorder,
+                    self.x, self.y)
+        return str
 
     @property
     def id(self):
@@ -30,25 +42,30 @@ class CompositeNode(object):
 
 
     @property
-    def run_order(self):
-        return self._run_order
+    def runorder(self):
+        return self._runorder
 
 
-    def add_child(self, child, run_after_parent=False):
-        self._children[child] = run_after_parent
+    def add_child(self, child,
+            idx_outputs_parent=0, idx_inputs_child=0):
+
+        self.children[child] = {
+                'idx_outputs_parent': idx_outputs_parent,
+                'idx_inputs_child':idx_inputs_child
+            }
 
 
-    def add_mapping(self, idx_node, idx_composite, type='inputs'):
+    def add_mapping(self, inode, icomposite, type='inputs'):
 
         _, nvar, _, _ = self.model.get_dims(type)
-        if idx_node >= nvar:
+        if inode >= nvar:
             raise ValueError(('With {0} node, {1} mapping ' +
                 'has index ({2}) greater or equal than ' +
                 'number of variables ({3}) in model {4} {1}').format(self.id,
-                    type, nvar, idx_node, nvar, self.model.name))
+                    type, nvar, inode, nvar, self.model.name))
 
-        self._var_mapping[type].append({'node':idx_node,
-                    'composite': idx_composite})
+        self._var_mapping[type].append({'node':inode,
+                    'composite': icomposite})
 
 
 
@@ -59,25 +76,64 @@ class CompositeNetwork(object):
         self._max_runorder = 0
 
 
-    def get_node(self, id):
-        return self._nodes[id]
+    def __getitem__(self, key):
+        return self._nodes[key]
 
 
-    def add_node(self, node):
-        self._nodes[node['id']] = node
+    def __setitem__(self, key, value):
+        if key in self._nodes:
+            raise ValueError(('Node {0} already' +
+                ' exists in network').format(key))
 
+        value._id = key
+        self._nodes[key] = value
+
+    def __str__(self):
+        str = 'Network:\n'
+        for id, nd in self._nodes.iteritems():
+            str += '\t{0}\n'.format(nd)
+
+        return str
 
     @property
     def max_runorder(self):
         return self._max_runorder
 
 
-    def compute_run_order(self):
+    def compute_runorder(self):
         ''' Compute component run order '''
 
         # Look for head nodes (nodes with no parent)
-        head = set(self._nodes.keys())
+        # And perform sanity check on network
+        ids = self._nodes.keys()
+        heads = set(ids)
         for id, nd in self._nodes.iteritems():
+
+            _, nvaro, _, _ = nd.model.get_dims('outputs')
+
+            # Check that all children are in network
+            # and have valid inputs/outputs indexes
+            for ch in nd.children:
+                if not ch in ids:
+                    raise ValueError(('Node {0} is a child of {1}, ' +
+                            'but is not a network node').format(ch,
+                                id))
+
+                # Check output index
+                idxo = nd.children[ch]['idx_outputs_parent']
+                if idxo < 0 or idxo >= nvaro:
+                    raise ValueError(('Node {0} has a child connection with {1}, ' +
+                            'but output index ({2}) is greater than '+
+                            'the number of variables in node model' +
+                            ' outputs ({3})').format(id, ch, idxo, nvaro))
+
+                idxi = nd.children[ch]['idx_inputs_child']
+                _, nvari, _, _ = self._nodes[ch].model.get_dims('inputs')
+                if idxi < 0 or idxi >= nvari:
+                    raise ValueError(('Node {0} has a child connection with {1}, ' +
+                            'but input index ({2}) is greater than '+
+                            'the number of variables in node model' +
+                            ' inputs ({3})').format(id, ch, idxi, nvari))
 
             # Look for nodes that point to id
             for id2, nd2 in self._nodes.iteritems():
@@ -85,8 +141,8 @@ class CompositeNetwork(object):
                     continue
 
                 # Remove the id from head nodes
-                if id in nd2.children and id in head:
-                    head.remove(id)
+                if id in nd2.children and id in heads:
+                    heads.remove(id)
 
         # Populate network by recurrence and check circularity
         def update(parents, done, order):
@@ -95,12 +151,11 @@ class CompositeNetwork(object):
             for id in parents:
                 nd = self._nodes[id]
 
-                # Increase run order if relevant
-                if nd.run_after_parent:
-                    nd.run_order = order
+                # Increase run order
+                nd._runorder = order
 
-                    if id in done:
-                        raise ValueError('Circularity detected in network')
+                if id in done:
+                    raise ValueError('Circularity detected in network')
 
                 done.append(id)
 
@@ -114,12 +169,41 @@ class CompositeNetwork(object):
                 update(children, done, order+1)
                 self._max_runorder += 1
 
-        update(parents, [], 0)
+        update(heads, [], 0)
+
+
+    def draw(self, ax, arrow_factor=0.9,
+            ptopts={}, arrowopts={}):
+
+        xx = []
+        yy = []
+
+        for id, nd in self._nodes.iteritems():
+            # Draw node
+            ax.plot(nd.x, nd.y, 'o', **ptopts)
+            xx.append(nd.x)
+            yy.append(nd.y)
+
+            # Draw arrow
+            for ch in nd.children:
+                ndc = self._nodes[ch]
+                ax.arrow(nd.x, nd.y,
+                        (ndc.x-nd.x)*arrow_factor,
+                        (ndc.y-nd.y)*arrow_factor,
+                        **arrowopts)
+                xx.append(ndc.x)
+                yy.append(ndc.y)
+
+        # Draw
+        xx = np.array(xx)
+        xlim = [np.min(xx), np.max(xx)]
+        yy = np.array(yy)
+        ylim = [np.min(yy), np.max(yy)]
+        ax.plot(xlim, ylim, color='none')
 
 
 
 class CompositeModel(Model):
-
 
     def __init__(self, name,
             ninputs, nparams, nstates,
@@ -191,7 +275,7 @@ class CompositeModel(Model):
             for node in self._network._nodes.iteritems():
 
                 # Run models with appropriate run order
-                if node.run_order == order:
+                if node.runorder == order:
                     model = node.model
                     model.run(seed)
 
