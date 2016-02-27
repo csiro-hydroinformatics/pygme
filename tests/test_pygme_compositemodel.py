@@ -18,7 +18,7 @@ from pygme.models.basics import NodeModel
 def get_model(nin, nout, nval=100):
     m = NodeModel(nin, nout)
     inputs = np.random.uniform(0, 1, (nval,nin))
-    m.allocate(inputs)
+    m.allocate(inputs, nout)
     return m
 
 
@@ -44,6 +44,15 @@ class CompositeNodeTestCases(unittest.TestCase):
         except ValueError, e:
             pass
         self.assertTrue(str(e).startswith('With nd1'))
+
+    def test_node2(self):
+        m = NodeModel(3, 4)
+        nd = CompositeNode(m, 'nd1')
+        nd.add_mapping(2, 2)
+        nd.add_child('nd2', 0, 1)
+
+        dd = nd.to_dict()
+        ndd = CompositeNode.from_dict(dd, m)
 
 
 class CompositeNetworkTestCases(unittest.TestCase):
@@ -111,19 +120,7 @@ class CompositeModelTestCases(unittest.TestCase):
     def setUp(self):
         print('\t=> CompositeModelTestCase')
 
-    def test_print(self):
-        cm = CompositeModel('cm', 5, 3, 1)
-        str_cm = '%s' % cm
-
     def test_compositemodel1(self):
-        return
-
-        nval = 100
-        def get_model(nin, nout):
-            m = NodeModel(nin, nout)
-            inputs = np.random.uniform(0, 1, (nval,nin))
-            m.allocate(inputs)
-            return m
 
         # Connections
         # nd1 ->             -> outputs[0]
@@ -146,42 +143,20 @@ class CompositeModelTestCases(unittest.TestCase):
         ntk['nd5'] = CompositeNode(get_model(1, 2))
         ntk.compute_runorder()
 
-        #cm = CompositeModel('cm', 2, 3, 1)
+        # Create model
+        cm = CompositeModel('cm', 2, 3, 1, ntk)
 
-        ## Add links
-        #for (i, c) in enumerate(components):
-        #    if c[0] in ['nd4', 'nd5']:
-        #        model = get_node(1, 2)
-        #    elif c[0] == 'nd3':
-        #        model = get_node(2, 1)
-        #    else:
-        #        model = get_node(1, 1)
+        # Allocate
+        nval, _, _, _ = ntk['nd5'].model.get_dims('inputs')
+        inputs = np.random.uniform(0, 1, (nval,2))
+        cm.allocate(inputs, 2)
 
-        #    if i > 0:
-        #        if c[0] == components[i-1][0]:
-        #            model = None
+        # run
+        cm.run()
 
-        #    cm.add_link(id=c[0],
-        #        model=model,
-        #        child_id=c[1],
-        #        child_input_index=c[3],
-        #        parent_output_index=c[2],
-        #        composite_inputs_index=c[4],
-        #        composite_outputs_index=c[5])
-
-        ## Compute run order
-        #cm.compute_run_order()
-
-        ## Allocate
-        #inputs = np.random.uniform(0, 1, (nval,2))
-        #cm.allocate(inputs, 2)
-
-        ## run
-        #cm.run()
-
-        #o1 = cm.outputs
-        #o2 = np.dot(np.repeat(np.sum(inputs, axis=1).reshape((nval, 1)), 2, 1),
-        #        np.diag([0.5, 0.5]))
-        #ck = np.allclose(o1, o2)
+        o1 = cm.outputs
+        o2 = np.dot(np.repeat(np.sum(inputs, axis=1).reshape((nval, 1)), 2, 1),
+                np.diag([0.5, 0.5]))
+        ck = np.allclose(o1, o2)
 
 
