@@ -10,7 +10,7 @@ import pandas as pd
 
 from calendar import month_abbr as month
 
-from pygme.models.basics import MonthlyPattern, Clip, Node
+from pygme.models.basics import MonthlyPattern, NodeModel
 
 
 class MonthlyPatternTestCases(unittest.TestCase):
@@ -50,47 +50,18 @@ class MonthlyPatternTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
 
-class ClipTestCases(unittest.TestCase):
+class NodeModelTestCases(unittest.TestCase):
 
     def setUp(self):
-        print('\t=> ClipTestCase')
+        print('\t=> NodeModelTestCase')
 
     def test_print(self):
-        dm = Clip()
-        str_dm = '%s' % dm
-
-    def test_clip1(self):
-        dm = Clip()
-
-        dm.config['min'] = 1.
-        dm.config['max'] = 5.
-
-        # Maximum extraction
-        nval = 1000
-        inputs = np.random.uniform(0, 10, (nval, 1))
-        dm.allocate(inputs, 1)
-
-        dm.initialise()
-        dm.run()
-
-        clip = np.clip(inputs[:,0], dm.config['min'], dm.config['max'])
-        ck = np.allclose(dm.outputs[:, 0], clip)
-
-        self.assertTrue(ck)
-
-
-class NodeTestCases(unittest.TestCase):
-
-    def setUp(self):
-        print('\t=> NodeTestCase')
-
-    def test_print(self):
-        nd = Node(4, 2)
+        nd = NodeModel(4, 2)
         str_nd = '%s' % nd
 
-    def test_node1(self):
+    def test_nodemodel1(self):
         ninputs = 4
-        nd = Node(ninputs)
+        nd = NodeModel(ninputs)
 
         nval = 100
         inputs = np.random.uniform(0, 1, (nval, ninputs))
@@ -102,10 +73,10 @@ class NodeTestCases(unittest.TestCase):
 
         self.assertTrue(ck)
 
-    def test_node2(self):
+    def test_nodemodel2(self):
         ninputs = 4
         noutputs = 5
-        nd = Node(ninputs, noutputs)
+        nd = NodeModel(ninputs, noutputs)
 
         nval = 100
         inputs = np.random.uniform(0, 1, (nval, ninputs))
@@ -124,6 +95,25 @@ class NodeTestCases(unittest.TestCase):
         p = np.diag(nd.params/np.sum(nd.params))
         o = np.dot(np.repeat(ss.reshape((nval, 1)), noutputs, axis=1), p)
         ck = np.allclose(o, nd.outputs)
+        self.assertTrue(ck)
+
+    def test_nodemodel3(self):
+        dm = NodeModel()
+
+        dm.config['min'] = 1.
+        dm.config['max'] = 5.
+
+        # Maximum extraction
+        nval = 1000
+        inputs = np.random.uniform(0, 10, (nval, 1))
+        dm.allocate(inputs, 1)
+
+        dm.initialise()
+        dm.run()
+
+        clip = np.clip(inputs[:,0], dm.config['min'], dm.config['max'])
+        ck = np.allclose(dm.outputs[:, 0], clip)
+
         self.assertTrue(ck)
 
 

@@ -8,14 +8,16 @@ from pygme.data import Matrix
 NOUTPUTSMAX = 100
 
 
-class Node(object):
+class CompositeNode(object):
 
-    def __init__(self, id, model):
+    def __init__(self, id, model, metadata=None):
         self._id = id
         self._var_mapping = {}
         self._model = model
         self._run_order = None
         self.children = {}
+        self.metadata = metadata
+
 
     @property
     def id(self):
@@ -36,13 +38,21 @@ class Node(object):
         self._children[child] = run_after_parent
 
 
-    def add_mapping(self,
-            idx_node, idx_composite, type='inputs'):
+    def add_mapping(self, idx_node, idx_composite, type='inputs'):
+
+        _, nvar, _, _ = self.model.get_dims(type)
+        if idx_node >= nvar:
+            raise ValueError(('With {0} node, {1} mapping ' +
+                'has index ({2}) greater or equal than ' +
+                'number of variables ({3}) in model {4} {1}').format(self.id,
+                    type, nvar, idx_node, nvar, self.model.name))
+
         self._var_mapping[type].append({'node':idx_node,
-                    'composite': idx_composite)
+                    'composite': idx_composite})
 
 
-class Network(object):
+
+class CompositeNetwork(object):
 
     def __init__(self):
         self._nodes = {}
@@ -67,16 +77,15 @@ class Network(object):
 
         # Look for head nodes (nodes with no parent)
         head = set(self._nodes.keys())
-        for id in self._nodes:
+        for id, nd in self._nodes.iteritems():
 
             # Look for nodes that point to id
-            for id2 in self._nodes:
+            for id2, nd2 in self._nodes.iteritems():
                 if id == id2:
                     continue
 
                 # Remove the id from head nodes
-                nd = self._nodes[id2]
-                if id in nd['children'] and id in parents:
+                if id in nd2.children and id in head:
                     head.remove(id)
 
         # Populate network by recurrence and check circularity
@@ -84,11 +93,11 @@ class Network(object):
             # Find nodes
             children = []
             for id in parents:
-                link = self._nodes[id]
+                nd = self._nodes[id]
 
                 # Increase run order if relevant
-                if link['run_after_parent']:
-                    link['run_order'] = order
+                if nd.run_after_parent:
+                    nd.run_order = order
 
                     if id in done:
                         raise ValueError('Circularity detected in network')
@@ -96,7 +105,7 @@ class Network(object):
                 done.append(id)
 
                 # Add the children nodes
-                children.extend(link['children'].keys())
+                children.extend(nd.children.keys())
 
             # Remove duplicates
             children = set(children)
@@ -109,12 +118,12 @@ class Network(object):
 
 
 
-
 class CompositeModel(Model):
 
 
     def __init__(self, name,
             ninputs, nparams, nstates,
+            network,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
@@ -130,13 +139,11 @@ class CompositeModel(Model):
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
-        self._nodes = {}
-        self._max_runorder = 0
+        self._network = network
 
 
     def post_params_setter(self):
         raise ValueError('No params mapping. Please override')
-
 
 
     def allocate(self, inputs, noutputs=1):
@@ -144,8 +151,8 @@ class CompositeModel(Model):
         super(CompositeModel, self).allocate(inputs, noutputs)
 
         # Affect inputs to components
-        for id, link in self._nodes.iteritems():
-            model = link['model']
+        for id, node in self._network._nodes.iteritems():
+            model = node.model
 
             # Check inputs size
             nval1, nvar, _, _ = self.get_dims('inputs')
@@ -157,19 +164,19 @@ class CompositeModel(Model):
                         self.name, nval1, link['id'], nval2))
 
             # Loop through inputs indexes
-            idx = link['composite_inputs_index']
+            mapping = node._var_mapping['inputs']
 
-            if idx is None:
-                continue
+            for m in mapping:
+                inode = m['node']
+                icomposite = m['composite']
 
-            for i1, i2 in idx:
-                if i2 >= nvar:
+                if icomposite >= nvar:
                     raise ValueError(('With {0} model,'+
                         ' component input index ({1}) is greater or equal' +
                         ' to number of inputs in composite model ({2})').format(
-                            self.name, i2, nvar))
+                            self.name, icomposite, nvar))
 
-                model.inputs[:, i2] = self.inputs[:, i1]
+                model.inputs[:, inode] = self.inputs[:, icomposite]
 
 
     def run(self, seed=None):
@@ -177,18 +184,30 @@ class CompositeModel(Model):
         start, end = self.startend
         kk = np.arange(start, end + 1)
 
+        _, nvar, _, _ = self.get_dims('outputs')
 
         for order in range(self._max_runorder+1):
 
-            for id, link in self._nodes.iteritems():
+            for node in self._network._nodes.iteritems():
 
                 # Run models with appropriate run order
-                if link['run_order'] == order:
-                    model = link['model']
+                if node.run_order == order:
+                    model = node.model
                     model.run(seed)
 
-                    oidx = link['composite_outputs_index']
-                    if not oidx is None:
-                        for i1, i2 in oidx:
-                            self.outputs[kk, i2] = model.outputs[kk, i1]
+                    # Loop through outputs mapping
+                    mapping = node._var_mapping['outputs']
+
+                    for m in mapping:
+                        inode = m['node']
+                        icomposite = m['composite']
+
+                        if icomposite >= nvar:
+                            raise ValueError(('With {0} model,'+
+                                ' component output index ({1}) is greater or equal' +
+                                ' to number of outputs in composite model ({2})').format(
+                                    self.name, icomposite, nvar))
+
+                        self.outputs[:, icomposite] = model.outputs[:, inode]
+
 

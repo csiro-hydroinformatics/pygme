@@ -8,48 +8,16 @@ import c_pygme_models_basics
 from pygme.model import Model
 
 
-class Clip(Model):
+class NodeModel(Model):
 
     def __init__(self,
+            ninputs=1, noutputs=1,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
 
-        Model.__init__(self, 'clip',
-            nconfig=2,
-            ninputs=1,
-            nparams=0,
-            nstates=0,
-            noutputs_max=1,
-            nens_params=nens_params,
-            nens_states=nens_states,
-            nens_outputs=nens_outputs)
-
-        self.config.names = ['min', 'max']
-        self.config.default = [-np.inf, np.inf]
-        self.config.reset()
-
-    def run(self, seed=None):
-
-        start, end = self.startend
-
-        kk = range(start, end+1)
-        inputs = self.inputs[kk, 0]
-
-        m1 = self.config['min']
-        m2 = self.config['max']
-        self.outputs[kk, 0] = np.clip(inputs, m1, m2)
-
-
-class Node(Model):
-
-    def __init__(self, ninputs, noutputs=1,
-            nens_params=1,
-            nens_states=1,
-            nens_outputs=1):
-
-        Model.__init__(self, 'node',
-            nconfig=1,
+        Model.__init__(self, 'nodemodel',
+            nconfig=3,
             ninputs=ninputs,
             nparams=noutputs,
             nstates=0,
@@ -58,8 +26,8 @@ class Node(Model):
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
-        self.config.names = ['is_conservative']
-        self.config.default = [1.]
+        self.config.names = ['min', 'max', 'is_conservative']
+        self.config.default = [-np.inf, np.inf, 1.]
         self.config.reset()
 
         self._params.names = ['F{0}'.format(i) for i in range(noutputs)]
@@ -73,9 +41,10 @@ class Node(Model):
         kk = range(start, end+1)
         nval = len(kk)
 
-        # Sum of inputs
-        inputs = self.inputs[kk, :].sum(axis=1)
-
+        # Sum of inputs and clip
+        m1 = self.config['min']
+        m2 = self.config['max']
+        inputs = np.clip(self.inputs[kk, :].sum(axis=1), m1, m2)
 
         _, noutputs, _, _ = self.get_dims('outputs')
 
