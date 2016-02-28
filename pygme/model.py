@@ -18,12 +18,14 @@ class Model(object):
             nparams,
             nstates,
             noutputs_max,
+            run_as_block=True,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
 
         self.name = name
         self._ninputs = ninputs
+        self.run_as_block = run_as_block
 
         self.nuhlength = 0
         self.noutputs_max = noutputs_max
@@ -61,6 +63,7 @@ class Model(object):
 
         self._index_start = 0
         self._index_end = 0
+        self._ipos_current = None
 
 
     def __str__(self):
@@ -81,19 +84,32 @@ class Model(object):
         return str
 
 
-    @property
-    def ilead(self):
+    def _valid_index(self, value):
+        index = self._inputs.index
+        if not np.all(np.in1d(value, index)):
+            raise ValueError(('With model {0}, index ({1})' +
+                    ' not within input indexes').format(self.name, value))
+
+    def _valid_inputs(self):
         if self._inputs is None:
             raise ValueError(('With model {0}, Cannot get ilead when'+
                 ' inputs is None. Please allocate').format(self.name))
 
+
+    @property
+    def ilead(self):
+        self._valid_inputs()
         return self._inputs.ilead
 
     @ilead.setter
     def ilead(self, value):
-        if self._inputs is None:
-            raise ValueError(('With model {0}, Cannot set ilead when'+
-                ' inputs is None. Please allocate').format(self.name))
+        self._valid_inputs()
+
+        _, _, nlead, _ = self.get_dims('inputs')
+        if value < 0 or value >= nlead:
+            raise ValueError(('With model {0}, trying to set ilead but '+
+                ' ilead ({1}) < 0 or > nlead ({2})').format(self.name,
+                    value, nlead))
 
         self._inputs.ilead = value
         self._outputs.ilead = value
@@ -105,16 +121,8 @@ class Model(object):
 
     @index_start.setter
     def index_start(self, value):
-        if self._inputs is None:
-            raise ValueError(('With model {0}, Cannot set index_end when'+
-                ' inputs is None. Please allocate').format(self.name))
-
-        index = self._inputs.index
-
-        if not np.all(np.in1d(value, index)):
-            raise ValueError(('With model {0}, index_start ({1})' +
-                    ' not within input indexes').format(self.name, value))
-
+        self._valid_inputs()
+        self._valid_index(value)
         self._index_start = value
 
 
@@ -124,25 +132,21 @@ class Model(object):
 
     @index_end.setter
     def index_end(self, value):
-        if self._inputs is None:
-            raise ValueError(('With model {0}, cannot set index_end when'+
-                ' inputs is None. Please allocate').format(self.name))
-
-        index = self._inputs.index
-
-        if not np.all(np.in1d(value, index)):
-            raise ValueError(('With model {0}, index_end ({1})' +
-                    ' not within input indexes').format(self.name, value))
-
+        self._valid_inputs()
+        self._valid_index(value)
         self._index_end = value
 
+    def get_ipos_startend(self):
+        self._valid_inputs()
+        index = self._inputs.index
+        k1 = np.where(index == self._index_start)[0][0]
+        k2 = np.where(index == self._index_end)[0][0]
+
+        return k1, k2
 
     @property
-    def startend(self):
-        index = self._inputs.index
-        k1 = np.where(index == self.index_start)[0][0]
-        k2 = np.where(index == self.index_end)[0][0]
-        return (k1, k2)
+    def ipos_current(self):
+        return self._ipos_current
 
 
     @property
@@ -248,7 +252,6 @@ class Model(object):
                 'but item {1} does not exists').format(self.name, item))
 
 
-
     def set_iens(self, item='params', value=0):
         ''' Set ensemble member for model attributes '''
         value = int(value)
@@ -350,13 +353,11 @@ class Model(object):
 
             return (nval, nens)
 
-
         elif item == 'config':
             nens = 1
             nval = self.config.nval
 
             return (nval, nens)
-
 
         elif item == 'outputs':
             if not self._outputs is None:
@@ -411,8 +412,9 @@ class Model(object):
                 index=inputs.index, prefix='O')
 
         # Set up start and end to beginning and end of simulation
-        self.index_start = inputs.index[0]
-        self.index_end = inputs.index[-1]
+        self._index_start = inputs.index[0]
+        self._index_end = inputs.index[-1]
+        self._index_current = self._index_start
 
 
     def post_params_setter(self):
@@ -463,30 +465,22 @@ class Model(object):
 
 
     def run(self, seed=None):
-        raise RuntimeError(('With model {0}, ' +
-            'method run is not overridden, ' +
-            'i.e. the model does nothing!').format(self.name))
 
-
-    def run_ens(self,
-            ens_inputs = None,
-            ens_params = None,
-            ens_states = None,
-            ens_outputs = None):
-        ''' Run the model with selected ensembles '''
+        # Check input size
+        _, ninputs, _, _ = self.get_dims('inputs')
+        if self._inputs.nvar != ninputs:
+            raise ValueError(('With {0} model, self._inputs.nvar({0}) != ' +
+                    'self._ninputs({1})').format(
+                    self.name, self._inputs.nvar, ninputs))
 
         # Set ensemble lists
-        if ens_inputs is None:
-            ens_inputs = range(self._inputs.nens)
+        ens_inputs = range(self._inputs.nens)
+        ens_params = range(self._params.nens)
+        ens_states = range(self.nens_states)
+        ens_outputs = range(self.nens_outputs)
 
-        if ens_params is None:
-            ens_params = range(self._params.nens)
-
-        if ens_states is None:
-            ens_states = range(self.nens_states)
-
-        if ens_outputs is None:
-            ens_outputs = range(self.nens_outputs)
+        # Run model in timestep mode
+        istart, iend = self.get_ipos_startend()
 
         # Loop through ensembles
         for i_inputs, i_params, i_states, i_outputs in \
@@ -498,7 +492,28 @@ class Model(object):
             self.set_iens('states', i_states)
             self.set_iens('outputs', i_outputs)
 
-            self.run()
+            if self.run_as_block:
+                # Run model in block mode
+                self.runblock(istart, iend, seed)
+
+            else:
+                # Run model in time step mode over the range
+                # [istart - iend]
+                for i in range(istart, iend+1):
+                    self._ipos_current = i
+                    self.runtimestep(seed)
+
+
+    def runblock(self, istart, iend, seed=None):
+        raise RuntimeError(('With model {0}, ' +
+            'method runblock is not overridden, ' +
+            'i.e. the model does nothing!').format(self.name))
+
+
+    def runtimestep(self, seed=None):
+        istart = self._ipos_current
+        iend = self._ipos_current
+        self.runblock(istart, iend, seed)
 
 
     def clone(self):

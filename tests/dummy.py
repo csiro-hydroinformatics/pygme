@@ -18,6 +18,7 @@ class Dummy(Model):
             nparams=3, \
             nstates=2, \
             noutputs_max=2,
+            run_as_block=True,
             nens_params=nens_params,
             nens_states=nens_states,
             nens_outputs=nens_outputs)
@@ -28,13 +29,10 @@ class Dummy(Model):
 
         self.config.names = 'continuous'
         self.config.default = 1
+        self.config.data = 1
 
 
-    def run(self, seed=None):
-
-        index = self._inputs.index
-        index_start = self.index_start
-        index_end = self.index_end
+    def runblock(self, istart, iend, seed=None):
 
         par1 = self.params[0]
         par2 = self.params[1]
@@ -42,7 +40,7 @@ class Dummy(Model):
 
         nval, nvar = self.outputs.shape
 
-        kk = (index >= index_start) & (index <= index_end)
+        kk = range(istart, iend+1)
         outputs = par1 + par2 *self.inputs[kk, :]
 
         outputs = np.cumsum(outputs, 0)
@@ -51,15 +49,15 @@ class Dummy(Model):
             outputs = outputs + self.states
 
         if par3 > 1e-10:
-            outputs[:, 0] *= np.random.uniform(1-par3, 1+par3+1e-20, size=(np.sum(kk), ))
+            outputs *= np.random.uniform(1-par3, 1+par3+1e-20, size=(np.sum(kk), ))
 
         # Write data to selected output indexes
         self.outputs[kk, :] = outputs[:, :nvar]
 
         # Store states
-        kk = np.where(index == index_end)[0]
-        self.states = list(self.outputs[kk, :]) \
+        self.states = list(self.outputs[iend, :]) \
                     + [0.] * (2-self.outputs.shape[1])
+
 
     def post_params_setter(self):
         uh = np.zeros(self._uh.nval)
@@ -81,20 +79,16 @@ class MassiveDummy(Model):
             nparams=0,
             nstates=0,
             noutputs_max=1,
+            run_as_block=True,
             nens_params=nens_params,
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
 
-    def run(self, seed=None):
+    def runblock(self, istart, iend, seed=None):
 
-        nval = self.outputs.shape[0]
-        outputs = self.inputs + np.random.uniform(0, 1, (nval, 1))
-
-        index_start = self.index_start
-        index_end = self.index_end
-        kk = np.arange(index_start, index_end+1)
-
+        kk = range(istart, iend+1)
+        outputs = self.inputs + np.random.uniform(0, 1, (len(kk), 1))
         self.outputs[kk, :] = outputs[kk, :]
 
 

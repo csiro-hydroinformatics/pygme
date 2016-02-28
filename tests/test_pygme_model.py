@@ -171,18 +171,43 @@ class ModelTestCases(unittest.TestCase):
         _, ninputs, _, _ = dum.get_dims('inputs')
         inputs = np.random.uniform(0, 1, (nval, ninputs))
         dum.allocate(inputs)
+        dum.params = [1., 2., 0.]
 
         dum.index_start = 10
         dum.index_end = nval-1
-        dum.run_ens()
+        dum.run()
         self.assertTrue(np.all(np.isnan(dum.outputs[:10, 0])))
 
         try:
             dum.index_end = nval+1
         except Exception, e:
             pass
-        self.assertTrue(e.message.startswith('With model dummy, index_end (1001)'))
+        self.assertTrue(e.message.startswith('With model dummy, index (1001)'))
 
+
+    def test_model12(self):
+
+        dum = Dummy()
+
+        nval = 100
+        noutputs = 2
+        _, ninputs, _, _ = dum.get_dims('inputs')
+        inputs = np.random.uniform(0, 1, (nval, ninputs))
+        dum.allocate(inputs)
+        dum.params = [1., 2., 0.]
+
+        dum.run_as_block = True
+        dum.initialise()
+        dum.run()
+        o1 = dum.outputs.copy()
+
+        dum.run_as_block = False
+        dum.initialise()
+        dum.run()
+        o2 = dum.outputs.copy()
+
+        ck = np.allclose(o1, o2)
+        self.assertTrue(ck)
 
 
 
