@@ -91,41 +91,57 @@ class GR4JTestCases(unittest.TestCase):
             data = np.loadtxt(fts, delimiter=',')
             inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
 
-            # Run gr4j
+
+            # Run gr4j [block]
             gr.allocate(inputs)
-
             t0 = time.time()
-
             gr.params = params[i, [2, 0, 1, 3]]
             gr.initialise()
+            gr.run_as_block = True
             gr.run()
-            qsim = gr.outputs[:,0]
-
+            qsim1 = gr.outputs[:,0].copy()
             t1 = time.time()
-            dta = 1000 * (t1-t0)
-            dta /= len(qsim)/365.25
+            dta1 = 1000 * (t1-t0)
+            dta1 /= len(qsim1)/365.25
 
+            # Run gr4j [timestep]
+            gr._outputs.reset()
+            t0 = time.time()
+            gr.initialise()
+            gr.run_as_block = False
+            gr.run()
+            qsim2 = gr.outputs[:,0].copy()
+            t1 = time.time()
+            dta2 = 1000 * (t1-t0)
+            dta2 /= len(qsim2)/365.25
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
             expected = data[idx, 4]
 
-            err = np.abs(qsim[idx] - expected)
+            err = np.abs(qsim1[idx] - expected)
             err_thresh = 5e-2
-            ck = np.max(err) < err_thresh
+            ck1 = np.max(err) < err_thresh
 
-            if not ck:
+            err = np.abs(qsim2[idx] - qsim1[idx])
+            err_thresh = 5e-2
+            ck2 = np.max(err) < err_thresh
+
+            if not (ck1 and ck2):
                 print(('\t\tTEST %2d : max abs err = '
-                    '%0.5f < %0.5f ? %s ~ %0.5fms/yr') % (i+1, \
-                    np.max(err), err_thresh, ck, dta))
+                    '%0.5f < %0.5f ? %s ~ %0.5fms/yr\n') % (i+1, \
+                    np.max(err), err_thresh, ck1, ck2))
             else:
-                print('\t\tTEST %2d : max abs err = %0.5f ~ %0.5fms/yr' % ( \
-                    i+1, np.max(err), dta))
+                print(('\t\tTEST %2d : max abs err = %0.5f\n\t\t\truntime :' +
+                        ' %0.5fms/yr [block] / %0.5fms/yr [ts]\n') % ( \
+                    i+1, np.max(err), dta1, dta2))
 
-            self.assertTrue(ck)
+            self.assertTrue(ck1)
+            self.assertTrue(ck2)
 
 
     def test_calibrate(self):
+        return
         gr = GR4J()
         warmup = 365*6
 

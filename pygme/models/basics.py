@@ -35,10 +35,9 @@ class NodeModel(Model):
         self._params.reset()
 
 
-    def run(self, seed=None):
+    def runblock(self, istart, iend, seed=None):
 
-        start, end = self.startend
-        kk = range(start, end+1)
+        kk = range(istart, iend+1)
         nval = len(kk)
 
         # Sum of inputs and clip
@@ -92,17 +91,9 @@ class MonthlyPattern(Model):
         super(MonthlyPattern, self).initialise(states, statesuh)
 
 
-    def run(self, seed=None):
+    def runblock(self, istart, iend, seed=None):
 
-        _, ninputs, _, _ = self.get_dims('inputs')
-        if self._inputs.nvar != ninputs:
-            raise ValueError(('Model {2}, self._inputs.nvar({0}) != ' +
-                    'self._ninputs({1})').format(
-                    self._inputs.nvar, ninputs, self.name))
-
-        start, end = self.startend
-
-        ierr = c_pygme_models_basics.monthlypattern_run(start, end,
+        ierr = c_pygme_models_basics.monthlypattern_run(istart, iend,
             self.config.data,
             self._states.data,
             self._outputs.data)

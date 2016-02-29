@@ -200,10 +200,11 @@ class ANN(Model):
         return L1W, L1B, L2W, L2B
 
 
-    def run_layer1(self):
+    def run_layer1(self, istart, iend):
         ''' Compute outputs from first layer '''
         L1W, L1B, _, _ = self.params2matrix()
-        return np.tanh(np.dot(self.inputs_trans.data, L1W) + L1B)
+        kk = np.arange(istart, iend+1)
+        return np.tanh(np.dot(self.inputs_trans.data[kk, :], L1W) + L1B)
 
 
     def run_layer2(self, S):
@@ -212,14 +213,16 @@ class ANN(Model):
         return np.dot(S, L2W) + L2B
 
 
-    def run(self):
+    def runblock(self, istart, iend, seed=None):
         ''' Run model '''
-        S = self.run_layer1()
+        S = self.run_layer1(istart, iend)
         O = self.run_layer2(S)
-        self.outputs_trans.data =  O
+
+        kk = np.arange(istart, iend+1)
+        self.outputs_trans.data[kk, :] =  O
 
         params = self.outputs_trans_params
-        self.outputs = destandardize(O, params)
+        self.outputs[kk, :] = destandardize(O, params)
 
 
     def jacobian(self):
@@ -228,31 +231,36 @@ class ANN(Model):
         L1W, L1B, L2W, L2B = self.params2matrix()
 
         self.run()
-        nval, _, _, _ = self.get_dims('inputs')
+
         nparams, _ = self.get_dims('params')
+
+        istart, iend = self.get_ipos_startend()
+        kk = np.arange(istart, iend+1)
+        nval = len(kk)
+
         jac = np.zeros((nval, nparams))
         inputs_trans = self.inputs_trans.data
 
         # Jacobian for first layer
-        S = self.run_layer1()
+        S = self.run_layer1(istart, iend)
         L1 = np.dot(inputs_trans, L1W) + L1B
 
         tanh_L1 = np.tanh(L1)
         mult = np.diagflat(L2W)
         X = np.dot(1-tanh_L1*tanh_L1, mult)
-        jac[:, idxL1B] = X
+        jac[kk, idxL1B] = X
 
         ninputs = inputs_trans.shape[1]
         nx = X.shape[1]
         for k in range(ninputs):
             for l in range(nx):
                 col = idxL1W[k*nx + l]
-                jac[:, col] = inputs_trans[:, k] * X[:, l]
+                jac[kk, col] = inputs_trans[kk, k] * X[:, l]
 
 
         # Jacobian for second layer
-        jac[:, idxL2W] = S
-        jac[:, idxL2B] = np.ones((nval, 1))
+        jac[kk, idxL2W] = S
+        jac[kk, idxL2B] = np.ones((nval, 1))
 
         return jac
 

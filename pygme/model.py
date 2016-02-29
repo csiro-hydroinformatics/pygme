@@ -50,7 +50,7 @@ class Model(object):
 
         # Initialize UH to [1, 0, 0, .., 0] (neutral UH)
         self._uh.reset(0.)
-        for iens in range(nens_params):
+        for iens in np.arange(nens_params):
             self._uh.iens = iens
             self._uh.data[0] = 1.
 
@@ -427,7 +427,7 @@ class Model(object):
             raise ValueError(('With model {0}, Cannot initialise when'+
                 ' states is None. Please allocate').format(self.name))
 
-        for iens in range(self._states.nens):
+        for iens in np.arange(self._states.nens):
             self._states.iens = iens
             self._statesuh.iens = iens
 
@@ -474,10 +474,10 @@ class Model(object):
                     self.name, self._inputs.nvar, ninputs))
 
         # Set ensemble lists
-        ens_inputs = range(self._inputs.nens)
-        ens_params = range(self._params.nens)
-        ens_states = range(self.nens_states)
-        ens_outputs = range(self.nens_outputs)
+        ens_inputs = np.arange(self._inputs.nens)
+        ens_params = np.arange(self._params.nens)
+        ens_states = np.arange(self.nens_states)
+        ens_outputs = np.arange(self.nens_outputs)
 
         # Run model in timestep mode
         istart, iend = self.get_ipos_startend()
@@ -499,7 +499,7 @@ class Model(object):
             else:
                 # Run model in time step mode over the range
                 # [istart - iend]
-                for i in range(istart, iend+1):
+                for i in np.arange(istart, iend+1):
                     self._ipos_current = i
                     self.runtimestep(seed)
 

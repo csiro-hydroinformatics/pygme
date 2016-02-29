@@ -85,12 +85,10 @@ class GR4J(Model):
         self._states.default = [params[0] * 0.5, params[2] * 0.4]
 
 
-    def run(self, seed=None):
-
-        start, end = self.startend
+    def runblock(self, istart, iend, seed=None):
 
         ierr = c_pygme_models_gr4j.gr4j_run(self._nuh1,
-            self._nuh2, start, end,
+            self._nuh2, istart, iend,
             self._params.data,
             self._uh.data,
             self._uh.data[self._nuh1:],
@@ -102,19 +100,6 @@ class GR4J(Model):
         if ierr > 0:
             raise ValueError(('c_pygme_models_gr4j.gr4j_run' +
                 ' returns {0}').format(ierr))
-
-
-    def runtimestep(self, index, seed=None):
-
-        ierr = c_pygme_models_gr4j.gr4j_run(self._nuh1,
-            self._nuh2, start, end,
-            self._params.data,
-            self._uh.data,
-            self._uh.data[self._nuh1:],
-            self._inputs.data,
-            self._statesuh.data,
-            self._states.data,
-            self._outputs.data)
 
 
 class CalibrationGR4J(Calibration):

@@ -81,11 +81,7 @@ class KNN(Model):
         self.config.reset()
 
 
-    def run(self, seed=None):
-
-        if self._states is None:
-            raise ValueError(('{0} model: states are None,' +
-                    ' please allocate').format(self.name))
+    def runblock(self, istart, iend, seed=None):
 
         # Seed
         if seed is None:
@@ -95,10 +91,8 @@ class KNN(Model):
         nval, _, _, _ = self.get_dims('outputs')
         self.knn_idx = np.zeros(nval, dtype=np.int32)
 
-        start, end = self.startend
-
         # Run model
-        ierr = c_pygme_models_knn.knn_run(seed, start, end,
+        ierr = c_pygme_models_knn.knn_run(seed, istart, iend,
             self.config.data,
             self.input_weights,
             self.input_var,

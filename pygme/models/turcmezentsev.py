@@ -39,9 +39,8 @@ class TurcMezentsev(Model):
         self.reset()
 
 
-    def run(self):
-        start, end = self.startend
-        kk = range(start, end+1)
+    def runblock(self, istart, iend, seed=None):
+        kk = range(istart, iend+1)
 
         P = self.inputs[kk,0]
         PE = self.inputs[kk,1]

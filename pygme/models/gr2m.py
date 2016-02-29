@@ -58,11 +58,9 @@ class GR2M(Model):
 
 
 
-    def run(self, seed=None):
+    def runblock(self, istart, iend, seed=None):
 
-        start, end = self.startend
-
-        ierr = c_pygme_models_gr2m.gr2m_run(start, end,
+        ierr = c_pygme_models_gr2m.gr2m_run(istart, iend,
             self._params.data, \
             self._inputs.data, \
             self._states.data, \
