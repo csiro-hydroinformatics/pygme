@@ -110,7 +110,9 @@ class CalibrationDummy(Calibration):
 
 
     def cal2true(self, calparams):
-        true =  np.array([np.exp(calparams[0]), (np.tanh(calparams[1])+1.)*10., 0])
+        true =  np.array([np.exp(calparams[0]),
+            (np.tanh(calparams[1])+1.)*10., 0])
+
         return true
 
 
