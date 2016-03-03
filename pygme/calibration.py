@@ -43,6 +43,7 @@ class Calibration(object):
 
     def __init__(self, model,
             ncalparams,
+            warmup=0,
             nens_params = 1,
             errfun=None,
             minimize=True,
@@ -52,6 +53,7 @@ class Calibration(object):
             nrepeat_fit=2):
 
         self._model = model
+        self._warmup = warmup
         self._minimize = minimize
         self._timeit = timeit
         self._ieval = 0
@@ -62,7 +64,7 @@ class Calibration(object):
         self._nrepeat_fit = nrepeat_fit
 
         self._obsdata = None
-        self._ipos_cal = None
+        self._index_cal = None
 
         # Create vector of calibrated parameters
         # (can be different from model parameters)
@@ -82,19 +84,27 @@ class Calibration(object):
 
         self._optimizer = _optimizer
 
+
     def __str__(self):
         str = ('Calibration instance ' +
                 'for model {0}\n').format(self._model.name)
         str += '  status     : {0}\n'.format(self._status)
+        str += '  warmup     : {0}\n'.format(self._warmup)
         str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
         str += '  ncalparams : {0}\n'.format(self.ncalparams)
         str += '  ieval      : {0}\n'.format(self._ieval)
 
         return str
 
+
     @property
     def ieval(self):
         return self._ieval
+
+
+    @property
+    def warmup(self):
+        return self._warmup
 
 
     @property
@@ -137,23 +147,25 @@ class Calibration(object):
 
         def objfun(calparams):
 
+            model = self._model
+
             if self._timeit:
                 t0 = time.time()
 
             # Set model parameters
             params = self.cal2true(calparams)
-            self._model.params = params
+            model.params = params
 
             # Exit objectif function if parameters hit bounds
-            if self._model._params.hitbounds and self._status:
+            if model._params.hitbounds and self._status:
                 return np.inf
 
             # Run model initialisation if needed
             if self._initialise_model:
-                self._model.initialise()
+                model.initialise()
 
             # run model
-            self._model.run()
+            model.run()
             self._ieval += 1
 
             if self._timeit:
@@ -164,8 +176,13 @@ class Calibration(object):
             # example standard deviation of normal gaussian error model
             errparams = self.cal2err(calparams)
 
-            # Locate iposes in the calibration period
-            kk = np.in1d(self._model._inputs.ipos, self._ipos_cal)
+            # Locate indexes in the calibration period
+            index = self._obsdata.index
+            kk = np.in1d(index, self._index_cal)
+
+            # Set start/end of model
+            model.index_start = index[np.where(index == self._index_cal[0])[0] - warmup]
+            model.index_end = self._index_cal[-1]
 
             # Compute objectif function
             ofun = self._errfun(self.obsdata[kk, :], \
@@ -188,42 +205,48 @@ class Calibration(object):
 
 
     @property
-    def ipos_cal(self):
-        return self._ipos_cal
+    def index_cal(self):
+        return self._index_cal
 
-    @ipos_cal.setter
-    def ipos_cal(self, value):
-        if value.dtype == np.dtype('bool'):
-            _ipos_cal = np.where(value)[0]
-        else:
-            _ipos_cal = value
+    @index_cal.setter
+    def index_cal(self, value):
 
         if self._obsdata is None:
             raise ValueError('No obsdata data. Please allocate')
 
-        # check value is within model inputs iposes
-        ipos = self._model._inputs.ipos
-        if np.any(~np.in1d(_ipos_cal, ipos)):
-            raise ValueError(('Certain values in ipos_cal are not within '
-                'input data ipos'))
+        index = self._obsdata.index
 
-        if np.min(_ipos_cal) < self.model.ipos_start:
-            raise ValueError(('Min value in ipos_cal({0})' +
-                ' exceeds model.ipos_start ({1})').format(np.max(_ipos_cal),
-                                                        self.model.ipos_start))
-        if np.max(_ipos_cal) > self.model.ipos_end:
-            raise ValueError(('Max value in ipos_cal({0})' +
-                ' exceeds model.ipos_end ({1})').format(np.max(_ipos_cal),
-                                                        self.model.ipos_end))
-        self._ipos_cal = _ipos_cal
+        if value.dtype == np.dtype('bool'):
+            if value.shape[0] != index.shape[0]:
+                raise ValueError('Trying to set index_cal, got {0} values,' +
+                        ' expected {1}'.format(value.shape[0], index.shape[0]))
+
+            _index_cal = index[np.where(value)[0]]
+
+        else:
+            _index_cal = value
+
+        # check value is within obsdata indexes
+        if np.any(~np.in1d(index, _index_cal)):
+            raise ValueError(('Certain values in index_cal are not within '
+                'obsdata index'))
+
+        # Check value leaves enough data for warmup
+        istart = np.where(_index_cal[0] == index)[0]
+        if istart < self.warmup:
+            raise ValueError(('index_cal starts at {0}, which leaves {1} values '
+                'for warmup, whereas {2} are expected').format(_index_cal[0],
+                    istart, self.warmup))
+
+        self._index_cal = _index_cal
 
 
     def check(self):
         ''' Performs check on calibrated model to ensure that all variables are
         properly allocated '''
-        # Check ipos_cal is allocated
-        if self._ipos_cal is None:
-            raise ValueError('No ipos_cal data. Please allocate')
+        # Check index_cal is allocated
+        if self._index_cal is None:
+            raise ValueError('No index_cal data. Please allocate')
 
         # Check obsdata are allocated
         if self._obsdata is None:
@@ -278,7 +301,7 @@ class Calibration(object):
 
     def cal2err(self, calparams):
         ''' Get error model parameters from the list of calibrated parameters '''
-        return None
+        return np.zeros(1)
 
 
     def setup(self, obsdata, inputs):
@@ -287,8 +310,8 @@ class Calibration(object):
             raise ValueError(('Number of value in inputs({0}) different' +
                 ' from obsdata ({1})').format(inputs.nval, obdata.nval))
 
-        if not np.allclose(inputs.ipos, obsdata.ipos):
-            raise ValueError('Different iposes in obsdata and inputs')
+        if not np.allclose(inputs.index, obsdata.index):
+            raise ValueError('Different indexes in obsdata and inputs')
 
         if obsdata.nvar > self._model.noutputs_max:
             raise ValueError(('Number of variables in outputs({0}) greater' +
@@ -299,8 +322,9 @@ class Calibration(object):
 
         self._obsdata = obsdata
 
-        # By default calibrate on everything
-        self.ipos_cal = inputs.ipos.copy()
+        # By default calibrate on everything excluding warmup
+        index_cal = inputs.index[np.arange(obsdata.nval) >= self._warmup]
+        self._index_cal = index_cal
 
 
     def explore(self, nsamples = None, iprint=0,
@@ -393,16 +417,16 @@ class Calibration(object):
 
 
     def run(self, obsdata, inputs, \
-            ipos_cal=None, \
+            index_cal=None, \
             iprint=0, \
             nsamples=None,
             *args, **kwargs):
 
         self.setup(obsdata, inputs)
 
-        if ipos_cal is None:
-            ipos_cal = np.arange(self._obsdata.nval)
-        self.ipos_cal = ipos_cal
+        if index_cal is None:
+            index_cal = obsdata.index
+        self.index_cal = index_cal
 
         try:
             start, explo, explo_ofun = self.explore(iprint=iprint, \
@@ -503,13 +527,15 @@ class CrossValidation(object):
         self._mask = mask
 
 
-    def set_periods(self, scheme='split', nperiods=2, warmup=0,
-            nleaveout=None):
+    def set_periods(self, scheme='split', nperiods=2, nleaveout=None):
         ''' Define calibration periods '''
 
+        # Get core data
+        warmup = self._calib.warmup
         self._calib.check()
         nval, _, _, _ = self._calib.model.get_dims('inputs')
         nvalper = int((nval-warmup)/nperiods)
+        index = self._calib.model._inputs.index
 
         # Exclude nan from calibration
         check = np.sum(np.isnan(self._obsdata.data), axis=1) == 0
@@ -527,50 +553,52 @@ class CrossValidation(object):
             for i in range(nperiods):
 
                 if scheme == 'split':
-                    ipos_cal_start = i*nvalper
+                    ipos_cal_start = warmup + i*nvalper
                     ipos_cal_end = warmup + (i+1)*nvalper-1
+
+                    # No leave out here
+                    ipos_cal_startleaveout = i*nvalper
+                    ipos_cal_endleaveout = i*nvalper
 
                     if ipos_cal_start > ipos_cal_end:
                         raise ValueError('ipos_cal_start({0}) > ' +
                                 'ipos_cal_end({1})'.format(ipos_cal_start,
                                     ipos_cal_end))
 
-                    ipos_cal_leaveout = []
-
-                    ipos_val_start = 0
+                    # Validation on the entire period with cal period left out
+                    ipos_val_start = warmup
                     ipos_val_end = nval-1
-                    ipos_val_leaveout = np.arange(ipos_cal[0],
-                            ipos_cal[-1]+1)
+                    ipos_val_startleaveout = ipos_cal_start
+                    ipos_val_endleaveout = ipos_cal_end
 
                 else:
-                    ipos_cal_start = 0
+                    # Calibration on the entire period
+                    ipos_cal_start = warmup
                     ipos_cal_end = nval-1
 
-                    i1 = i*nvalper + warmup
-                    i2 = i1 + nleaveout
+                    ipos_val_start = i*nvalper + warmup
+                    ipos_val_end = ipos_val_start + nleaveout
+                    ipos_val_startleaveout = 0
+                    ipos_val_endleaveout = 0
 
-                    if i1 > i2:
-                        raise ValueError(('ipos_cal_leaveout[0]({0}) > ' +
-                                'ipos_cal_leaveout[-1]({1})').format(i1, i2))
+                    # ... but leaving out a validation period
+                    ipos_cal_startleaveout = ipos_val_start
+                    ipos_cal_endleaveout = ipos_val_end
 
-                    if i2 >= nval:
+                    if ipos_val_end >= nval:
                         break
-                    ipos_cal_leaveout = np.arange(i1, i2)
-                    import pdb; pdb.set_trace()
-
-                    idx_val = np.arange(i1, i2)
-                    idx_val_leaveout = []
-
 
                 per = {
                     'scheme':scheme,
                     'id':'CALPER{0}'.format(i+1),
                     'ipos_cal_start': ipos_cal_start,
                     'ipos_cal_end': ipos_cal_end,
-                    'ipos_cal_leaveout':ipos_cal_leaveout,
+                    'ipos_cal_startleavout': ipos_cal_startleaveout,
+                    'ipos_cal_endleavout': ipos_cal_endleaveout,
                     'ipos_val_start': ipos_val_start,
                     'ipos_val_end': ipos_val_end,
-                    'ipos_val_leaveout':idx_val_leaveout,
+                    'ipos_val_startleavout': ipos_val_startleaveout,
+                    'ipos_val_endleavout': ipos_val_endleaveout,
                     'warmup':warmup,
                     'log':{},
                     'completed':False
@@ -588,6 +616,7 @@ class CrossValidation(object):
     def run(self, *args, **kwargs):
 
         nper = len(self._calperiods)
+        index = self._obsdata.index
 
         if nper == 0:
             raise ValueError('No calibration periods defined, please setup')
@@ -597,14 +626,16 @@ class CrossValidation(object):
             per = self._calperiods[i]
             per['log'][now()] = 'Calibration of subperiod {0} started'.format(i)
 
-            self.calib.model.ipos_start = per['ipos_start']
-            self.calib.model.ipos_end = per['ipos_end']
-            self.calib.ipos_cal = per['ipos_cal']
+            i1 = per['ipos_cal_start']
+            i2 = per['ipos_cal_end']
+            self.calib.index_cal = index[np.arange(i1, i2)]
 
             # Set leave out period
-            if len(per['ipos_cal_leaveout'])>0:
+            if len(per['index_cal_leaveout'])>0:
                 self.calib._obsdata = self._obsdata.clone()
-                self.calib.obsdata[per['ipos_cal_leaveout']] = np.nan
+                i1 = per['ipos_cal_startleaveout']
+                i2 = per['ipos_cal_endleaveout']
+                self.calib.obsdata[np.arange(i1, i2)] = np.nan
 
             # Define starting point
             if self._explore:

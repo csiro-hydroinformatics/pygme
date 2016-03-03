@@ -95,10 +95,11 @@ class MassiveDummy(Model):
 
 class CalibrationDummy(Calibration):
 
-    def __init__(self):
+    def __init__(self, warmup):
         model = Dummy()
 
         Calibration.__init__(self,
+            warmup=warmup,
             model = model, \
             ncalparams = 2, \
             timeit = True)

@@ -31,7 +31,7 @@ class CalibrationTestCases(unittest.TestCase):
         dum.run()
         obs = dum.outputs[:, 0].copy()
 
-        calib = CalibrationDummy()
+        calib = CalibrationDummy(warmup=10)
         calib.setup(Matrix.from_data('obs', obs),
                     Matrix.from_data('inputs', inputs))
 
@@ -41,7 +41,7 @@ class CalibrationTestCases(unittest.TestCase):
     def test_calibration2(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         obs = np.random.uniform(0, 1, 1000)
-        calib = CalibrationDummy()
+        calib = CalibrationDummy(warmup=10)
 
         try:
             calib.index_cal = obs==obs
@@ -62,9 +62,9 @@ class CalibrationTestCases(unittest.TestCase):
         dum.run()
         obs = Matrix.from_data('obs', dum.outputs[:, 0])
 
-        calib = CalibrationDummy()
+        calib = CalibrationDummy(warmup=10)
         calib.setup(obs, inputs)
-        calib.index_cal = np.arange(obs.nval)
+        calib.index_cal = np.arange(10, obs.nval)
 
         start, explo, explo_ofun = calib.explore(iprint=0, nsamples=50)
 
@@ -75,7 +75,6 @@ class CalibrationTestCases(unittest.TestCase):
 
 
     def test_calibration4(self):
-        return
         inputs = Matrix.from_data('inputs',
                 np.random.uniform(0, 1, (1000, 2)))
         params = [0.5, 10., 0.]
@@ -86,8 +85,8 @@ class CalibrationTestCases(unittest.TestCase):
         dum.run()
         obs = Matrix.from_data('obs', dum.outputs[:, 0])
 
-        calib = CalibrationDummy()
-        index_cal = np.arange(obs.nval)
+        calib = CalibrationDummy(warmup=10)
+        index_cal = np.arange(10, obs.nval)
         calib.run(obs, inputs, index_cal, iprint=0,
                 maxfun=100000, ftol=1e-8)
 
@@ -108,13 +107,13 @@ class CrossValidationTestCases(unittest.TestCase):
         dum.initialise()
 
         obs = inputs.clone()
-        calib = CalibrationDummy()
+        calib = CalibrationDummy(warmup=2)
         calib.setup(obs, inputs)
 
         xv = CrossValidation(calib=calib)
 
         # Set leaveout scheme
-        xv.set_periods(scheme='leaveout', nperiods=4, warmup=2)
+        xv.set_periods(scheme='leaveout', nperiods=4)
         start_end = [[per['index_start'], per['index_end'],
                         per['index_cal'][0], per['index_cal'][-1]]
                             for per in xv._calperiods]
@@ -154,12 +153,13 @@ class CrossValidationTestCases(unittest.TestCase):
 
             obs.data[idx, :] = dum.outputs[idx, :]
 
-        calib = CalibrationDummy()
+        calib = CalibrationDummy(warmup=10)
         calib.setup(obs, inputs)
 
         xv = CrossValidation(calib=calib)
 
         # Run XV scheme
+        xv.set_periods('split', 4)
         xv.run(iprint=0, maxfun=100000, ftol=1e-8)
 
         for i, per in enumerate(xv._calperiods):
