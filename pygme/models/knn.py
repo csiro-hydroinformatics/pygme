@@ -62,7 +62,7 @@ class KNN(Model):
         self.idx_knn = None
 
         Model.__init__(self, 'knn',
-            nconfig=5,
+            nconfig=4,
             ninputs=1,
             nparams=0,
             nstates=_input_var.shape[1] + 1,
@@ -73,11 +73,10 @@ class KNN(Model):
 
         self.config.names = ['halfwindow', 'nb_nn',
                                 'cycle_length',
-                                'cycle_position_ini',
-                                'cycle_position_ini_opt']
-        self.config.min = [4, 3, 10, 0, 0]
-        self.config.max = [50, 50, 366, 366, 2]
-        self.config.default = [20, 10, 365.25, 0, 0]
+                                'cycle_position_ini']
+        self.config.min = [4, 3, 10, 0]
+        self.config.max = [50, 50, 366, 366]
+        self.config.default = [20, 10, 365.25, 0]
         self.config.reset()
 
 
