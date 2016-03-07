@@ -79,8 +79,9 @@ class CalibrationGR2M(Calibration):
         gr = GR2M()
 
         Calibration.__init__(self,
-            model = gr, \
-            ncalparams = 2, \
+            model = gr,
+            warmup = 12,
+            ncalparams = 2,
             timeit = timeit)
 
         self._calparams.means =  [5.9, -0.28]

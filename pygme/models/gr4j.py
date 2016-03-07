@@ -109,8 +109,9 @@ class CalibrationGR4J(Calibration):
         gr = GR4J()
 
         Calibration.__init__(self,
-            model = gr, \
-            ncalparams = 4, \
+            model = gr,
+            warmup = 365,
+            ncalparams = 4,
             timeit = timeit)
 
         self._calparams.means =  [5.8, -0.78, 3.39, 0.86]
