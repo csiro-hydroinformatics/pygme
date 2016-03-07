@@ -141,14 +141,12 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_calibrate(self):
-        return
         gr = GR4J()
         warmup = 365*6
 
         calib = CalibrationGR4J()
         calib.errfun = calibration.ssqe_bias
 
-        warmup = 365 * 5
 
         fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
         params = np.loadtxt(fp, delimiter=',')
@@ -172,7 +170,6 @@ class GR4JTestCases(unittest.TestCase):
 
             # Calibrate
             calib.setup(obs, inputs)
-            calib.idx_cal = np.arange(inputs.nval)>=warmup
 
             start, explo, explo_ofun = calib.explore()
             ieval1 = calib.ieval
@@ -183,8 +180,9 @@ class GR4JTestCases(unittest.TestCase):
             err = np.abs(calib.model.params - params_expected)
             ck = np.max(err) < 1e-8
 
-            print('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e} neval= {2} + {3}'.format( \
-                    i+1, np.max(err), ieval1, ieval2))
+            print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}' +
+                    ' neval= {2} + {3}').format( \
+                        i+1, np.max(err), ieval1, ieval2))
 
             self.assertTrue(ck)
 

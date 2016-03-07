@@ -106,6 +106,17 @@ class Calibration(object):
     def warmup(self):
         return self._warmup
 
+    @warmup.setter
+    def warmup(self, value):
+
+        if self._obsdata is None:
+            raise ValueError('No obsdata data. Please allocate')
+
+        nval = self._obsdata.nval
+        if value > nval:
+            raise ValueError('Tried setting warmup, got a value greater ({0}) ' +
+                'than the number of observations ({1})'.format(value, nval))
+        self._warmup = value
 
     @property
     def runtime(self):
@@ -181,7 +192,12 @@ class Calibration(object):
             kk = np.in1d(index, self._index_cal)
 
             # Set start/end of model
-            model.index_start = index[np.where(index == self._index_cal[0])[0] - warmup]
+            istart = self._index_cal[0] - self.warmup
+            if istart < 0:
+                raise ValueError('Tried to set model start index before '
+                    'the first index')
+            istart = np.where(index == istart)[0]
+            model.index_start = index[istart]
             model.index_end = self._index_cal[-1]
 
             # Compute objectif function
@@ -216,6 +232,10 @@ class Calibration(object):
 
         index = self._obsdata.index
 
+        # Set to all indexes if None
+        if value is None:
+            value = index
+
         if value.dtype == np.dtype('bool'):
             if value.shape[0] != index.shape[0]:
                 raise ValueError('Trying to set index_cal, got {0} values,' +
@@ -227,7 +247,7 @@ class Calibration(object):
             _index_cal = value
 
         # check value is within obsdata indexes
-        if np.any(~np.in1d(index, _index_cal)):
+        if np.any(~np.in1d(_index_cal, index)):
             raise ValueError(('Certain values in index_cal are not within '
                 'obsdata index'))
 
@@ -527,23 +547,59 @@ class CrossValidation(object):
         self._mask = mask
 
 
-    def set_periods(self, scheme='split', nperiods=2, nleaveout=None):
+    def get_period_indexes(self, iperiod, is_cal=True):
+        if iperiod >= len(self._calperiods):
+            raise ValueError(('iperiod ({0}) is greater than the' +
+                ' number of periods ({1})').format(iperiod, len(self._calperiods)))
+
+        per = self._calperiods[iperiod]
+
+        # Get total period
+        label = ['val', 'cal'][int(is_cal)]
+        ipos = np.arange(per['ipos_{0}_start'.format(label)],
+                    per['ipos_{0}_end'.format(label)]+1)
+
+        # Remove leave out if any
+        item = 'ipos_{0}_startleaveout'.format(label)
+        if not per[item] is None:
+            ipos_leave = np.arange(per[item],
+                    per['ipos_{0}_endleaveout'.format(label)]+1)
+            ipos = ipos[~np.in1d(ipos, ipos_leave)]
+
+        # Extract matrix index
+        index = self._calib._obsdata.index[ipos]
+
+        return index, ipos
+
+
+
+    def set_periods(self, scheme='split', nperiods=2, lengthleaveout=None):
         ''' Define calibration periods '''
 
         # Get core data
         warmup = self._calib.warmup
         self._calib.check()
         nval, _, _, _ = self._calib.model.get_dims('inputs')
-        nvalper = int((nval-warmup)/nperiods)
+        lengthper = int((nval-warmup)/nperiods)
         index = self._calib.model._inputs.index
+
+        if nval < warmup:
+            raise ValueError('number of values ({0}) < warmup ({1})'.format(
+                nval, warmup))
 
         # Exclude nan from calibration
         check = np.sum(np.isnan(self._obsdata.data), axis=1) == 0
         self.mask[np.where(check)[0]] = False
 
-        # Set default nleaveout
-        if nleaveout is None:
-            nleaveout = nvalper
+        # Set default lengthleaveout
+        if lengthleaveout is None:
+            lengthleaveout = lengthper
+
+        if lengthleaveout > lengthper:
+            raise ValueError(('Length of leaveout period ({0}) >' +
+                ' period duration warmup ({1})').format(
+                    lengthleaveout, lengthper))
+
 
         # Build calibration sub-periods
         self._calperiods = []
@@ -553,17 +609,16 @@ class CrossValidation(object):
             for i in range(nperiods):
 
                 if scheme == 'split':
-                    ipos_cal_start = warmup + i*nvalper
-                    ipos_cal_end = warmup + (i+1)*nvalper-1
+                    ipos_cal_start = warmup + i*lengthper
+                    ipos_cal_end = ipos_cal_start + lengthper - 1
+
+                    # Break loop when reaching the end of the period
+                    if ipos_cal_end >= nval:
+                        break
 
                     # No leave out here
-                    ipos_cal_startleaveout = i*nvalper
-                    ipos_cal_endleaveout = i*nvalper
-
-                    if ipos_cal_start > ipos_cal_end:
-                        raise ValueError('ipos_cal_start({0}) > ' +
-                                'ipos_cal_end({1})'.format(ipos_cal_start,
-                                    ipos_cal_end))
+                    ipos_cal_startleaveout = None
+                    ipos_cal_endleaveout = None
 
                     # Validation on the entire period with cal period left out
                     ipos_val_start = warmup
@@ -575,15 +630,13 @@ class CrossValidation(object):
                     # Calibration on the entire period
                     ipos_cal_start = warmup
                     ipos_cal_end = nval-1
+                    ipos_cal_startleaveout = i*lengthper + warmup
+                    ipos_cal_endleaveout = ipos_cal_startleaveout + lengthper - 1
 
-                    ipos_val_start = i*nvalper + warmup
-                    ipos_val_end = ipos_val_start + nleaveout
-                    ipos_val_startleaveout = 0
-                    ipos_val_endleaveout = 0
-
-                    # ... but leaving out a validation period
-                    ipos_cal_startleaveout = ipos_val_start
-                    ipos_cal_endleaveout = ipos_val_end
+                    ipos_val_start = ipos_cal_startleaveout
+                    ipos_val_end = ipos_cal_startleaveout + lengthleaveout - 1
+                    ipos_val_startleaveout = None
+                    ipos_val_endleaveout = None
 
                     if ipos_val_end >= nval:
                         break
@@ -593,12 +646,12 @@ class CrossValidation(object):
                     'id':'CALPER{0}'.format(i+1),
                     'ipos_cal_start': ipos_cal_start,
                     'ipos_cal_end': ipos_cal_end,
-                    'ipos_cal_startleavout': ipos_cal_startleaveout,
-                    'ipos_cal_endleavout': ipos_cal_endleaveout,
+                    'ipos_cal_startleaveout': ipos_cal_startleaveout,
+                    'ipos_cal_endleaveout': ipos_cal_endleaveout,
                     'ipos_val_start': ipos_val_start,
                     'ipos_val_end': ipos_val_end,
-                    'ipos_val_startleavout': ipos_val_startleaveout,
-                    'ipos_val_endleavout': ipos_val_endleaveout,
+                    'ipos_val_startleaveout': ipos_val_startleaveout,
+                    'ipos_val_endleaveout': ipos_val_endleaveout,
                     'warmup':warmup,
                     'log':{},
                     'completed':False

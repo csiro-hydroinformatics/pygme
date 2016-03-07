@@ -107,7 +107,6 @@ class GR2MTestCases(unittest.TestCase):
 
             # Calibrate
             calib.setup(obs, inputs)
-            calib.idx_cal = np.arange(12, inputs.nval)
 
             ini, explo, explo_ofun = calib.explore()
             final, _, _ = calib.fit(ini, iprint=0)
