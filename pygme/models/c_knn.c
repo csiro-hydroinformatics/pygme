@@ -1,6 +1,6 @@
 #include "c_knn.h"
 
-#define KNN_DEBUG_FLAG 0
+#define KNN_DEBUG_FLAG 3
 
 double get_rand(void)
 {
@@ -63,7 +63,7 @@ int c_knn_getnn(int nval, int nvar,
         {
             /* round index */
             idx2 = rint(idx);
-            if(idx2 < 0 || idx2 >= nval) 
+            if(idx2 < 0 || idx2 >= nval)
                 continue;
 
             /* Get weight */
@@ -260,7 +260,7 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 
         if(KNN_DEBUG_FLAG >= 1)
             fprintf(stdout, "\n[%3d] idx select = %7.2f, "
-                    "cycle pos = %3.0f dist = %0.3f\n", i,
+                    "cycle pos = %3.1f, dist = %0.3f\n", i,
                         idx_select, states[nvar], dist);
 
         /* Find nearest neighbours */

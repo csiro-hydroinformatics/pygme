@@ -126,7 +126,7 @@ class KNNTestCases(unittest.TestCase):
 
         ncycle = 30
         nval = ncycle * cycle
-        nrand = nval
+        nrand = 6 # nval
         nvar = 1
         cpi = cycle/3*2
 
@@ -136,7 +136,7 @@ class KNNTestCases(unittest.TestCase):
         # Cyclical input data
         input_var = np.sin((np.arange(nval)+cpi).astype(float)/cycle * 2 * math.pi)
         input_var = input_var*cycle/2
-        input_var[1:] += np.random.uniform(-2, 2, len(input_var)-1)
+        #input_var[1:] += np.random.uniform(-2, 2, len(input_var)-1)
 
         idx = np.array([range(cpi, cycle) + range(cpi)]).reshape((cycle, 1))
         output_var = np.repeat(idx, ncycle, axis=1).T.flat[:]
@@ -154,7 +154,7 @@ class KNNTestCases(unittest.TestCase):
 
         states = [input_var[0], cpi]
         kn.initialise(states)
-        kn.run() #seed=333)
+        kn.run(seed=333)
 
         if nrand == nval:
             res = pd.DataFrame({'knn_pos':kn.outputs[:, 0],
@@ -162,7 +162,7 @@ class KNNTestCases(unittest.TestCase):
                                     'knn_value':kn.outputs[:,2],
                                     'data_pos':output_var[:,0],
                                     'data_value':output_var[:,2]})
-            #res = res[:2*cycle]
+            res = res[:2*cycle]
             diff = res['knn_pos'] - res['data_pos']
 
             # Check that there is no drift in simulation
