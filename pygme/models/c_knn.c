@@ -1,6 +1,6 @@
 #include "c_knn.h"
 
-#define KNN_DEBUG_FLAG 3
+#define KNN_DEBUG_FLAG 0
 
 double get_rand(void)
 {
@@ -29,7 +29,6 @@ int c_knn_getnn(int nval, int nvar,
 
     double idx, istart, iend;
     double cycle_position, w, dst, delta;
-    double alpha = 1.0;
     double delta_season, sin0;
 
     ierr = 0;
@@ -86,10 +85,6 @@ int c_knn_getnn(int nval, int nvar,
                             idx, idx2, dst);
                 continue;
             }
-
-            /* Control of seasonality */
-            delta_season = sin((cycle_position+idx-istart-halfwindow) * 2 * M_PI/cycle) - sin0;
-            dst = alpha * delta_season*delta_season + (1-alpha) * dst;
 
             /* Perturb distance to avoid ties */
             dst += KNN_WEIGHT_MIN * get_rand()/2;

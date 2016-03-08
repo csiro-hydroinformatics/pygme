@@ -126,21 +126,17 @@ class KNNTestCases(unittest.TestCase):
 
         ncycle = 30
         nval = ncycle * cycle
-        nrand = 6 # nval
+        nrand = nval
         nvar = 1
         cpi = cycle/3*2
 
-        # Identical input data (so KNN will select neighbours randomly)
-        input_var = np.ones(nval)
-
         # Cyclical input data
-        input_var = np.sin((np.arange(nval)+cpi).astype(float)/cycle * 2 * math.pi)
-        input_var = input_var*cycle/2
-        #input_var[1:] += np.random.uniform(-2, 2, len(input_var)-1)
-
         idx = np.array([range(cpi, cycle) + range(cpi)]).reshape((cycle, 1))
-        output_var = np.repeat(idx, ncycle, axis=1).T.flat[:]
-        output_var = np.concatenate([output_var[:, None],
+        input_var = np.repeat(idx, ncycle, axis=1).T.flat[:]
+        input_var = input_var + np.random.uniform(-2, 2, len(input_var))
+
+        # Output var
+        output_var = np.concatenate([input_var[:, None],
                                 np.arange(nval)[:, None],
                                 input_var[:, None]], axis=1)
         kn = KNN(input_var, output_var = output_var)
@@ -162,7 +158,7 @@ class KNNTestCases(unittest.TestCase):
                                     'knn_value':kn.outputs[:,2],
                                     'data_pos':output_var[:,0],
                                     'data_value':output_var[:,2]})
-            res = res[:2*cycle]
+            #res = res[:2*cycle]
             diff = res['knn_pos'] - res['data_pos']
 
             # Check that there is no drift in simulation
