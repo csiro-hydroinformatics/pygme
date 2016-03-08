@@ -52,6 +52,23 @@ int c_utils_daysinmonth(int year, int month)
 }
 
 
+int c_utils_dayofyear(int month, int day)
+{
+    int n;
+    int day_of_year[13] = {0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+
+    if(month < 1 || month > 12)
+        return -1;
+
+    if(day < 1 || day > 31)
+        return -1;
+
+    /* No need to take leap years into account. This confuses other algorithms */
+
+    return day_of_year[month] + day;
+}
+
+
 int c_utils_add1day(int * date)
 {
     int nbday;

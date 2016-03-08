@@ -11,6 +11,9 @@ cdef extern from 'c_utils.h':
     int c_utils_daysinmonth(int year, int month)
 
 cdef extern from 'c_utils.h':
+    int c_utils_dayofyear(int month, int day)
+
+cdef extern from 'c_utils.h':
     int c_utils_add1day(int * date)
 
 cdef extern from 'c_uh.h':
@@ -51,12 +54,11 @@ def uh_getuh(int nuhlengthmax, int uhid, double lag,
 
 
 def daysinmonth(int year, int month):
+    return c_utils_daysinmonth(year, month)
 
-    cdef int nb
 
-    nb = c_utils_daysinmonth(year, month)
-
-    return nb
+def dayofyear(int month, int day):
+    return c_utils_dayofyear(month, day)
 
 
 def add1day(np.ndarray[int, ndim=1, mode='c'] date not None):

@@ -3,6 +3,7 @@ import re
 import unittest
 
 from datetime import datetime
+import calendar
 from dateutil.relativedelta import relativedelta as delta
 
 import numpy as np
@@ -23,10 +24,27 @@ class UtilsTestCases(unittest.TestCase):
 
         for d in dt:
             nb = ((d+delta(months=1)-delta(days=1)) - d).days + 1
+
             nb2 = utils.daysinmonth(d.year, d.month)
 
             ck = nb == nb2
             self.assertTrue(ck)
+
+    def test_dayofyear(self):
+        dt = pd.date_range('1800-01-01', '2200-12-31', freq='10D')
+
+        for d in dt:
+            nb = (d-datetime(d.year, 1, 1)).days + 1
+
+            # Correct for leap years
+            if calendar.isleap(d.year) and d.month > 2:
+                nb -=1
+
+            nb2 = utils.dayofyear(d.month, d.day)
+
+            ck = nb == nb2
+            self.assertTrue(ck)
+
 
     def test_add1day(self):
         dt = pd.date_range('1800-01-01', '2200-12-31', freq='MS')

@@ -28,6 +28,8 @@ int c_utils_isleapyear(int year);
 
 int c_utils_daysinmonth(int year, int month);
 
+int c_utils_dayofyear(int month, int day);
+
 int c_utils_add1day(int * date);
 
 int c_utils_getdate(double day, int * date);
