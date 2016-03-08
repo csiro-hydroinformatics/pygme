@@ -80,43 +80,8 @@ class KNNTestCases(unittest.TestCase):
         nvar = 5
         var = np.random.uniform(0, 1, (nval, nvar))
         weights = np.ones(nval)
-
         kn = KNN(var, weights)
-
         str_kn = '%s' % kn
-
-
-    def test_knn_dumb(self):
-        return
-        cycle = 10
-        nval = 4 * cycle
-        nvar = 1
-        cpi = 3
-
-        tmp = np.arange(cycle)[range(cpi, cycle) + range(cpi)]
-        tmp = tmp.reshape((cycle, 1)).repeat(nval/cycle, 1)
-        tmp = tmp + 0.1* np.arange(tmp.shape[1])
-        var = tmp.T.flat[:]
-        kn = KNN(var)
-
-        kn.config['halfwindow'] = 1
-        kn.config['nb_nn'] = 3
-        kn.config['cycle_length'] = cycle
-        kn.config['cycle_position_ini'] = cpi
-
-        nrand = 10
-        kn.allocate(nrand)
-
-        value = 8.3
-        states = [value, int(value)]
-        kn.initialise(states)
-
-        kn.run(seed=333)
-
-        expected = np.arange(cycle)[range(int(value)+1, cycle) + range(int(value)+1)]
-
-        ck = np.allclose(np.floor(kn.outputs[:,0]), expected)
-        self.assertTrue(ck)
 
 
     def test_knn_seasonality(self):
@@ -124,20 +89,18 @@ class KNNTestCases(unittest.TestCase):
         nb_nn = 5
         cycle = 100
 
-        ncycle = 30
+        ncycle = 50
         nval = ncycle * cycle
         nrand = nval
-        nvar = 1
         cpi = cycle/3*2
 
         # Cyclical input data
         idx = np.array([range(cpi, cycle) + range(cpi)]).reshape((cycle, 1))
-        input_var = np.repeat(idx, ncycle, axis=1).T.flat[:]
-        input_var = input_var + np.random.uniform(-2, 2, len(input_var))
+        input_var0 = np.repeat(idx, ncycle, axis=1).T.flat[:]
+        input_var = input_var0 + 2*np.random.uniform(-1, 1, len(input_var0))
 
         # Output var
-        output_var = np.concatenate([input_var[:, None],
-                                np.arange(nval)[:, None],
+        output_var = np.concatenate([input_var0[:, None],
                                 input_var[:, None]], axis=1)
         kn = KNN(input_var, output_var = output_var)
 
@@ -146,62 +109,23 @@ class KNNTestCases(unittest.TestCase):
         kn.config['cycle_length'] = cycle
         kn.config['cycle_position_ini'] = cpi
 
-        kn.allocate(np.ones(nrand), output_var.shape[1])
+        kn.allocate(np.ones(nrand), kn.output_var.shape[1])
 
         states = [input_var[0], cpi]
         kn.initialise(states)
         kn.run(seed=333)
 
-        if nrand == nval:
-            res = pd.DataFrame({'knn_pos':kn.outputs[:, 0],
-                                    'knn_idx':kn.outputs[:,1],
-                                    'knn_value':kn.outputs[:,2],
-                                    'data_pos':output_var[:,0],
-                                    'data_value':output_var[:,2]})
-            #res = res[:2*cycle]
-            diff = res['knn_pos'] - res['data_pos']
+        # Check that there is no drift
+        res = pd.DataFrame({'knn_pos':kn.outputs[:, 0],
+                                'data_pos':kn.output_var[:,0]})
+        med = res.groupby('data_pos').median().values
+        err = np.abs(med[10:90, 0]-np.arange(10, 90))
+        ck = np.all(err <= 6.)
+        self.assertTrue(ck)
 
-            # Check that there is no drift in simulation
-            kk = np.arange(nval)
-            idx = np.abs(diff) < 2*halfwin
-            lm = Linreg(diff[idx].index, diff[idx])
-            lm.fit()
-            p1, p2 = lm.params['Pr(>|t|)']
-            #self.assertTrue(p1 > 0.5 and p2 > 0.5)
-
-            plt.close('all')
-            fig = plt.figure()
-            gr = GridSpec(2, 2, width_ratios = [3, 1])
-
-            ax = plt.subplot(gr[0, 0])
-            res.loc[:, ['knn_pos', 'data_pos']].plot(ax=ax, legend=False)
-
-            ax = plt.subplot(gr[1, 0])
-            res.loc[:, ['knn_value', 'data_value']].plot(ax=ax, legend=False)
-
-            ax = plt.subplot(gr[0, 1])
-            diff.plot(ax=ax)
-            putils.line(ax, p1, p2, lw=3)
-
-            ax = plt.subplot(gr[1, 1])
-            dd = res.loc[:, ['data_pos', 'knn_pos']]
-            dd.boxplot(ax=ax, by='data_pos', sym='')
-            ax.grid('off')
-            ax.set_xticks(range(0,  cycle, 10))
-            ax.set_xticklabels(range(0,  cycle, 10))
-            putils.line(ax, 0, 1, 'k--', lw=2)
-
-            fig.set_size_inches((24, 8))
-            gr.tight_layout(fig)
-            fp = os.path.join(self.FHERE, 'tmp.png')
-            fig.savefig(fp)
-
-        import pdb; pdb.set_trace()
 
     def test_knn_rainfall(self):
         ''' Test to check that KNN can reproduce rainfall stats '''
-
-        return
 
         lf = [os.path.join(self.FHERE, 'data', f)
                 for f in os.listdir(os.path.join(self.FHERE, 'data'))
@@ -209,7 +133,7 @@ class KNNTestCases(unittest.TestCase):
 
         nsample = 100
 
-        halfwin = 10
+        halfwin = 20
         nb_nn = 5
         lag = 0
 
@@ -241,7 +165,7 @@ class KNNTestCases(unittest.TestCase):
 
             nrand = data.shape[0]
             #nrand = 5
-            kn.allocate(nrand)
+            kn.allocate(np.ones(nrand), kn.output_var.shape[1])
 
             # KNN sample
             rain = {}

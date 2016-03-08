@@ -81,7 +81,8 @@ int c_knn_getnn(int nval, int nvar,
 
             if(isnan(dst))
             {
-                fprintf(stdout, "\t\tidx %7.2f (%4d): dst=%5.10f ( ",
+                if(KNN_DEBUG_FLAG >= 3)
+                    fprintf(stdout, "\t\tidx %7.2f (%4d): dst=%5.10f ( ",
                             idx, idx2, dst);
                 continue;
             }
@@ -200,7 +201,6 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     if(cycle_position_ini < 0 || cycle_position_ini > cycle)
         return 7000 + __LINE__;
 
-
     /* Number of cycles in input matrix */
     ncycles = (int)(nval/cycle)+1;
 
@@ -233,6 +233,7 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
             states, distances, idx_potential);
     idx_select = idx_potential[0];
     dist = distances[0];
+    states[nvar] = (double) cycle_position_ini;
 
     /* resample */
     for(i=0; i<nrand; i++)
@@ -243,8 +244,12 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
         for(k=0; k<nvar; k++)
             states[k] = var[idx_select2+nval*k];
 
-        /* Position within cycle  - CRITICAL FORMULA !!*/
-        states[nvar] = fmod(idx_select + cycle_position_ini, cycle);
+        /* Position within cycle.
+         * It's required to add a small constant to avoid having
+         * trouble converting to integer */
+        states[nvar] += 1. + 1e-10;
+        if(states[nvar] > (double) cycle)
+            states[nvar] = 0;
 
         /* reset distance and potential neighbours */
         for(k=0; k<nb_nn; k++)
@@ -274,7 +279,6 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 
         /* Select neighbours from candidates */
         rnd = get_rand();
-
         k = 0;
         while(rnd > kernel[k] && k < nb_nn) k ++;
 
