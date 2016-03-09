@@ -127,7 +127,7 @@ int c_uh_getuh(int nuhlengthmax,
 
     /* NUH is not big enough */
     if(1-suh > UHEPS || *nuh > nuhlengthmax)
-        return ESIZE_STATESUH;
+        return UH_ERROR + __LINE__;
 
     return 0;
 }

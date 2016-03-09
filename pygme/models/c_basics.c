@@ -21,7 +21,7 @@ int monthlypattern_runtimestep(int nconfig,
     /* Get number of day in month */
     nbday = c_utils_daysinmonth(date[0], date[1]);
     if(nbday < 0)
-        return 6000 + __LINE__;
+        return BASICS_ERROR + __LINE__;
 
     /* Compute extraction */
     Dmonth = config[date[1]-1];
@@ -57,19 +57,19 @@ int c_monthlypattern_run(int nval,
 
     /* Check dimensions */
     if(nconfig < 12)
-        return ESIZE_CONFIG;
+        return BASICS_ERROR + __LINE__;
 
     if(noutputs > MONTHLYPATTERN_NOUTPUTS)
-        return ESIZE_OUTPUTS;
+        return BASICS_ERROR + __LINE__;
 
     if(nstates > MONTHLYPATTERN_NSTATES)
-        return ESIZE_STATES;
+        return BASICS_ERROR + __LINE__;
 
     if(start < 0)
-        return ESIZE_OUTPUTS;
+        return BASICS_ERROR + __LINE__;
 
     if(end >= nval)
-        return ESIZE_OUTPUTS;
+        return BASICS_ERROR + __LINE__;
 
     /* Run timeseries */
     for(i = start; i <= end; i++)

@@ -2,7 +2,7 @@ import os
 import re
 import unittest
 
-import datetime
+from datetime import datetime
 import time
 import math
 
@@ -12,9 +12,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from pygme.models.knn import KNN, dayofyear
+from pygme.models.knndaily import KNNDAILY
 from pygme import calibration
 from pygme.model import Matrix
+
+import c_pygme_models_utils
 
 from hystat.linreg import Linreg
 from hyplot import putils
@@ -53,11 +55,11 @@ def compute_stats(rain, dates, plow=1):
     return tmp3.loc[:, ['mean', 'plow', 'std', 'rho']]
 
 
-def plot_knn(kn, fp, cycle, nmax):
+def plot_knndaily(kn, fp, cycle, nmax):
     plt.close('all')
 
     kk = np.arange(nmax)
-    plt.plot(kn.knn_idx[kk] % cycle, '-o')
+    plt.plot(kn.knndaily_idx[kk] % cycle, '-o')
     plt.plot(kk, kk % cycle, '--')
 
     xx = np.arange(0, nmax, cycle)
@@ -67,71 +69,79 @@ def plot_knn(kn, fp, cycle, nmax):
 
 
 
-class KNNTestCases(unittest.TestCase):
+class KNNDAILYTestCases(unittest.TestCase):
 
     def setUp(self):
-        print('\t=> KNNTestCase')
+        print('\t=> KNNDAILYTestCase')
         filename = os.path.abspath(__file__)
         self.FHERE = os.path.dirname(filename)
 
+        FIMG = os.path.join(self.FHERE, 'images')
+        if not os.path.exists(FIMG):
+            os.mkdir(FIMG)
+
+        self.FHERE = FIMG
 
     def test_print(self):
         nval = 5000
         nvar = 5
         var = np.random.uniform(0, 1, (nval, nvar))
         weights = np.ones(nval)
-        kn = KNN(var, weights)
+        kn = KNNDAILY(var, weights)
         str_kn = '%s' % kn
 
 
-    def test_knn_seasonality(self):
+    def test_knndaily_seasonality(self):
         halfwin = 10
         nb_nn = 5
-        cycle = 100
-
-        ncycle = 50
-        nval = ncycle * cycle
-        nrand = nval
-        cpi = cycle/3*2
+        dini = datetime(2000, 4, 11)
+        nyears = 30
 
         # Cyclical input data
-        idx = np.array([range(cpi, cycle) + range(cpi)]).reshape((cycle, 1))
-        input_var0 = np.repeat(idx, ncycle, axis=1).T.flat[:]
+        dt = pd.date_range(dini, datetime(dini.year + nyears - 1, 12, 31))
+        input_var0 = np.array([c_pygme_models_utils.dayofyear(dd.month, dd.day) for dd in dt])
         input_var = input_var0 + 2*np.random.uniform(-1, 1, len(input_var0))
 
         # Output var
         output_var = np.concatenate([input_var0[:, None],
                                 input_var[:, None]], axis=1)
-        kn = KNN(input_var, output_var = output_var)
+        kn = KNNDAILY(input_var, output_var = output_var)
 
         kn.config['halfwindow'] = halfwin
         kn.config['nb_nn'] = nb_nn
-        kn.config['cycle_length'] = cycle
-        kn.config['cycle_position_ini'] = cpi
+        kn.config['date_ini'] = dini.year * 1e4 + dini.month * 1e2 + dini.day
 
+        nrand = kn.output_var.shape[0]
         kn.allocate(np.ones(nrand), kn.output_var.shape[1])
 
-        states = [input_var[0], cpi]
+        states = [input_var[0], kn.config['date_ini']]
         kn.initialise(states)
         kn.run(seed=333)
 
         # Check that there is no drift
         res = pd.DataFrame({'knn_pos':kn.outputs[:, 0],
-                                'data_pos':kn.output_var[:,0]})
-        med = res.groupby('data_pos').median().values
-        err = np.abs(med[10:90, 0]-np.arange(10, 90))
-        ck = np.all(err <= 6.)
+                                'data_pos':kn.output_var[:,0],
+                                'diff':kn.outputs[:, 0] - kn.output_var[:,0]})
+
+
+        kk = np.abs(res['diff']) < 300
+        ck = np.max(np.abs(res.loc[kk, 'diff'])) < halfwin + 3
+
+        med = res.loc[:, ['data_pos', 'knn_pos']].groupby('data_pos').median().values
+        err = np.abs(med[halfwin+3:-halfwin-3, 0]-np.arange(halfwin+3, 365-halfwin-3))
+
+        ck = np.all(err <= halfwin)
         self.assertTrue(ck)
 
 
-    def test_knn_rainfall(self):
-        ''' Test to check that KNN can reproduce rainfall stats '''
+    def test_knndaily_rainfall(self):
+        ''' Test to check that KNNDAILY can reproduce rainfall stats '''
 
         lf = [os.path.join(self.FHERE, 'data', f)
                 for f in os.listdir(os.path.join(self.FHERE, 'data'))
                     if f.startswith('KNNTEST')]
 
-        nsample = 100
+        nsample = 50
 
         halfwin = 20
         nb_nn = 5
@@ -152,28 +162,27 @@ class KNNTestCases(unittest.TestCase):
                 d.append(data[l:nval-lag+l, :])
             var_out = np.concatenate(d, axis=1)
 
-            # Configure KNN
+            # Configure KNNDAILY
             var_in = var_out
-            kn = KNN(input_var = var_in, output_var = var_out)
+            kn = KNNDAILY(input_var = var_in, output_var = var_out)
 
             kn.config['halfwindow'] = halfwin
             kn.config['nb_nn'] = nb_nn
-            kn.config['cycle_position_ini'] = 0
-
-            cycle = 365.25
-            kn.config['cycle_length'] = cycle
+            kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
 
             nrand = data.shape[0]
             #nrand = 5
             kn.allocate(np.ones(nrand), kn.output_var.shape[1])
 
-            # KNN sample
+            # KNNDAILY sample
             rain = {}
             idx = {}
             dta = 0
-            states = var_in[0,:].copy().tolist() + [0]
+            states = var_in[0,:].copy().tolist() + [kn.config['date_ini']]
 
             for k in range(nsample):
+                if k%5 == 0:
+                    print('\t\t TEST {0:2d} - Run {1:3d}/{2:3d}'.format(i, k, nsample))
                 t0 = time.time()
 
                 kn.initialise(states)
@@ -187,32 +196,22 @@ class KNNTestCases(unittest.TestCase):
                 nm = 'R{0:03d}'.format(k)
                 rain[nm] = compute_stats(kn.outputs[:,0], dates)
 
-                # Get month number
-                tmp = pd.DataFrame([{'month':d.month, 'doy':d.timetuple().tm_yday}
-                    for d in dates[kn.knn_idx]], index=dates)
-                idx[nm] = tmp.groupby(tmp.index.month).mean()
+            dta = dta/nsample/nrand * 365
 
-            dta = dta/nsample/nrand * 3650
-
-            # Check rainfall is sampled from proper month
-            idx = pd.Panel(idx).mean(0)
-            errm = idx['month'].values - np.arange(1,13)
-            ee_month = np.max(np.abs(errm[1:-1]))
-
-            # Check rainfall stats are correct
+            # Compute quantiles of rainfall stats
             rain = pd.Panel(rain)
             rain_qt = {}
             for qt in range(10, 100, 10):
                 rain_qt[qt] = rain.apply(np.percentile, 0, q=qt)
 
-            rain_obs = compute_stats(data[:, 1], dates)
+            rain_obs = compute_stats(data[:, 0], dates)
 
-            errv = (rain_obs - rain_qt[30]) >= 0
-            errv = errv & ((rain_qt[70] - rain_obs) >= 0)
+            # Check simulated rainfall stats are bracketing obs stats
+            errv = (rain_obs - rain_qt[20]) >= 0
+            errv = errv & ((rain_qt[80] - rain_obs) >= 0)
             ee_value = (~errv).sum()
 
-            ck = (ee_month < 5e-2)
-            ck = ck & (np.max(ee_value) <= 3)
+            errv = (rain_obs - rain_qt[50]) / (rain_qt[90] - rain_qt[10])
 
             # Plot stats
             import matplotlib.pyplot as plt
@@ -232,23 +231,13 @@ class KNNTestCases(unittest.TestCase):
 
             fig.set_size_inches(12, 12)
             fig.tight_layout()
-            fig.savefig(os.path.join(self.FHERE,
-                ('test_pygme_knn_rainfall_stats_' +
+            fig.savefig(os.path.join(self.FIMG,
+                ('test_pygme_knndaily_rainfall_stats_' +
                     'order[{0}]_nkk[{1}]_win[{2}].png').format(
                         lag, kn.config['halfwindow'], kn.config['nb_nn'])))
 
-            if ck:
-                print(('\t\tTEST KNN RAINFALL {0:02d} : ' +
-                    'runtime = {1:0.5f}ms/10years').format(i+1, dta))
-            else:
-                print(('\t\tTEST KNN RAINFALL {0:02d} : ' +
-                    'runtime = {1:0.5f}ms/10years\n\t\t' +
-                    '  KNN FAILED TO BRACKET OBS (nb month): ' +
-                    'ee_month={5:0.2f} ' +
-                    'mean={2:0.0f} plow={3:0.0f} std={4:0.0f}').format(i+1, dta,
-                        ee_value['mean'], ee_value['plow'],
-                        ee_value['std'], ee_month))
-
+            print(('\t\tTEST KNNDAILY RAINFALL {0:02d} : ' +
+                  'runtime = {1:0.5f}ms/10years').format(i+1, dta))
 
 
 if __name__ == '__main__':

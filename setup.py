@@ -50,10 +50,11 @@ ext_lagroute=Extension(name='c_pygme_models_lagroute',
     ],
     include_dirs=[numpy.get_include()])
 
-ext_knn=Extension(name='c_pygme_models_knn',
+ext_knn=Extension(name='c_pygme_models_knndaily',
     sources=[
-        'pygme/models/c_pygme_models_knn.pyx',
-        'pygme/models/c_knn.c',
+        'pygme/models/c_pygme_models_knndaily.pyx',
+        'pygme/models/c_utils.c',
+        'pygme/models/c_knndaily.c',
     ],
     include_dirs=[numpy.get_include()])
 

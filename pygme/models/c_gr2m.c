@@ -4,7 +4,7 @@
 int gr2m_minmaxparams(int nparams, double * params)
 {
     if(nparams<4)
-        return 3000 + __LINE__;
+        return GR2M_ERROR + __LINE__;
 
 	params[0] = c_utils_minmax(1,1e5,params[0]); 	// S
 	params[1] = c_utils_minmax(0,3,params[1]);	// IGF
@@ -152,22 +152,22 @@ int c_gr2m_run(int nval,
 
     /* Check dimensions */
     if(nparams < 2)
-        return ESIZE_PARAMS;
+        return GR2M_ERROR + __LINE__;
 
     if(nstates < 2)
-        return ESIZE_STATES;
+        return GR2M_ERROR + __LINE__;
 
     if(ninputs < 2)
-        return ESIZE_INPUTS;
+        return GR2M_ERROR + __LINE__;
 
     if(noutputs > 9)
-        return ESIZE_OUTPUTS;
+        return GR2M_ERROR + __LINE__;
 
     if(start < 0)
-        return ESIZE_OUTPUTS;
+        return GR2M_ERROR + __LINE__;
 
     if(end >=nval)
-        return ESIZE_OUTPUTS;
+        return GR2M_ERROR + __LINE__;
 
     /* Check parameters */
     ierr = gr2m_minmaxparams(nparams, params);

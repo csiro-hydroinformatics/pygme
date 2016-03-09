@@ -7,15 +7,10 @@ from hystat import sutils
 from pygme.model import Model
 from pygme.calibration import Calibration
 
-import c_pygme_models_knn
+import c_pygme_models_knndaily
 
 
-def dayofyear(d):
-    ''' Return the day of the year for a date-time object '''
-    return d.timetuple().tm_yday
-
-
-class KNN(Model):
+class KNNDAILY(Model):
 
     def __init__(self,
             input_var,
@@ -45,24 +40,23 @@ class KNN(Model):
             _input_weights = np.atleast_1d(input_weights).astype(np.float64)
 
         if _input_weights.shape[0] != _input_var.shape[0]:
-            raise ValueError(('KNN model: weights.shape[0]({0}) '+
+            raise ValueError(('KNNDAILY model: weights.shape[0]({0}) '+
                 '!= input_var.shape[0]({1})').format(_input_weights.shape[0],
                     _input_var.shape[0]))
 
         if _output_var.shape[0] != _input_var.shape[0]:
-            raise ValueError(('KNN model: output_var.shape[0]({0}) '+
+            raise ValueError(('KNNDAILY model: output_var.shape[0]({0}) '+
                 '!= input_var.shape[0]({1})').format(_output_var.shape[0],
                     _input_var.shape[0]))
 
         # Store special variables
-        self.knn_cycle_position = np.int32(knn_cycle_position)
         self.input_var = np.ascontiguousarray(_input_var)
         self.output_var = _output_var
         self.input_weights = _input_weights
         self.idx_knn = None
 
         Model.__init__(self, 'knn',
-            nconfig=4,
+            nconfig=3,
             ninputs=1,
             nparams=0,
             nstates=_input_var.shape[1] + 1,
@@ -72,11 +66,10 @@ class KNN(Model):
             nens_outputs=nens_outputs)
 
         self.config.names = ['halfwindow', 'nb_nn',
-                                'cycle_length',
-                                'cycle_position_ini']
-        self.config.min = [4, 3, 10, 0]
-        self.config.max = [50, 50, 366, 366]
-        self.config.default = [20, 10, 365.25, 0]
+                                'date_ini']
+        self.config.min = [4, 3, 15000101.]
+        self.config.max = [50, 50, np.inf]
+        self.config.default = [20, 10, 20000101.]
         self.config.reset()
 
 
@@ -91,7 +84,7 @@ class KNN(Model):
         self.knn_idx = np.zeros(nval, dtype=np.int32)
 
         # Run model
-        ierr = c_pygme_models_knn.knn_run(seed, istart, iend,
+        ierr = c_pygme_models_knndaily.knndaily_run(seed, istart, iend,
             self.config.data,
             self.input_weights,
             self.input_var,
@@ -99,7 +92,7 @@ class KNN(Model):
             self.knn_idx)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_knn.knn_run' +
+            raise ValueError(('c_pygme_models_knndaily.knndaily_run' +
                 ' returns {0}').format(ierr))
 
         # Save resampled data

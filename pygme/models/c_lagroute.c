@@ -13,7 +13,7 @@ int lagroute_minmaxparams(int nparams, double * params)
         double p1, p2;
 
         if(nparams<2)
-            return 5000 + __LINE__;
+            return LAGROUTE_ERROR + __LINE__;
 
         p1 = params[0];
         params[0] = p1 < 1e-2 ? 1e-2 :
@@ -103,7 +103,7 @@ int c_lagroute_runtimestep(int nparams,
                 v1 = v0/(1+v0/theta1/theta1*qstar*dt);
         }
         else
-            return EMODEL_RUN;
+            return LAGROUTE_ERROR + __LINE__;
     }
 
     /* States */
@@ -153,25 +153,25 @@ int c_lagroute_run(int nval,
 
     /* Check dimensions */
     if(nparams < 2)
-        return ESIZE_PARAMS;
+        return LAGROUTE_ERROR + __LINE__;
 
     if(nconfig < 4)
-        return ESIZE_CONFIG;
+        return LAGROUTE_ERROR + __LINE__;
 
     if(nstates < 1)
-        return ESIZE_STATES;
+        return LAGROUTE_ERROR + __LINE__;
 
     if(nuh > NUHMAXLENGTH || nuh <= 0)
-        return ESIZE_STATESUH;
+        return LAGROUTE_ERROR + __LINE__;
 
     if(noutputs > LAGROUTE_NOUTPUTS)
-        return ESIZE_OUTPUTS;
+        return LAGROUTE_ERROR + __LINE__;
 
     if(start < 0)
-        return ESIZE_OUTPUTS;
+        return LAGROUTE_ERROR + __LINE__;
 
     if(end >= nval)
-        return ESIZE_OUTPUTS;
+        return LAGROUTE_ERROR + __LINE__;
 
     /* Config data */
     dt = config[0];

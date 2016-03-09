@@ -1,21 +1,6 @@
 #include "c_utils.h"
 
 
-int c_utils_geterror(int * error)
-{
-    error[0] = ESIZE_INPUTS;
-    error[1] = ESIZE_OUTPUTS;
-    error[2] = ESIZE_PARAMS;
-    error[3] = ESIZE_STATES;
-    error[4] = ESIZE_STATESUH;
-    error[5] = ESIZE_STATESUH;
-
-    error[10] = EINVAL;
-    error[11] = EMODEL_RUN;
-
-    return 0;
-}
-
 double c_utils_minmax(double min, double max, double input)
 {
     return input < min ? min :
@@ -100,7 +85,7 @@ int c_utils_add1day(int * date)
         }
     }
     else {
-        return 2000 + __LINE__;
+        return UTILS_ERROR + __LINE__;
     }
 
     return 0;
@@ -115,11 +100,11 @@ int c_utils_getdate(double day, int * date)
     nday = (int)(day) - year * 10000 - month * 100;
 
     if(month < 0 || month > 12)
-        return 2000 + __LINE__;
+        return UTILS_ERROR + __LINE__;
 
     nbday = c_utils_daysinmonth(year, month);
     if(nday < 0 || nday > nbday)
-        return 2000 + __LINE__;
+        return UTILS_ERROR + __LINE__;
 
     date[0] = year;
     date[1] = month;

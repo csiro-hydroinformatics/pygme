@@ -9,7 +9,7 @@ c_pygme_models_gr2m.c
 c_pygme_models_gr4j.c
 c_pygme_models_lagroute.c
 c_pygme_models_utils.c
-c_pygme_models_knn.c
+c_pygme_models_knndaily.c
 c_pygme_models_rivermodel.c
 c_pygme_models_basics.c
 nosetests.xml

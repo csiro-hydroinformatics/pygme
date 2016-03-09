@@ -5,7 +5,7 @@
 int gr4j_minmaxparams(int nparams, double * params)
 {
     if(nparams<4)
-        return 4000 + __LINE__;
+        return GR4J_ERROR + __LINE__;
 
 	params[0] = c_utils_minmax(1,1e5,params[0]); 	// S
 	params[1] = c_utils_minmax(-50,50,params[1]);	// IGF
@@ -218,22 +218,22 @@ int c_gr4j_run(int nval, int nparams,
 
     /* Check dimensions */
     if(noutputs > GR4J_NOUTPUTS)
-        return ESIZE_OUTPUTS;
+        return GR4J_ERROR + __LINE__;
 
     if(nstates > GR4J_NSTATES)
-        return ESIZE_STATES;
+        return GR4J_ERROR + __LINE__;
 
     if(nuh1+nuh2 > NUHMAXLENGTH)
-        return ESIZE_STATESUH;
+        return GR4J_ERROR + __LINE__;
 
     if(nuh1 <= 0 || nuh2 <= 0)
-        return ESIZE_STATESUH;
+        return GR4J_ERROR + __LINE__;
 
     if(start < 0)
-        return ESIZE_OUTPUTS;
+        return GR4J_ERROR + __LINE__;
 
     if(end >= nval)
-        return ESIZE_OUTPUTS;
+        return GR4J_ERROR + __LINE__;
 
     /* Check parameters */
     ierr = gr4j_minmaxparams(nparams, params);

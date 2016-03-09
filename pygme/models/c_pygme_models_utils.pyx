@@ -5,9 +5,6 @@ np.import_array()
 
 # -- HEADERS --
 cdef extern from 'c_utils.h':
-    int c_utils_geterror(int * esize)
-
-cdef extern from 'c_utils.h':
     int c_utils_daysinmonth(int year, int month)
 
 cdef extern from 'c_utils.h':

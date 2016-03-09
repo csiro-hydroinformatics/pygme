@@ -1,6 +1,6 @@
-#include "c_knn.h"
+#include "c_knndaily.h"
 
-#define KNN_DEBUG_FLAG 0
+#define KNN_DEBUGFLAG_FLAG 0
 
 double get_rand(void)
 {
@@ -12,83 +12,71 @@ double compute_kernel(int ordinate)
     return 1./(1+ordinate);
 }
 
-int c_knn_getnn(int nval, int nvar,
-                int ncycles,
-                double cycle,
-                double cycle_position_ini,
-                double halfwindow,
+
+int c_knndaily_getnn(int nval, int nvar,
+                int dayofyear_ini,
+                int halfwindow,
                 int nb_nn,
                 double * var,
                 double * weights,
+                int dayofyear, 
                 double * states,
                 double * distances,
-                double * idx_potential)
+                int * idx_potential)
 {
-    int ierr, k, icycle;
-    int rank, idx2;
+    int ierr, k, iyear, nleap;
+    int rank, idx, istart, iend, nyears;
 
-    double idx, istart, iend;
-    double cycle_position, w, dst, delta;
-    double delta_season, sin0;
+    double w, dst, delta;
 
     ierr = 0;
-
-    cycle_position = states[nvar];
-    iend = -1;
-    sin0 = sin(cycle_position * 2 * M_PI/cycle);
+    nyears = nval/365;
+    nleap = 0;
 
     /* compute distance */
-    for(icycle=0; icycle<ncycles; icycle++)
+    for(iyear=0; iyear<nyears; iyear++)
     {
         /* Start / end of window */
-        istart = rint(icycle*cycle - halfwindow
-                        + cycle_position - cycle_position_ini);
+        istart = iyear*365 - halfwindow + dayofyear - dayofyear_ini + nleap;
+        istart = istart < 0 ? 0 : istart;
 
+        iend = istart + 2*halfwindow;
+        iend = iend >= nval ? nval-1 : iend;
 
-        iend = rint(icycle*cycle + halfwindow
-                        + cycle_position - cycle_position_ini);
+        if(KNN_DEBUGFLAG_FLAG >= 2)
+            fprintf(stdout, "\n\tiyear %3d : %7d -> %7d\n", iyear, istart, iend);
 
-        /* Skip case of overlapping periods */
-        if(istart == iend)
-            continue;
-
-        if(KNN_DEBUG_FLAG >= 2)
-            fprintf(stdout, "\n\tipos %0.1f - cycle %3d : %7.2f -> %7.2f\n",
-                    cycle_position, icycle, istart, iend);
+        /* Approximate correction for leap years */
+        nleap += (int)(iyear % 4 == 0);
 
         /* loop through KNN variables within window and compute distances
             with selected day */
         for(idx=istart; idx<=iend; idx++)
         {
-            /* round index */
-            idx2 = rint(idx);
-            if(idx2 < 0 || idx2 >= nval)
-                continue;
-
             /* Get weight */
-            w = weights[idx2];
-            if(w < KNN_WEIGHT_MIN)
+            w = weights[idx];
+            if(w < KNNDAILY_WEIGHT_MIN)
                 continue;
 
             /* Computes weighted Euclidian distance with potential neighbours */
             dst = 0;
             for(k=0; k<nvar; k++)
             {
-                delta = var[idx2+nval*k] - states[k];
+                delta = var[idx+nval*k] - states[k];
                 dst += delta * delta * w;
             }
-            dst = dst > KNN_DIST_MAX ? KNN_DIST_MAX : dst;
+            dst = dst > KNNDAILY_DIST_MAX ? KNNDAILY_DIST_MAX : dst;
 
             if(isnan(dst))
             {
-                if(KNN_DEBUG_FLAG >= 3)
-                    fprintf(stdout, "\t\tidx %7.2f (%4d): dst=%5.10f ( ",
-                            idx, idx2, dst);
+                if(KNN_DEBUGFLAG_FLAG >= 3)
+                    fprintf(stdout, "\t\tidx %7d: dst=%5.10f ( ",
+                            idx, dst);
                 continue;
             }
 
             /* Perturb distance to avoid ties */
-            dst += KNN_WEIGHT_MIN * get_rand()/2;
+            dst += KNNDAILY_WEIGHT_MIN * get_rand()/2;
 
             /* Compute the rank of current neighbour distance
              * within the ones already computed */
@@ -100,12 +88,12 @@ int c_knn_getnn(int nval, int nvar,
              * then rearrange distances and store data */
             if(rank < nb_nn)
             {
-                if(KNN_DEBUG_FLAG >= 3)
+                if(KNN_DEBUGFLAG_FLAG >= 3)
                 {
-                    fprintf(stdout, "\t\tidx %7.2f (%4d): rank=%d dst=%5.10f ( ",
-                                idx, idx2, rank, dst);
+                    fprintf(stdout, "\t\tidx %7d: rank=%d dst=%5.10f ( ",
+                                idx, rank, dst);
                     for(k=0; k<nvar; k++)
-                        fprintf(stdout, "%0.3f ", var[idx2+nval*k]);
+                        fprintf(stdout, "%0.3f ", var[idx+nval*k]);
                     fprintf(stdout, ")\n");
                 }
 
@@ -145,64 +133,58 @@ int c_knn_getnn(int nval, int nvar,
 *   KNNSIM Resampled data
 */
 
-int c_knn_run(int nconfig, int nval, int nvar, int nrand,
+int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     int seed,
     int start, int end,
     double * config,
     double * weights,
     double * var,
     double * states,
-    int * knn_idx)
+    int * knndaily_idx)
 {
     int ierr, i, k;
-    int nb_nn, ncycles;
-    int idx_select2;
+    int nb_nn, halfwindow, dayofyear;
+    int dayofyear_ini, date[3];
+    int idx_select, idx_potential[KNNDAILY_NKERNEL_MAX];
 
-    double idx_select, dist;
-    double cycle_position_ini;
-    double idx_potential[KNN_NKERNEL_MAX];
-    double sum, cycle, rnd, halfwindow;
-    double kernel[KNN_NKERNEL_MAX];
-    double distances[KNN_NKERNEL_MAX];
+    double dist, sum, rnd;
+    double kernel[KNNDAILY_NKERNEL_MAX];
+    double distances[KNNDAILY_NKERNEL_MAX];
 
     ierr = 0;
 
     /* Check dimensions */
-    if(nvar > KNN_NVAR_MAX)
-        return ESIZE_CONFIG;
+    if(nvar > KNNDAILY_NVAR_MAX)
+        return KNNDAILY_ERROR + __LINE__;
 
     if(start < 0)
-        return ESIZE_OUTPUTS;
+        return KNNDAILY_ERROR + __LINE__;
 
     if(end >= nval)
-        return ESIZE_OUTPUTS;
+        return KNNDAILY_ERROR + __LINE__;
 
     /* Set seed */
     if(seed != -1)
         srand(seed);
 
-    /* Number of neighbours */
-    nb_nn = (int)config[1];
-    if(nb_nn >= KNN_NKERNEL_MAX)
-        return 7000 + __LINE__;
-
-    /* Duration of cycle (icyclely = cycle) */
-    cycle = config[2];
-    if(cycle < 0)
-        return 7000 + __LINE__;
-
     /* Half temporal window selection */
-    halfwindow = config[0];
-    if(halfwindow < 0 || halfwindow >= cycle/2)
-        return 7000 + __LINE__;
+    halfwindow = rint(config[0]);
+    if(halfwindow < 1 || halfwindow >= 100)
+        return KNNDAILY_ERROR + __LINE__;
 
-    /* Cycle position of first point in var matrix */
-    cycle_position_ini = config[3];
-    if(cycle_position_ini < 0 || cycle_position_ini > cycle)
-        return 7000 + __LINE__;
+    /* Number of neighbours */
+    nb_nn = rint(config[1]);
+    if(nb_nn >= KNNDAILY_NKERNEL_MAX || nb_nn < 1)
+        return KNNDAILY_ERROR + __LINE__;
 
-    /* Number of cycles in input matrix */
-    ncycles = (int)(nval/cycle)+1;
+    /* Starting date in input data */
+    ierr = c_utils_getdate(config[2], date);
+    if(ierr > 0)
+        return KNNDAILY_ERROR + __LINE__;
+
+    dayofyear_ini = c_utils_dayofyear(date[1], date[2]);
+    if(dayofyear_ini < 1)
+        return KNNDAILY_ERROR + __LINE__;
 
     /* Create resampling kernel */
     sum = 0;
@@ -215,65 +197,62 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
     /* reset distance and potential neighbours */
     for(k=0; k<nb_nn; k++)
     {
-        distances[k] = KNN_DIST_MAX;
+        distances[k] = KNNDAILY_DIST_MAX;
         idx_potential[k] = -1;
     }
 
-    /* Check cycle position */
-    if(states[nvar] < 0)
-        return 7000 + __LINE__;
+    /* Get start date */
+    ierr = c_utils_getdate(states[nvar], date);
+    if(ierr > 0)
+        return KNNDAILY_ERROR + __LINE__;
 
-    if(states[nvar] >= cycle)
-        return 7000 + __LINE__;
+    dayofyear = c_utils_dayofyear(date[1], date[2]);
+    if(dayofyear < 1)
+        return KNNDAILY_ERROR + __LINE__;
 
-    /* Select the first KNN index */
-    ierr = c_knn_getnn(nval, nvar, ncycles, cycle,
-            cycle_position_ini,
+    /* Select the first KNN index as the closest point */
+    ierr = c_knndaily_getnn(nval, nvar, dayofyear_ini,
             halfwindow,  nb_nn, var, weights,
-            states, distances, idx_potential);
+            dayofyear, states, distances, idx_potential);
+
     idx_select = idx_potential[0];
     dist = distances[0];
-    states[nvar] = (double) cycle_position_ini;
 
     /* resample */
     for(i=0; i<nrand; i++)
     {
-        idx_select2 = (int) rint(idx_select);
-
         /* Initialise KNN variables vector */
         for(k=0; k<nvar; k++)
-            states[k] = var[idx_select2+nval*k];
+            states[k] = var[idx_select+nval*k];
 
-        /* Position within cycle.
-         * It's required to add a small constant to avoid having
-         * trouble converting to integer */
-        states[nvar] += 1. + 1e-10;
-        if(states[nvar] > (double) cycle)
-            states[nvar] = 0;
+        /* Shift by one day */
+        c_utils_add1day(date);
+        dayofyear = c_utils_dayofyear(date[1], date[2]);
+        states[nvar] = date[0] * 1e4 + date[1] * 1e2 + date[2];
 
         /* reset distance and potential neighbours */
         for(k=0; k<nb_nn; k++)
         {
-            distances[k] = KNN_DIST_MAX;
+            distances[k] = KNNDAILY_DIST_MAX;
             idx_potential[k] = -1;
         }
 
-        if(KNN_DEBUG_FLAG >= 1)
-            fprintf(stdout, "\n[%3d] idx select = %7.2f, "
-                    "cycle pos = %3.1f, dist = %0.3f\n", i,
-                        idx_select, states[nvar], dist);
+        if(KNN_DEBUGFLAG_FLAG >= 1)
+            fprintf(stdout, "\n[%3d] idx select = %7d, "
+                    "doy = %3d (%0.0f), doyi = %3d, dist = %0.3f\n", i,
+                        idx_select, dayofyear, dayofyear_ini, 
+                        states[nvar], dist);
 
         /* Find nearest neighbours */
-        ierr = c_knn_getnn(nval, nvar, ncycles, cycle,
-                cycle_position_ini,
-                halfwindow,  nb_nn, var, weights,
-                states, distances, idx_potential);
+        ierr = c_knndaily_getnn(nval, nvar, dayofyear_ini,
+            halfwindow,  nb_nn, var, weights,
+            dayofyear, states, distances, idx_potential);
 
-        if(KNN_DEBUG_FLAG >= 1)
+        if(KNN_DEBUGFLAG_FLAG >= 1)
         {
             fprintf(stdout, "\n");
             for(k=0; k<nb_nn; k++)
-                fprintf(stdout, "\tkern(%d)=%0.4f idx=%7.2f  d=%0.10f\n",
+                fprintf(stdout, "\tkern(%d)=%0.4f idx=%7d  d=%0.10f\n",
                         k,kernel[k], idx_potential[k], distances[k]);
         }
 
@@ -291,10 +270,10 @@ int c_knn_run(int nconfig, int nval, int nvar, int nrand,
 
         /* Selected closest index and loop back to beginning if end of the
         series is reached */
-        knn_idx[i] = rint(idx_select);
+        knndaily_idx[i] = rint(idx_select);
 
-        if(KNN_DEBUG_FLAG >= 1)
-            fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7.2f\n\n",
+        if(KNN_DEBUGFLAG_FLAG >= 1)
+            fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7d\n\n",
                     rnd, idx_select);
 
 

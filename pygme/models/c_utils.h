@@ -8,18 +8,17 @@
 #include <string.h>
 #include <errno.h>
 
-/* Define Error message for vector size errors */
-#define ESIZE_OUTPUTS  1000+__LINE__
-#define ESIZE_INPUTS   1000+__LINE__
-#define ESIZE_PARAMS   1000+__LINE__
-#define ESIZE_STATES   1000+__LINE__
-#define ESIZE_STATESUH 1000+__LINE__
-#define ESIZE_CONFIG   1000+__LINE__
+/* Define Error message */
+#define UTILS_ERROR 10000
+#define BASICS_ERROR 11000
+#define UH_ERROR 12000
+#define GR2M_ERROR 13000
+#define GR4J_ERROR 14000
+#define LAGROUTE_ERROR 15000
+#define KNNDAILY_ERROR 16000
+#define RIVERMODELS_ERROR 17000
 
-#define EMODEL_RUN     1000+__LINE__
-
-int c_utils_getesize(int * esize);
-
+/* utility functions */
 double c_utils_minmax(double min,double max,double input);
 
 double c_utils_tanh(double x);
