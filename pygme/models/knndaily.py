@@ -10,7 +10,7 @@ from pygme.calibration import Calibration
 import c_pygme_models_knndaily
 
 
-class KNNDAILY(Model):
+class KNNDaily(Model):
 
     def __init__(self,
             input_var,

@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from pygme.models.knndaily import KNNDAILY
+from pygme.models.knndaily import KNNDaily
 from pygme import calibration
 from pygme.model import Matrix
 
@@ -69,10 +69,10 @@ def plot_knndaily(kn, fp, cycle, nmax):
 
 
 
-class KNNDAILYTestCases(unittest.TestCase):
+class KNNDailyTestCases(unittest.TestCase):
 
     def setUp(self):
-        print('\t=> KNNDAILYTestCase')
+        print('\t=> KNNDailyTestCase')
         filename = os.path.abspath(__file__)
         self.FHERE = os.path.dirname(filename)
 
@@ -87,7 +87,7 @@ class KNNDAILYTestCases(unittest.TestCase):
         nvar = 5
         var = np.random.uniform(0, 1, (nval, nvar))
         weights = np.ones(nval)
-        kn = KNNDAILY(var, weights)
+        kn = KNNDaily(var, weights)
         str_kn = '%s' % kn
 
 
@@ -105,7 +105,7 @@ class KNNDAILYTestCases(unittest.TestCase):
         # Output var
         output_var = np.concatenate([input_var0[:, None],
                                 input_var[:, None]], axis=1)
-        kn = KNNDAILY(input_var, output_var = output_var)
+        kn = KNNDaily(input_var, output_var = output_var)
 
         kn.config['halfwindow'] = halfwin
         kn.config['nb_nn'] = nb_nn
@@ -135,7 +135,7 @@ class KNNDAILYTestCases(unittest.TestCase):
 
 
     def test_knndaily_rainfall(self):
-        ''' Test to check that KNNDAILY can reproduce rainfall stats '''
+        ''' Test to check that KNNDaily can reproduce rainfall stats '''
 
         lf = [os.path.join(self.FHERE, 'data', f)
                 for f in os.listdir(os.path.join(self.FHERE, 'data'))
@@ -162,9 +162,9 @@ class KNNDAILYTestCases(unittest.TestCase):
             var_out = pd.concat(d, axis=1).values[lag:, :]
             dates = dates[lag:]
 
-            # Configure KNNDAILY
+            # Configure KNNDaily
             var_in = var_out
-            kn = KNNDAILY(input_var = var_in, output_var = var_out)
+            kn = KNNDaily(input_var = var_in, output_var = var_out)
 
             kn.config['halfwindow'] = halfwin
             kn.config['nb_nn'] = nb_nn
@@ -174,11 +174,13 @@ class KNNDAILYTestCases(unittest.TestCase):
             #nrand = 5
             kn.allocate(np.ones(nrand), kn.output_var.shape[1])
 
-            # KNNDAILY sample
+            # KNNDaily sample
             rain = {}
             idx = {}
             dta = 0
             states = var_in[0,:].copy().tolist() + [kn.config['date_ini']]
+
+            outputs = {}
 
             for k in range(nsample):
                 if k%5 == 0:
@@ -189,12 +191,17 @@ class KNNDAILYTestCases(unittest.TestCase):
                 seed = np.random.randint(0, 1000000)
                 kn.run(seed)
 
+                if k <= 5:
+                    outputs['knn{0:03d}'.format(k)] = pd.Series(kn.outputs[:, 0], index=dates)
+
                 t1 = time.time()
                 dta += 1000 * (t1-t0)
 
                 # Get rainfall stats
                 nm = 'R{0:03d}'.format(k)
                 rain[nm] = compute_stats(kn.outputs[:,0], dates)
+
+            outputs = pd.DataFrame(outputs)
 
             dta = dta/nsample/nrand * 365
 
@@ -236,7 +243,7 @@ class KNNDAILYTestCases(unittest.TestCase):
                     'site[{3}]_order[{0}]_nkk[{1}]_win[{2}].png').format(
                         lag, kn.config['halfwindow'], kn.config['nb_nn'], i)))
 
-            print(('\t\tTEST KNNDAILY RAINFALL {0:02d} : ' +
+            print(('\t\tTEST KNNDaily RAINFALL {0:02d} : ' +
                   'runtime = {1:0.5f}ms/10years').format(i+1, dta))
 
 
