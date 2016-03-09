@@ -14,7 +14,6 @@ class KNNDAILY(Model):
 
     def __init__(self,
             input_var,
-            input_weights=None,
             knn_cycle_position=0,
             output_var=None,
             nens_params=1,
@@ -34,16 +33,6 @@ class KNNDAILY(Model):
         if _output_var.shape[0] == 1:
             _output_var = _output_var.T
 
-        if input_weights is None:
-            _input_weights = np.ones(_input_var.shape[0], dtype=np.float64)
-        else:
-            _input_weights = np.atleast_1d(input_weights).astype(np.float64)
-
-        if _input_weights.shape[0] != _input_var.shape[0]:
-            raise ValueError(('KNNDAILY model: weights.shape[0]({0}) '+
-                '!= input_var.shape[0]({1})').format(_input_weights.shape[0],
-                    _input_var.shape[0]))
-
         if _output_var.shape[0] != _input_var.shape[0]:
             raise ValueError(('KNNDAILY model: output_var.shape[0]({0}) '+
                 '!= input_var.shape[0]({1})').format(_output_var.shape[0],
@@ -52,7 +41,6 @@ class KNNDAILY(Model):
         # Store special variables
         self.input_var = np.ascontiguousarray(_input_var)
         self.output_var = _output_var
-        self.input_weights = _input_weights
         self.idx_knn = None
 
         Model.__init__(self, 'knn',
@@ -69,7 +57,7 @@ class KNNDAILY(Model):
                                 'date_ini']
         self.config.min = [4, 3, 15000101.]
         self.config.max = [50, 50, np.inf]
-        self.config.default = [20, 10, 20000101.]
+        self.config.default = [10, 5, 20000101.]
         self.config.reset()
 
 
@@ -86,7 +74,6 @@ class KNNDAILY(Model):
         # Run model
         ierr = c_pygme_models_knndaily.knndaily_run(seed, istart, iend,
             self.config.data,
-            self.input_weights,
             self.input_var,
             self.states,
             self.knn_idx)

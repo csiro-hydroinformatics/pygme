@@ -142,9 +142,8 @@ class KNNDAILYTestCases(unittest.TestCase):
                     if f.startswith('KNNTEST')]
 
         nsample = 30
-
-        halfwin = 20
-        nb_nn = 10
+        halfwin = 10
+        nb_nn = 5
         lag = 0
 
         for i in range(len(lf)):

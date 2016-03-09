@@ -18,8 +18,7 @@ int c_knndaily_getnn(int nval, int nvar,
                 int halfwindow,
                 int nb_nn,
                 double * var,
-                double * weights,
-                int dayofyear, 
+                int dayofyear,
                 double * states,
                 double * distances,
                 int * idx_potential)
@@ -27,7 +26,7 @@ int c_knndaily_getnn(int nval, int nvar,
     int ierr, k, iyear, nleap;
     int rank, idx, istart, iend, nyears;
 
-    double w, dst, delta;
+    double dst, delta;
 
     ierr = 0;
     nyears = nval/365;
@@ -53,17 +52,12 @@ int c_knndaily_getnn(int nval, int nvar,
             with selected day */
         for(idx=istart; idx<=iend; idx++)
         {
-            /* Get weight */
-            w = weights[idx];
-            if(w < KNNDAILY_WEIGHT_MIN)
-                continue;
-
             /* Computes weighted Euclidian distance with potential neighbours */
             dst = 0;
             for(k=0; k<nvar; k++)
             {
                 delta = var[idx+nval*k] - states[k];
-                dst += delta * delta * w;
+                dst += delta * delta;
             }
             dst = dst > KNNDAILY_DIST_MAX ? KNNDAILY_DIST_MAX : dst;
 
@@ -124,7 +118,6 @@ int c_knndaily_getnn(int nval, int nvar,
 *   nb_nn   Number of nearest neighbours to consider
 *   WINS  Temporal window to restrain the search for nearest neighbours
 *   DMAT  Matrix of feature vectors for each days (nval x nvar)
-*   WEI   Weights to calculate the euclidian distance (nvar x 1)
 *   SMAT  Data to resample
 *   NNdep Initial day
 *   RND   Random number vector
@@ -137,7 +130,6 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     int seed,
     int start, int end,
     double * config,
-    double * weights,
     double * var,
     double * states,
     int * knndaily_idx)
@@ -212,7 +204,7 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
 
     /* Select the first KNN index as the closest point */
     ierr = c_knndaily_getnn(nval, nvar, dayofyear_ini,
-            halfwindow,  nb_nn, var, weights,
+            halfwindow,  nb_nn, var,
             dayofyear, states, distances, idx_potential);
 
     idx_select = idx_potential[0];
@@ -240,12 +232,12 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
         if(KNN_DEBUGFLAG_FLAG >= 1)
             fprintf(stdout, "\n[%3d] idx select = %7d, "
                     "doy = %3d (%0.0f), doyi = %3d, dist = %0.3f\n", i,
-                        idx_select, dayofyear, dayofyear_ini, 
+                        idx_select, dayofyear, dayofyear_ini,
                         states[nvar], dist);
 
         /* Find nearest neighbours */
         ierr = c_knndaily_getnn(nval, nvar, dayofyear_ini,
-            halfwindow,  nb_nn, var, weights,
+            halfwindow,  nb_nn, var,
             dayofyear, states, distances, idx_potential);
 
         if(KNN_DEBUGFLAG_FLAG >= 1)

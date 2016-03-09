@@ -21,7 +21,6 @@ int c_knndaily_run(int nparams, int nval, int nvar, int nrand,
     int seed,
     int start, int end,
     double * params,
-    double * weights,
     double * var,
     double * states,
     int * knndaily_idx);
