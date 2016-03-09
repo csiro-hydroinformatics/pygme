@@ -80,7 +80,7 @@ class KNNDAILYTestCases(unittest.TestCase):
         if not os.path.exists(FIMG):
             os.mkdir(FIMG)
 
-        self.FHERE = FIMG
+        self.FIMG = FIMG
 
     def test_print(self):
         nval = 5000
@@ -141,26 +141,27 @@ class KNNDAILYTestCases(unittest.TestCase):
                 for f in os.listdir(os.path.join(self.FHERE, 'data'))
                     if f.startswith('KNNTEST')]
 
-        nsample = 50
+        nsample = 30
 
         halfwin = 20
-        nb_nn = 5
+        nb_nn = 10
         lag = 0
 
-        for i in [1]:
+        for i in range(len(lf)):
 
             fts = os.path.join(self.FHERE, 'data', lf[i])
             data = pd.read_csv(fts, comment='#', index_col=0, parse_dates=True)
+            data = pd.DataFrame(data.iloc[:, 0])
 
             dates = data.index
-            data = data.values
 
             # Build lag matrix
             d = []
             nval = data.shape[0]
             for l in range(lag+1):
-                d.append(data[l:nval-lag+l, :])
-            var_out = np.concatenate(d, axis=1)
+                d.append(data.shift(l))
+            var_out = pd.concat(d, axis=1).values[lag:, :]
+            dates = dates[lag:]
 
             # Configure KNNDAILY
             var_in = var_out
@@ -170,7 +171,7 @@ class KNNDAILYTestCases(unittest.TestCase):
             kn.config['nb_nn'] = nb_nn
             kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
 
-            nrand = data.shape[0]
+            nrand = var_in.shape[0]
             #nrand = 5
             kn.allocate(np.ones(nrand), kn.output_var.shape[1])
 
@@ -204,7 +205,7 @@ class KNNDAILYTestCases(unittest.TestCase):
             for qt in range(10, 100, 10):
                 rain_qt[qt] = rain.apply(np.percentile, 0, q=qt)
 
-            rain_obs = compute_stats(data[:, 0], dates)
+            rain_obs = compute_stats(var_out[:, 0], dates)
 
             # Check simulated rainfall stats are bracketing obs stats
             errv = (rain_obs - rain_qt[20]) >= 0
@@ -233,8 +234,8 @@ class KNNDAILYTestCases(unittest.TestCase):
             fig.tight_layout()
             fig.savefig(os.path.join(self.FIMG,
                 ('test_pygme_knndaily_rainfall_stats_' +
-                    'order[{0}]_nkk[{1}]_win[{2}].png').format(
-                        lag, kn.config['halfwindow'], kn.config['nb_nn'])))
+                    'site[{3}]_order[{0}]_nkk[{1}]_win[{2}].png').format(
+                        lag, kn.config['halfwindow'], kn.config['nb_nn'], i)))
 
             print(('\t\tTEST KNNDAILY RAINFALL {0:02d} : ' +
                   'runtime = {1:0.5f}ms/10years').format(i+1, dta))
