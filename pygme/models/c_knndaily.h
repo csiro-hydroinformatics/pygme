@@ -18,10 +18,10 @@
 #define KNNDAILY_DIST_MAX 1e100
 
 int c_knndaily_run(int nparams, int nval, int nvar, int nrand,
-    int seed,
     int start, int end,
     double * params,
+    double * rand,
     double * var,
     double * states,
-    int * knndaily_idx);
+    int * knn_idx);
 

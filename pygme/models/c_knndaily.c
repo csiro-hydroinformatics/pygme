@@ -127,12 +127,12 @@ int c_knndaily_getnn(int nval, int nvar,
 */
 
 int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
-    int seed,
     int start, int end,
     double * config,
+    double * rand,
     double * var,
     double * states,
-    int * knndaily_idx)
+    int * knn_idx)
 {
     int ierr, i, k;
     int nb_nn, halfwindow, dayofyear;
@@ -154,10 +154,6 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
 
     if(end >= nval)
         return KNNDAILY_ERROR + __LINE__;
-
-    /* Set seed */
-    if(seed != -1)
-        srand(seed);
 
     /* Half temporal window selection */
     halfwindow = rint(config[0]);
@@ -249,20 +245,19 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
         }
 
         /* Select neighbours from candidates */
-        rnd = get_rand();
         k = 0;
+        rnd = rand[i];
+        rnd = rnd < 0 ? 0 : rnd > 1 ? 1 : rnd;
         while(rnd > kernel[k] && k < nb_nn) k ++;
 
-        /* Save the following day (key of KNN algorithm!)*/
-        //idx_select = idx_potential[k]+1;
+        /* Save the index of following day (key of KNN algorithm!)*/
         idx_select = idx_potential[k]+1;
         if(idx_select >= nval)
             idx_select = idx_potential[k];
         dist = distances[k];
 
-        /* Selected closest index and loop back to beginning if end of the
-        series is reached */
-        knndaily_idx[i] = rint(idx_select);
+        /* Save index */
+        knn_idx[i] = idx_select;
 
         if(KNN_DEBUGFLAG_FLAG >= 1)
             fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7d\n\n",

@@ -99,29 +99,30 @@ class KNNDailyTestCases(unittest.TestCase):
 
         # Cyclical input data
         dt = pd.date_range(dini, datetime(dini.year + nyears - 1, 12, 31))
-        input_var0 = np.array([c_pygme_models_utils.dayofyear(dd.month, dd.day) for dd in dt])
-        input_var = input_var0 + 2*np.random.uniform(-1, 1, len(input_var0))
+        knnvar_inputs0 = np.array([c_pygme_models_utils.dayofyear(dd.month, dd.day) for dd in dt])
+        knnvar_inputs = knnvar_inputs0 + 2*np.random.uniform(-1, 1, len(knnvar_inputs0))
 
         # Output var
-        output_var = np.concatenate([input_var0[:, None],
-                                input_var[:, None]], axis=1)
-        kn = KNNDaily(input_var, output_var = output_var)
+        knnvar_outputs = np.concatenate([knnvar_inputs0[:, None],
+                                knnvar_inputs[:, None]], axis=1)
+        kn = KNNDaily(knnvar_inputs, knnvar_outputs = knnvar_outputs)
 
         kn.config['halfwindow'] = halfwin
         kn.config['nb_nn'] = nb_nn
         kn.config['date_ini'] = dini.year * 1e4 + dini.month * 1e2 + dini.day
 
-        nrand = kn.output_var.shape[0]
-        kn.allocate(np.ones(nrand), kn.output_var.shape[1])
+        nrand = kn.knnvar_outputs.shape[0]
+        kn.allocate(np.random.uniform(0, 1, nrand),
+                kn.knnvar_outputs.shape[1])
 
-        states = [input_var[0], kn.config['date_ini']]
+        states = [knnvar_inputs[0], kn.config['date_ini']]
         kn.initialise(states)
-        kn.run(seed=333)
+        kn.run()
 
         # Check that there is no drift
         res = pd.DataFrame({'knn_pos':kn.outputs[:, 0],
-                                'data_pos':kn.output_var[:,0],
-                                'diff':kn.outputs[:, 0] - kn.output_var[:,0]})
+                                'data_pos':kn.knnvar_outputs[:,0],
+                                'diff':kn.outputs[:, 0] - kn.knnvar_outputs[:,0]})
 
 
         kk = np.abs(res['diff']) < 300
@@ -164,15 +165,14 @@ class KNNDailyTestCases(unittest.TestCase):
 
             # Configure KNNDaily
             var_in = var_out
-            kn = KNNDaily(input_var = var_in, output_var = var_out)
+            kn = KNNDaily(knnvar_inputs = var_in, knnvar_outputs = var_out)
 
             kn.config['halfwindow'] = halfwin
             kn.config['nb_nn'] = nb_nn
             kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
 
             nrand = var_in.shape[0]
-            #nrand = 5
-            kn.allocate(np.ones(nrand), kn.output_var.shape[1])
+            kn.allocate(np.ones(nrand), kn.knnvar_outputs.shape[1])
 
             # KNNDaily sample
             rain = {}
@@ -180,19 +180,14 @@ class KNNDailyTestCases(unittest.TestCase):
             dta = 0
             states = var_in[0,:].copy().tolist() + [kn.config['date_ini']]
 
-            outputs = {}
-
             for k in range(nsample):
                 if k%5 == 0:
                     print('\t\t TEST {0:2d} - Run {1:3d}/{2:3d}'.format(i, k, nsample))
                 t0 = time.time()
 
                 kn.initialise(states)
-                seed = np.random.randint(0, 1000000)
-                kn.run(seed)
-
-                if k <= 5:
-                    outputs['knn{0:03d}'.format(k)] = pd.Series(kn.outputs[:, 0], index=dates)
+                kn.inputs = np.random.uniform(0, 1, nrand)
+                kn.run()
 
                 t1 = time.time()
                 dta += 1000 * (t1-t0)
@@ -200,8 +195,6 @@ class KNNDailyTestCases(unittest.TestCase):
                 # Get rainfall stats
                 nm = 'R{0:03d}'.format(k)
                 rain[nm] = compute_stats(kn.outputs[:,0], dates)
-
-            outputs = pd.DataFrame(outputs)
 
             dta = dta/nsample/nrand * 365
 

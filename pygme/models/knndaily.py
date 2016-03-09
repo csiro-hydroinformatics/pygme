@@ -13,42 +13,42 @@ import c_pygme_models_knndaily
 class KNNDaily(Model):
 
     def __init__(self,
-            input_var,
+            knnvar_inputs,
             knn_cycle_position=0,
-            output_var=None,
+            knnvar_outputs=None,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
 
         # Set default variables
-        if output_var is None:
-            output_var = input_var
+        if knnvar_outputs is None:
+            knnvar_outputs = knnvar_inputs
 
         # Check inputs
-        _input_var = np.atleast_2d(input_var).astype(np.float64)
-        if _input_var.shape[0] == 1:
-            _input_var = _input_var.T
+        _knnvar_inputs = np.atleast_2d(knnvar_inputs).astype(np.float64)
+        if _knnvar_inputs.shape[0] == 1:
+            _knnvar_inputs = _knnvar_inputs.T
 
-        _output_var = np.atleast_2d(output_var).astype(np.float64)
-        if _output_var.shape[0] == 1:
-            _output_var = _output_var.T
+        _knnvar_outputs = np.atleast_2d(knnvar_outputs).astype(np.float64)
+        if _knnvar_outputs.shape[0] == 1:
+            _knnvar_outputs = _knnvar_outputs.T
 
-        if _output_var.shape[0] != _input_var.shape[0]:
-            raise ValueError(('KNNDAILY model: output_var.shape[0]({0}) '+
-                '!= input_var.shape[0]({1})').format(_output_var.shape[0],
-                    _input_var.shape[0]))
+        if _knnvar_outputs.shape[0] != _knnvar_inputs.shape[0]:
+            raise ValueError(('KNNDAILY model: knnvar_outputs.shape[0]({0}) '+
+                '!= knnvar_inputs.shape[0]({1})').format(_knnvar_outputs.shape[0],
+                    _knnvar_inputs.shape[0]))
 
         # Store special variables
-        self.input_var = np.ascontiguousarray(_input_var)
-        self.output_var = _output_var
+        self.knnvar_inputs = np.ascontiguousarray(_knnvar_inputs)
+        self.knnvar_outputs = _knnvar_outputs
         self.idx_knn = None
 
         Model.__init__(self, 'knn',
             nconfig=3,
             ninputs=1,
             nparams=0,
-            nstates=_input_var.shape[1] + 1,
-            noutputs_max=self.output_var.shape[1],
+            nstates=_knnvar_inputs.shape[1] + 1,
+            noutputs_max=self.knnvar_outputs.shape[1],
             nens_params=nens_params,
             nens_states=nens_states,
             nens_outputs=nens_outputs)
@@ -63,18 +63,15 @@ class KNNDaily(Model):
 
     def runblock(self, istart, iend, seed=None):
 
-        # Seed
-        if seed is None:
-            seed = np.int32(-1)
-
         # outputs
         nval, _, _, _ = self.get_dims('outputs')
         self.knn_idx = np.zeros(nval, dtype=np.int32)
 
         # Run model
-        ierr = c_pygme_models_knndaily.knndaily_run(seed, istart, iend,
+        ierr = c_pygme_models_knndaily.knndaily_run(istart, iend,
             self.config.data,
-            self.input_var,
+            self.inputs,
+            self.knnvar_inputs,
             self.states,
             self.knn_idx)
 
@@ -84,6 +81,6 @@ class KNNDaily(Model):
 
         # Save resampled data
         _, noutputs, _, _ = self.get_dims('outputs')
-        self.outputs = self.output_var[self.knn_idx, :noutputs]
+        self.outputs = self.knnvar_outputs[self.knn_idx, :noutputs]
 
 
