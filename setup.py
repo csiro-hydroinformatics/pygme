@@ -85,6 +85,7 @@ setup(
     install_requires= [
         'cython', \
         'numpy >= 1.8.0' \
+        'pandas >= 0.16' \
     ],
     cmdclass=cmdclass,
     ext_modules=[

@@ -254,7 +254,7 @@ class Vector(object):
         self._data = np.repeat(np.atleast_2d(value), self.nens, axis=0)
 
 
-    def random(self, distribution='normal', seed=333):
+    def random(self, distribution='normal'):
         ''' Randomise vector data '''
 
         if not self.has_minmax and distribution=='uniform':
@@ -620,6 +620,67 @@ class Matrix(object):
 
     def reset(self, value=0.):
         self._data.fill(value)
+
+
+    def random(self, low=0., high=1.):
+        size = (self._nval, self._nvar, self._nlead, self._nens)
+        self._data = np.random.uniform(low, high, size=size)
+
+
+    def apply(self, fun):
+        clone = self.clone()
+        clone._data = fun(clone._data)
+
+        return clone
+
+
+    def aggregate(self, aggindex, aggfunc=np.sum, axis='val'):
+
+
+        aggindex_unique = np.unique(aggindex)
+
+        if axis == 'val':
+            ncheck = self.nval
+            nvalagg = len(aggindex_unique)
+            nleadagg = self.nlead
+            index = aggindex_unique
+
+        elif axis == 'lead':
+            ncheck = self.nlead
+            nvalagg = self.nval
+            nleadagg = len(aggindex_unique)
+            index = self.index
+
+        else:
+            raise ValueError(('axis {0} not recognized.' +
+                ' Only val and lead allowed').format(axis))
+
+        if len(aggindex) != ncheck:
+            raise ValueError(('Length of aggindex ({0}) is not ' +
+                'equal to n{1} ({2})').format(len(aggindex), axis, ncheck))
+
+        # Create aggregate matrix
+        aggmat = Matrix.from_dims('{0}_aggregate_{1}'.format(self.id, axis),
+                    nvalagg, self.nvar, nleadagg, self.nens, index, self.prefix)
+
+        # Populate aggregate matrix
+        for iens in range(self.nens):
+            panel = pd.Panel(self._data[:, :, :, self.iens])
+
+            if axis == 'lead':
+                panel = panel.transpose(2, 0 , 1)
+
+            panel = panel.set_axis('items', aggindex)
+            import pdb; pdb.set_trace()
+            aggpanel = panel.groupby(lambda x: x, axis='items').apply(aggfunc)
+            import pdb; pdb.set_trace()
+
+            if axis == 'lead':
+                aggpanel = aggpanel.transpose(1, 2, 0)
+
+            aggmat._data[:, :, :, iens] = aggpanel.values
+
+        return aggmat
 
 
     def clone(self):

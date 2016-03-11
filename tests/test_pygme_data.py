@@ -1,6 +1,7 @@
 import os
 import re
 import unittest
+import math
 
 import json
 
@@ -9,8 +10,11 @@ from itertools import product
 from timeit import Timer
 import time
 
+import pandas as pd
 import numpy as np
 np.seterr(all='print')
+
+from scipy.special import kolmogorov
 
 from pygme.data import Vector, Matrix
 
@@ -21,7 +25,7 @@ class VectorTestCases(unittest.TestCase):
     def setUp(self):
         print('\t=> VectorTestCase')
 
-    def test_vector1(self):
+    def test_vector_nameserror(self):
         v = Vector('test', 3)
         v.names = ['a', 'b', 'c']
         self.assertTrue(list(v.names) == ['a', 'b', 'c'])
@@ -32,7 +36,7 @@ class VectorTestCases(unittest.TestCase):
         self.assertTrue(str(e).startswith('With test vector: tried setting _names'))
 
 
-    def test_vector2(self):
+    def test_vector_minerror(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
         self.assertTrue(list(v.min.astype(int)) == [-1, 10, 2])
@@ -43,7 +47,7 @@ class VectorTestCases(unittest.TestCase):
         self.assertTrue(str(e).startswith('With test vector: tried setting _min'))
 
 
-    def test_vector3(self):
+    def test_vector_maxerror(self):
         v = Vector('test', 3)
         v.max = [10, 100, 20]
         self.assertTrue(np.allclose(v.max, [10, 100, 20]))
@@ -54,7 +58,7 @@ class VectorTestCases(unittest.TestCase):
         self.assertTrue(str(e).startswith('With test vector: tried setting _max'))
 
 
-    def test_vector4(self):
+    def test_vector_hitbounderror(self):
         v = Vector('test', 3)
         v.min = [-1, 10, 2]
         self.assertTrue(~v.hitbounds)
@@ -71,17 +75,18 @@ class VectorTestCases(unittest.TestCase):
             ' tried setting data with vector of wrong size (2 instead of 3)'))
 
 
-    def test_vector5(self):
+    def test_vector_print(self):
         v = Vector('test', 3)
         str = '{0}'.format(v)
 
 
-    def test_vector6(self):
+    def test_vector_1dtest(self):
         v = Vector('test', 1)
         v.data = 10
         self.assertTrue(v.data.shape == (1, ) and v.data[0] == 10.)
 
-    def test_vector7(self):
+
+    def test_vector_set(self):
         v = Vector('test', 2, 10)
         for iens in range(10):
             v.iens = iens
@@ -93,7 +98,8 @@ class VectorTestCases(unittest.TestCase):
             ck = ck and v.data[0] == iens
             self.assertTrue(ck)
 
-    def test_vector8(self):
+
+    def test_vector_reset(self):
         v = Vector('test', 2, 10)
         default = [1., 1.]
         v.default = default
@@ -113,7 +119,7 @@ class VectorTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
 
-    def test_vector9(self):
+    def test_vector_random(self):
         v = Vector('test', 5, 100, has_minmax=True)
         v.min = range(0, v.nval)
         v.max = range(1, v.nval+1)
@@ -129,7 +135,7 @@ class VectorTestCases(unittest.TestCase):
         v2.random(distribution='uniform')
 
 
-    def test_vector10(self):
+    def test_vector_setnamed(self):
         v = Vector('test', 5, 100, prefix='P')
 
         v.iens = 10
@@ -150,7 +156,7 @@ class VectorTestCases(unittest.TestCase):
             ' key "P20" not in the list of names'))
 
 
-    def test_vector11(self):
+    def test_vector1_tojson(self):
         js = {}
         vectors = {}
         for iv in range(3):
@@ -183,97 +189,92 @@ class VectorTestCases(unittest.TestCase):
                 self.assertTrue(np.allclose(v2.data, expected.data))
 
 
+
 class MatrixTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> MatrixTestCase')
 
-    def test_matrix1(self):
-        m1 = Matrix.from_dims('test', 100, 5)
-        m1.names = ['a', 'b', 'c', 'd', 'e']
+    def test_matrix_nameserror(self):
+        mat1 = Matrix.from_dims('test', 100, 5)
+        mat1.names = ['a', 'b', 'c', 'd', 'e']
         try:
-            m1.names = ['a', 'b']
+            mat1.names = ['a', 'b']
         except ValueError as e:
             pass
         self.assertTrue(str(e).startswith('With test matrix: tried setting _names'))
 
 
-    def test_matrix2(self):
-        m1 = Matrix.from_dims('test', 100, 5)
+    def test_matrix_setdata(self):
+        mat1 = Matrix.from_dims('test', 100, 5)
         d0 = np.random.uniform(0, 1, (100, 5))
-        m1.data = d0
-        self.assertTrue(m1.data.shape == (100, 5))
+        mat1.data = d0
+        self.assertTrue(mat1.data.shape == (100, 5))
 
 
-    def test_matrix3(self):
-        m1 = Matrix.from_dims('test', 100, 5)
+    def test_matrix_setdataerror(self):
+        mat1 = Matrix.from_dims('test', 100, 5)
         try:
-            m1.data = np.random.uniform(0, 1, (10, 5))
+            mat1.data = np.random.uniform(0, 1, (10, 5))
         except ValueError as e:
             pass
         self.assertTrue(str(e).startswith('With test matrix: tried setting _data'))
 
 
-    def test_matrix4(self):
-        m1 = Matrix.from_dims('test', 100, 5)
-        str = '{0}'.format(m1)
+    def test_matrix_print(self):
+        mat1 = Matrix.from_dims('test', 100, 5)
+        str = '{0}'.format(mat1)
 
 
-    def test_matrix5(self):
-        m1 = Matrix.from_dims('test', 100, 1)
-        m1.data = np.random.uniform(0, 1, 100)
-        self.assertTrue(m1.data.shape == (100, 1))
+    def test_matrix_fromdata(self):
+        mat1 = Matrix.from_dims('test', 100, 6)
+        mat2 = Matrix.from_data('test', mat1.data)
+        self.assertTrue(mat2.data.shape == (100, 6))
 
 
-    def test_matrix6(self):
-        m1 = Matrix.from_dims('test', 100, 6)
-        m2 = Matrix.from_data('test', m1.data)
-        self.assertTrue(m2.data.shape == (100, 6))
-
-
-    def test_matrix7(self):
+    def test_matrix_setdata_iensilead(self):
         nval = 10
         nvar = 5
         nlead = 3
         nens = 20
-        m1 = Matrix.from_dims('test', nval, nvar, nlead, nens)
+        mat1 = Matrix.from_dims('test', nval, nvar, nlead, nens)
 
         data = np.random.uniform(0, 10, (nval, nvar, nlead, nens))
 
         for ilead, iens in product(range(nlead), range(nens)):
-            m1.ilead = ilead
-            m1.iens = iens
-            m1.data = data[:, :, ilead, iens]
+            mat1.ilead = ilead
+            mat1.iens = iens
+            mat1.data = data[:, :, ilead, iens]
 
-        m2 = Matrix.from_data('test', data)
+        mat2 = Matrix.from_data('test', data)
         data = []
         for ilead, iens in product(range(nlead), range(nens)):
-            m1.ilead = ilead
-            m2.ilead = ilead
+            mat1.ilead = ilead
+            mat2.ilead = ilead
 
-            m1.iens = iens
-            m2.iens = iens
-            self.assertTrue(np.allclose(m2.data, m1.data))
+            mat1.iens = iens
+            mat2.iens = iens
+            self.assertTrue(np.allclose(mat2.data, mat1.data))
 
 
-    def test_matrix8(self):
+    def test_matrix_reset(self):
         nval = 10
         nvar = 5
         nlead = 4
         nens = 20
-        m1 = Matrix.from_dims('test', nval, nvar, nlead, nens)
+        mat1 = Matrix.from_dims('test', nval, nvar, nlead, nens)
 
         test = np.ones((nval, nvar)).astype(np.float64)
 
-        m1.reset(2.)
+        mat1.reset(2.)
         for ilead, iens in product(range(nlead), range(nens)):
-            m1.iens = iens
-            m1.ilead = ilead
-            ck = np.allclose(m1.data, 2.*test)
+            mat1.iens = iens
+            mat1.ilead = ilead
+            ck = np.allclose(mat1.data, 2.*test)
             self.assertTrue(ck)
 
 
-    def test_matrix9(self):
+    def test_matrix_tohdf(self):
         nval = 50
         nvar = 3
         nlead = 2
@@ -284,37 +285,37 @@ class MatrixTestCases(unittest.TestCase):
             os.remove(fhdf)
 
         # Create matrix and write to file
-        mat1 = {}
+        mat_all = {}
         for i in range(4):
-            m1 = Matrix.from_dims('test{0}_qqqq'.format(i), nval, nvar, nlead, nens,
+            mat = Matrix.from_dims('test{0}_qqqq'.format(i), nval, nvar, nlead, nens,
                     prefix='LONG')
 
             for ilead, iens in product(range(nlead), range(nens)):
-                m1.ilead = ilead
-                m1.iens = iens
-                m1.data = np.random.uniform(i, i+1, (nval, nvar))
+                mat.ilead = ilead
+                mat.iens = iens
+                mat.data = np.random.uniform(i, i+1, (nval, nvar))
 
             key = 'matrix_{0}'.format(i)
-            m1.to_hdf(fhdf, key)
-            mat1[key] = m1
+            mat.to_hdf(fhdf, key)
+            mat_all[key] = mat
 
         # Read it back
-        for k in mat1:
-            m1 = mat1[k]
-            m2 = Matrix.from_hdf(fhdf, k)
+        for k in mat_all:
+            mat1 = mat_all[k]
+            mat2 = Matrix.from_hdf(fhdf, k)
 
             for ilead, iens in product(range(nlead), range(nens)):
-                m1.ilead = ilead
-                m2.ilead = ilead
+                mat1.ilead = ilead
+                mat2.ilead = ilead
 
-                m1.iens = iens
-                m2.iens = iens
+                mat1.iens = iens
+                mat2.iens = iens
 
-                ck = np.allclose(m2.data, m1.data)
+                ck = np.allclose(mat2.data, mat1.data)
                 self.assertTrue(ck)
 
 
-    def test_matrix10(self):
+    def test_matrix_index(self):
         nval = 50
         nvar = 3
         nlead = 1
@@ -323,13 +324,13 @@ class MatrixTestCases(unittest.TestCase):
         # Create matrix
         index = np.random.choice(range(1, 5), nval)
         index = np.cumsum(index)
-        m1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
+        mat1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
                 prefix='TEST',
                 index=index)
 
         try:
             index = np.arange(nval-10)
-            m1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
+            mat1 = Matrix.from_dims('test', nval, nvar, nlead, nens,
                     index=index)
         except ValueError, e:
             pass
@@ -338,25 +339,111 @@ class MatrixTestCases(unittest.TestCase):
         try:
             index = np.random.choice(range(-5, 5), nval)
             index = np.cumsum(index)
-            m1.index = index
+            mat1.index = index
         except ValueError, e:
             pass
         self.assertTrue(str(e).startswith('With test matrix: index is not strictly'))
 
-    def test_matrix11(self):
+
+    def test_matrix_slice(self):
         nval = 100
         nvar = 5
         index = np.cumsum(np.random.randint(1, 4, nval))
         data = np.random.uniform(size=(nval, nvar))
-        m1 = Matrix.from_data('data', data, index=index)
+        mat1 = Matrix.from_data('data', data, index=index)
 
         kk = np.cumsum(np.random.randint(1, 3, 10))
         index2 = index[kk]
-        m2 = m1.slice(index2)
+        mat2 = mat1.slice(index2)
 
-        ck = np.allclose(m1.data[kk, :], m2.data)
-        ck = ck & np.allclose(index2, m2.index)
+        ck = np.allclose(mat1.data[kk, :], mat2.data)
+        ck = ck & np.allclose(index2, mat2.index)
         self.assertTrue(ck)
+
+
+    def test_matrix_random(self):
+        nval = 1000
+        nvar = 5
+        nlead = 10
+        nens = 100
+        mat = Matrix.from_dims('data', nval, nvar, nlead, nens)
+        mat.random()
+
+        for ivar, ilead, iens in product(range(mat.nvar),
+                        range(mat.nlead), range(mat.nens)):
+            mat.iens = iens
+            mat.ilead = ilead
+            values = np.sort(mat.data[:, ivar])
+
+            # Test that data is coming from uniform distribution
+            err = np.abs(values - np.linspace(0, 1, nval))
+            D = math.sqrt(nval) * np.max(err)
+            ks = kolmogorov(D)
+            self.assertTrue(ks >= 1e-5)
+
+
+    def test_matrix_aggregateval(self):
+        nval = 1000
+        nvar = 5
+        nlead = 10
+        nens = 5
+        mat = Matrix.from_dims('data', nval, nvar, nlead, nens)
+        mat.random()
+
+        # Define an index
+        dt = pd.Series(1, index=pd.date_range('2001-01-01', freq='D', periods=nval))
+        dt = dt.index
+        months = dt.year*100 + dt.month
+        nmonths = np.unique(months).shape[0]
+
+        # Run aggregation - val
+        matagg = mat.aggregate(months, aggfunc=np.sum, axis='val')
+
+        ck = (matagg.nval, matagg.nvar, matagg.nlead, matagg.nens) == (nmonths, nvar, nlead, nens)
+        self.assertTrue(ck)
+
+        for ilead, iens in product(range(nlead), range(nens)):
+            mat.ilead = ilead
+            mat.iens = iens
+            matagg.ilead = ilead
+            matagg.iens = iens
+
+            data = pd.DataFrame(mat.data)
+            data['index'] = months
+            aggdata = data.groupby('index').apply(np.sum).drop('index', axis=1)
+            ck = np.allclose(matagg.data, aggdata.values)
+            self.assertTrue(ck)
+
+    def test_matrix_aggregatelead(self):
+        nval = 100
+        nvar = 5
+        nlead = 180
+        nens = 5
+        mat = Matrix.from_dims('data', nval, nvar, nlead, nens)
+        mat.random()
+
+        # Define an index
+        dt = pd.Series(1, index=pd.date_range('2001-01-01', freq='D', periods=nlead))
+        dt = dt.index
+        months = dt.year*100 + dt.month
+        nmonths = np.unique(months).shape[0]
+
+        # Run aggregation - lead
+        matagg = mat.aggregate(months, aggfunc=np.sum, axis='lead')
+
+        ck = (matagg.nval, matagg.nvar, matagg.nlead, matagg.nens) == (nval, nvar, nmonths, nens)
+        self.assertTrue(ck)
+
+        for ival, iens in product(range(nval), range(nens)):
+            data = pd.DataFrame(mat._data[ival, :, :, iens])
+            data['index'] = months
+            aggdata = data.groupby('index').apply(np.sum).drop('index', axis=1)
+            ck = np.allclose(matagg._data[ival, :, :, iens], aggdata.values)
+            self.assertTrue(ck)
+
+
+        import pdb; pdb.set_trace()
+
 
 
 
