@@ -17,11 +17,11 @@
 /* Value used to initialise KNN distance */
 #define KNNDAILY_DIST_MAX 1e100
 
-int c_knndaily_run(int nparams, int nval, int nvar, int nrand,
+int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     int start, int end,
-    double * params,
+    double * config,
     double * rand,
     double * var,
     double * states,
-    int * knn_idx);
+    int * knn_ipos);
 

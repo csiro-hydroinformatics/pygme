@@ -83,9 +83,9 @@ setup(
     url= 'https://bitbucket.org/jlerat/pygme',
     download_url= 'https://bitbucket.org/jlerat/pygme/downloads',
     install_requires= [
-        'cython', \
-        'numpy >= 1.8.0' \
-        'pandas >= 0.16' \
+        'cython',
+        'numpy >= 1.8.0',
+        'pandas >= 0.16'
     ],
     cmdclass=cmdclass,
     ext_modules=[

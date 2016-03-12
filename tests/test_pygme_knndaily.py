@@ -1,5 +1,4 @@
-import os
-import re
+import os, sys, re
 import unittest
 
 from datetime import datetime
@@ -14,12 +13,14 @@ from matplotlib.gridspec import GridSpec
 
 from pygme.models.knndaily import KNNDaily
 from pygme import calibration
-from pygme.model import Matrix
+from pygme.data import Matrix, set_seed
 
 import c_pygme_models_utils
 
 from hystat.linreg import Linreg
 from hyplot import putils
+
+set_seed(333)
 
 
 # Utility function to compute rainfall stats
@@ -160,15 +161,17 @@ class KNNDailyTestCases(unittest.TestCase):
             nval = data.shape[0]
             for l in range(lag+1):
                 d.append(data.shift(l))
-            var_out = pd.concat(d, axis=1).values[lag:, :]
+            var_in = pd.concat(d, axis=1).values[lag:, :]
+
+            var_out = var_in[:, 0]
             dates = dates[lag:]
 
             # Configure KNNDaily
-            var_in = var_out
             kn = KNNDaily(knnvar_inputs = var_in, knnvar_outputs = var_out)
 
             kn.config['halfwindow'] = halfwin
             kn.config['nb_nn'] = nb_nn
+            kn.config['randomize_ties'] = 1
             kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
 
             nrand = var_in.shape[0]
@@ -204,17 +207,16 @@ class KNNDailyTestCases(unittest.TestCase):
             for qt in range(10, 100, 10):
                 rain_qt[qt] = rain.apply(np.percentile, 0, q=qt)
 
-            rain_obs = compute_stats(var_out[:, 0], dates)
+            rain_obs = compute_stats(kn.knnvar_outputs[:, 0], dates)
 
             # Check simulated rainfall stats are bracketing obs stats
-            errv = (rain_obs - rain_qt[20]) >= 0
-            errv = errv & ((rain_qt[80] - rain_obs) >= 0)
-            ee_value = (~errv).sum()
-
-            errv = (rain_obs - rain_qt[50]) / (rain_qt[90] - rain_qt[10])
+            errv = (rain_obs - rain_qt[10]) >= 0
+            errv = errv & ((rain_qt[90] - rain_obs) >= 0)
+            ee_value = (~errv).sum().mean()
+            ck = ee_value < 2
+            self.assertTrue(ck)
 
             # Plot stats
-            import matplotlib.pyplot as plt
             plt.close('all')
             fig, axs = plt.subplots(nrows=2, ncols=2)
             axs = axs.flat[:]

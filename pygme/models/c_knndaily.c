@@ -17,14 +17,15 @@ int c_knndaily_getnn(int nval, int nvar,
                 int dayofyear_ini,
                 int halfwindow,
                 int nb_nn,
+                int randomize_ties,
                 double * var,
                 int dayofyear,
                 double * states,
                 double * distances,
-                int * idx_potential)
+                int * ipos_potential)
 {
     int ierr, k, iyear, nleap;
-    int rank, idx, istart, iend, nyears;
+    int rank, ipos, istart, iend, nyears;
 
     double dst, delta;
 
@@ -50,13 +51,13 @@ int c_knndaily_getnn(int nval, int nvar,
 
         /* loop through KNN variables within window and compute distances
             with selected day */
-        for(idx=istart; idx<=iend; idx++)
+        for(ipos=istart; ipos<=iend; ipos++)
         {
             /* Computes weighted Euclidian distance with potential neighbours */
             dst = 0;
             for(k=0; k<nvar; k++)
             {
-                delta = var[idx+nval*k] - states[k];
+                delta = var[nvar*ipos+k] - states[k];
                 dst += delta * delta;
             }
             dst = dst > KNNDAILY_DIST_MAX ? KNNDAILY_DIST_MAX : dst;
@@ -64,13 +65,14 @@ int c_knndaily_getnn(int nval, int nvar,
             if(isnan(dst))
             {
                 if(KNN_DEBUGFLAG_FLAG >= 3)
-                    fprintf(stdout, "\t\tidx %7d: dst=%5.10f ( ",
-                            idx, dst);
+                    fprintf(stdout, "\t\tipos %7d: dst=%5.10f ( ",
+                            ipos, dst);
                 continue;
             }
 
             /* Perturb distance to avoid ties */
-            dst += KNNDAILY_WEIGHT_MIN * get_rand()/2;
+            if(randomize_ties==1)
+                dst += KNNDAILY_WEIGHT_MIN * get_rand()/2;
 
             /* Compute the rank of current neighbour distance
              * within the ones already computed */
@@ -84,20 +86,20 @@ int c_knndaily_getnn(int nval, int nvar,
             {
                 if(KNN_DEBUGFLAG_FLAG >= 3)
                 {
-                    fprintf(stdout, "\t\tidx %7d: rank=%d dst=%5.10f ( ",
-                                idx, rank, dst);
+                    fprintf(stdout, "\t\tipos %7d: rank=%d dst=%5.10f ( ",
+                                ipos, rank, dst);
                     for(k=0; k<nvar; k++)
-                        fprintf(stdout, "%0.3f ", var[idx+nval*k]);
+                        fprintf(stdout, "%0.3f ", var[nvar*ipos+k]);
                     fprintf(stdout, ")\n");
                 }
 
                 for(k=nb_nn-1; k>=rank+1; k--)
                 {
-                    idx_potential[k] = idx_potential[k-1];
+                    ipos_potential[k] = ipos_potential[k-1];
                     distances[k] = distances[k-1];
                 }
 
-                idx_potential[rank] = idx;
+                ipos_potential[rank] = ipos;
                 distances[rank] = dst;
             }
 
@@ -132,12 +134,13 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     double * rand,
     double * var,
     double * states,
-    int * knn_idx)
+    int * knn_ipos)
 {
     int ierr, i, k;
     int nb_nn, halfwindow, dayofyear;
     int dayofyear_ini, date[3];
-    int idx_select, idx_potential[KNNDAILY_NKERNEL_MAX];
+    int ipos_select, ipos_potential[KNNDAILY_NKERNEL_MAX];
+    int randomize_ties;
 
     double dist, sum, rnd;
     double kernel[KNNDAILY_NKERNEL_MAX];
@@ -146,6 +149,9 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     ierr = 0;
 
     /* Check dimensions */
+    if(nconfig != 4)
+        return KNNDAILY_ERROR + __LINE__;
+
     if(nvar > KNNDAILY_NVAR_MAX)
         return KNNDAILY_ERROR + __LINE__;
 
@@ -165,14 +171,26 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     if(nb_nn >= KNNDAILY_NKERNEL_MAX || nb_nn < 1)
         return KNNDAILY_ERROR + __LINE__;
 
+    randomize_ties = rint(config[2]);
+    if(randomize_ties != 0 && randomize_ties != 1)
+        return KNNDAILY_ERROR + __LINE__;
+
     /* Starting date in input data */
-    ierr = c_utils_getdate(config[2], date);
+    ierr = c_utils_getdate(config[3], date);
     if(ierr > 0)
         return KNNDAILY_ERROR + __LINE__;
 
     dayofyear_ini = c_utils_dayofyear(date[1], date[2]);
     if(dayofyear_ini < 1)
         return KNNDAILY_ERROR + __LINE__;
+
+    if(KNN_DEBUGFLAG_FLAG >= 1)
+        fprintf(stdout, "\nnconfig = %d\n"
+            "nval = %d\nnvar = %d\nnrand = %d\n"
+            "start = %d\nend = %d\nhalfwindow = %d\n"
+            "nb_nn = %d\ndayofyear_ini = %0.0f\n\n",
+            nconfig, nval, nvar, nrand, start, end,
+            halfwindow, nb_nn, dayofyear_ini);
 
     /* Create resampling kernel */
     sum = 0;
@@ -186,7 +204,7 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     for(k=0; k<nb_nn; k++)
     {
         distances[k] = KNNDAILY_DIST_MAX;
-        idx_potential[k] = -1;
+        ipos_potential[k] = -1;
     }
 
     /* Get start date */
@@ -200,10 +218,10 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
 
     /* Select the first KNN index as the closest point */
     ierr = c_knndaily_getnn(nval, nvar, dayofyear_ini,
-            halfwindow,  nb_nn, var,
-            dayofyear, states, distances, idx_potential);
+            halfwindow,  nb_nn, randomize_ties, var,
+            dayofyear, states, distances, ipos_potential);
 
-    idx_select = idx_potential[0];
+    ipos_select = ipos_potential[0];
     dist = distances[0];
 
     /* resample */
@@ -211,7 +229,7 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
     {
         /* Initialise KNN variables vector */
         for(k=0; k<nvar; k++)
-            states[k] = var[idx_select+nval*k];
+            states[k] = var[ipos_select*nvar+k];
 
         /* Shift by one day */
         c_utils_add1day(date);
@@ -222,26 +240,31 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
         for(k=0; k<nb_nn; k++)
         {
             distances[k] = KNNDAILY_DIST_MAX;
-            idx_potential[k] = -1;
+            ipos_potential[k] = -1;
         }
 
         if(KNN_DEBUGFLAG_FLAG >= 1)
-            fprintf(stdout, "\n[%3d] idx select = %7d, "
-                    "doy = %3d (%0.0f), doyi = %3d, dist = %0.3f\n", i,
-                        idx_select, dayofyear, dayofyear_ini,
+        {
+            fprintf(stdout, "\n[%3d] ipos select = %7d, "
+                    "doy = %3d (%0.0f), doyi = %3d, dist = %0.3f\n      var = (", i,
+                        ipos_select, dayofyear, dayofyear_ini,
                         states[nvar], dist);
+            for(k=0; k<nvar; k++)
+                fprintf(stdout, "%7.2f ", var[k+ipos_select*nvar]);
+            fprintf(stdout, ")\n");
+        }
 
         /* Find nearest neighbours */
         ierr = c_knndaily_getnn(nval, nvar, dayofyear_ini,
-            halfwindow,  nb_nn, var,
-            dayofyear, states, distances, idx_potential);
+            halfwindow,  nb_nn, randomize_ties, var,
+            dayofyear, states, distances, ipos_potential);
 
         if(KNN_DEBUGFLAG_FLAG >= 1)
         {
             fprintf(stdout, "\n");
             for(k=0; k<nb_nn; k++)
-                fprintf(stdout, "\tkern(%d)=%0.4f idx=%7d  d=%0.10f\n",
-                        k,kernel[k], idx_potential[k], distances[k]);
+                fprintf(stdout, "\tkern(%d)=%0.4f ipos=%7d  d=%0.10f\n",
+                        k,kernel[k], ipos_potential[k], distances[k]);
         }
 
         /* Select neighbours from candidates */
@@ -251,17 +274,17 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
         while(rnd > kernel[k] && k < nb_nn) k ++;
 
         /* Save the index of following day (key of KNN algorithm!)*/
-        idx_select = idx_potential[k]+1;
-        if(idx_select >= nval)
-            idx_select = idx_potential[k];
+        ipos_select = ipos_potential[k]+1;
+        if(ipos_select >= nval)
+            ipos_select = ipos_potential[k];
         dist = distances[k];
 
         /* Save index */
-        knn_idx[i] = idx_select;
+        knn_ipos[i] = ipos_select;
 
         if(KNN_DEBUGFLAG_FLAG >= 1)
-            fprintf(stdout, "\n\tRND = %0.5f -> idx_select = %7d\n\n",
-                    rnd, idx_select);
+            fprintf(stdout, "\n\tRND = %0.5f -> ipos_select = %7d\n\n",
+                    rnd, ipos_select);
 
 
     } /* loop on random numbers */

@@ -41,10 +41,10 @@ class KNNDaily(Model):
         # Store special variables
         self.knnvar_inputs = np.ascontiguousarray(_knnvar_inputs)
         self.knnvar_outputs = _knnvar_outputs
-        self.idx_knn = None
+        self.ipos_knn = None
 
-        Model.__init__(self, 'knn',
-            nconfig=3,
+        Model.__init__(self, 'knndaily',
+            nconfig=4,
             ninputs=1,
             nparams=0,
             nstates=_knnvar_inputs.shape[1] + 1,
@@ -54,10 +54,10 @@ class KNNDaily(Model):
             nens_outputs=nens_outputs)
 
         self.config.names = ['halfwindow', 'nb_nn',
-                                'date_ini']
-        self.config.min = [4, 3, 15000101.]
-        self.config.max = [50, 50, np.inf]
-        self.config.default = [10, 5, 20000101.]
+                                'randomize_ties', 'date_ini']
+        self.config.min = [4, 3, 0, 15000101.]
+        self.config.max = [50, 50, 1, np.inf]
+        self.config.default = [10, 5, 1, 20000101.]
         self.config.reset()
 
 
@@ -65,7 +65,7 @@ class KNNDaily(Model):
 
         # outputs
         nval, _, _, _ = self.get_dims('outputs')
-        self.knn_idx = np.zeros(nval, dtype=np.int32)
+        self.knn_ipos = np.zeros(nval, dtype=np.int32)
 
         # Run model
         ierr = c_pygme_models_knndaily.knndaily_run(istart, iend,
@@ -73,7 +73,7 @@ class KNNDaily(Model):
             self.inputs,
             self.knnvar_inputs,
             self.states,
-            self.knn_idx)
+            self.knn_ipos)
 
         if ierr > 0:
             raise ValueError(('c_pygme_models_knndaily.knndaily_run' +
@@ -81,6 +81,6 @@ class KNNDaily(Model):
 
         # Save resampled data
         _, noutputs, _, _ = self.get_dims('outputs')
-        self.outputs = self.knnvar_outputs[self.knn_idx, :noutputs]
+        self.outputs = self.knnvar_outputs[self.knn_ipos, :noutputs]
 
 

@@ -1,4 +1,4 @@
-import os
+import os, sys
 import re
 import unittest
 
@@ -6,7 +6,6 @@ from timeit import Timer
 import time
 
 import numpy as np
-
 from pygme.models.gr2m import GR2M, CalibrationGR2M
 from pygme import calibration
 from pygme.data import Matrix
