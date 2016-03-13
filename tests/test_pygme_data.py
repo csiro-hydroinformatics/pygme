@@ -369,6 +369,9 @@ class MatrixTestCases(unittest.TestCase):
         mat = Matrix.from_dims('data', nval, nvar, nlead, nens)
         mat.random()
 
+        count = 0
+        ok = 0
+
         for ivar, ilead, iens in product(range(mat.nvar),
                         range(mat.nlead), range(mat.nens)):
             mat.iens = iens
@@ -379,10 +382,29 @@ class MatrixTestCases(unittest.TestCase):
             err = np.abs(values - np.linspace(0, 1, nval))
             D = math.sqrt(nval) * np.max(err)
             ks = kolmogorov(D)
-            self.assertTrue(ks >= 1e-5)
+            count += 1
+            ok += (ks >= 5e-2)
+
+        self.assertTrue(ok >= count * 0.8)
 
 
-    def test_matrix_aggregateval(self):
+    def test_matrix_aggregate(self):
+        nval = 5
+        nvar = 6
+        nlead = 7
+        nens = 8
+        mat = Matrix.from_dims('data', nval, nvar, nlead, nens)
+        mat.random()
+
+        # Run aggregation
+        for naxis, axis in enumerate(['val', 'var', 'lead', 'ens']):
+            matagg = mat.aggregate(aggfunc=np.mean, axis=axis)
+            expected = np.apply_over_axes(np.mean, mat._data, naxis)
+            ck = np.allclose(matagg._data, expected)
+            self.assertTrue(ck)
+
+
+    def test_matrix_aggregate_val(self):
         nval = 1000
         nvar = 5
         nlead = 10
@@ -414,7 +436,8 @@ class MatrixTestCases(unittest.TestCase):
             ck = np.allclose(matagg.data, aggdata.values)
             self.assertTrue(ck)
 
-    def test_matrix_aggregatelead(self):
+
+    def test_matrix_aggregate_lead(self):
         nval = 100
         nvar = 5
         nlead = 180
@@ -435,15 +458,11 @@ class MatrixTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
         for ival, iens in product(range(nval), range(nens)):
-            data = pd.DataFrame(mat._data[ival, :, :, iens])
+            data = pd.DataFrame(mat._data[ival, :, :, iens]).T
             data['index'] = months
-            aggdata = data.groupby('index').apply(np.sum).drop('index', axis=1)
+            aggdata = data.groupby('index').apply(np.sum).drop('index', axis=1).T
             ck = np.allclose(matagg._data[ival, :, :, iens], aggdata.values)
             self.assertTrue(ck)
-
-
-        import pdb; pdb.set_trace()
-
 
 
 

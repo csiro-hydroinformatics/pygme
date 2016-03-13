@@ -515,7 +515,7 @@ class Matrix(object):
 
     @data.setter
     def data(self, value):
-        _value = np.ascontiguousarray(np.atleast_2d(value))
+        _value = np.atleast_2d(value)
 
         if _value.shape[0] == 1:
             _value = _value.T
@@ -634,26 +634,45 @@ class Matrix(object):
         return clone
 
 
-    def aggregate(self, aggindex, aggfunc=np.sum, axis='val'):
+    def aggregate(self, aggindex=None, aggfunc=np.sum, axis='val'):
 
+        if not axis in ['val', 'var', 'lead', 'ens']:
+            raise ValueError(('axis {0} not recognized.' +
+                ' Only val, var, lead and ens allowed').format(axis))
+
+        if aggindex is None:
+            nagg = getattr(self, 'n{0}'.format(axis))
+            aggindex = np.zeros(nagg)
 
         aggindex_unique = np.unique(aggindex)
 
+        nvalagg = self.nval
+        nvaragg = self.nvar
+        nleadagg = self.nlead
+        nensagg = self.nens
+        index = self.index
+
         if axis == 'val':
             ncheck = self.nval
-            nvalagg = len(aggindex_unique)
-            nleadagg = self.nlead
             index = aggindex_unique
+            nvalagg = len(aggindex_unique)
+            naxis = 0
+
+        elif axis == 'var':
+            ncheck = self.nvar
+            nvaragg = len(aggindex_unique)
+            naxis = 1
 
         elif axis == 'lead':
             ncheck = self.nlead
-            nvalagg = self.nval
             nleadagg = len(aggindex_unique)
-            index = self.index
+            naxis = 2
 
-        else:
-            raise ValueError(('axis {0} not recognized.' +
-                ' Only val and lead allowed').format(axis))
+        elif axis == 'ens':
+            ncheck = self.nens
+            nensagg = len(aggindex_unique)
+            naxis = 3
+
 
         if len(aggindex) != ncheck:
             raise ValueError(('Length of aggindex ({0}) is not ' +
@@ -661,24 +680,34 @@ class Matrix(object):
 
         # Create aggregate matrix
         aggmat = Matrix.from_dims('{0}_aggregate_{1}'.format(self.id, axis),
-                    nvalagg, self.nvar, nleadagg, self.nens, index, self.prefix)
+                    nvalagg, nvaragg, nleadagg, nensagg, index, self.prefix)
 
         # Populate aggregate matrix
-        for iens in range(self.nens):
-            panel = pd.Panel(self._data[:, :, :, self.iens])
+        for k, idx in enumerate(aggindex_unique):
+            kk = np.where(idx == aggindex)[0]
 
-            if axis == 'lead':
-                panel = panel.transpose(2, 0 , 1)
+            # Extract data to be aggregated
+            if axis == 'val':
+                data = self._data[kk, :, :, :]
+            if axis == 'var':
+                data = self._data[:, kk, :, :]
+            elif axis == 'lead':
+                data = self._data[:, :, kk, :]
+            elif axis == 'ens':
+                data = self._data[:, :, :, kk]
 
-            panel = panel.set_axis('items', aggindex)
-            import pdb; pdb.set_trace()
-            aggpanel = panel.groupby(lambda x: x, axis='items').apply(aggfunc)
-            import pdb; pdb.set_trace()
+            aggdata = np.apply_over_axes(aggfunc, data, [naxis])
+            aggdata = np.squeeze(aggdata)
 
-            if axis == 'lead':
-                aggpanel = aggpanel.transpose(1, 2, 0)
+            if axis == 'val':
+                aggmat._data[k, :, :, :] = aggdata
+            if axis == 'var':
+                aggmat._data[:, k, :, :] = aggdata
+            elif axis == 'lead':
+                aggmat._data[:, :, k, :] = aggdata
+            elif axis == 'ens':
+                aggmat._data[:, :, :, k] = aggdata
 
-            aggmat._data[:, :, :, iens] = aggpanel.values
 
         return aggmat
 
