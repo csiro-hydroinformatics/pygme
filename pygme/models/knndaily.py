@@ -5,7 +5,7 @@ import pandas as pd
 from hystat import sutils
 
 from pygme.model import Model
-from pygme.calibration import Calibration
+from pygme.forecastmodel import ForecastModel
 
 import c_pygme_models_knndaily
 

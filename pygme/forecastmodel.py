@@ -126,7 +126,10 @@ class ForecastModel(Model):
         self._forecast_model.params = value[:nparams_model]
 
 
-    def allocate(self, inputs, noutputs=1):
+    def allocate(self, inputs, noutputs=None):
+
+        if noutputs is None:
+            _, noutputs, _, _ = self._sim_model.get_dims('outputs')
 
         # Allocate self
         super(ForecastModel, self).allocate(inputs, noutputs)
@@ -261,9 +264,6 @@ class ForecastModel(Model):
         sim_index = self._sim_model._inputs.index
         idx_max = np.max(smod._inputs._index)
 
-        inp = smod.params[0] + smod.params[1] * smod._inputs.data[:, 0]
-        sinp = smod.states[0] + np.cumsum(inp)
-
         for (ifc, index_end) in enumerate(fc_index):
 
             # Check validity of index
@@ -294,7 +294,8 @@ class ForecastModel(Model):
             fmod.initialise(smod.states, smod.statesuh)
 
             # Run forecast for all lead times
-            fmod.inputs = self._inputs._data[ifc, :, 1:, iens_inputs].T
+            fmod._inputs.data = np.ascontiguousarray(self._inputs._data[ifc, :, 1:, iens_inputs].T)
+            import pdb; pdb.set_trace()
             fmod.run(seed)
 
             # Store outputs in forecast mode

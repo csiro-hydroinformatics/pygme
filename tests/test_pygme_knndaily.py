@@ -13,6 +13,7 @@ from matplotlib.gridspec import GridSpec
 
 from pygme.models.knndaily import KNNDaily
 from pygme import calibration
+from pygme.forecastmodel import ForecastModel
 from pygme.data import Matrix, set_seed
 
 import c_pygme_models_utils
@@ -91,6 +92,37 @@ class KNNDailyTestCases(unittest.TestCase):
         kn = KNNDaily(var, weights)
         str_kn = '%s' % kn
 
+    def test_knndaily_multivar(self):
+
+        nval = 3000
+        inputs = np.zeros((nval, 6))
+        inputs[:, 0] = np.random.uniform(0, 1., nval)
+
+        # Introduce ties
+        inputs[inputs[:, 0] > 0.6, :] = 0.
+
+        kn1 = KNNDaily(inputs[:, 0], inputs[:, 0])
+        kn1.config['randomize_ties'] = 0
+
+        kn2 = KNNDaily(inputs, inputs[:, 0])
+        kn2.config['randomize_ties'] = 0
+
+        nrand, nout = kn1.knnvar_outputs.shape
+        rand = np.random.uniform(0.3, 1, nrand)
+        kn1.allocate(rand, nout)
+        kn2.allocate(rand, nout)
+
+        states = [inputs[0, 0], kn1.config['date_ini']]
+        kn1.initialise(states)
+        kn1.run()
+
+        states = inputs[0, :].tolist() + [kn1.config['date_ini']]
+        kn2.initialise(states)
+        kn2.run()
+
+        ck = np.allclose(kn1.outputs, kn2.outputs)
+        self.assertTrue(ck)
+
 
     def test_knndaily_seasonality(self):
         halfwin = 10
@@ -139,13 +171,13 @@ class KNNDailyTestCases(unittest.TestCase):
     def test_knndaily_rainfall(self):
         ''' Test to check that KNNDaily can reproduce rainfall stats '''
 
+        return
+
         lf = [os.path.join(self.FHERE, 'data', f)
                 for f in os.listdir(os.path.join(self.FHERE, 'data'))
                     if f.startswith('KNNTEST')]
 
         nsample = 30
-        halfwin = 10
-        nb_nn = 5
         lag = 0
 
         for i in range(len(lf)):
@@ -153,7 +185,6 @@ class KNNDailyTestCases(unittest.TestCase):
             fts = os.path.join(self.FHERE, 'data', lf[i])
             data = pd.read_csv(fts, comment='#', index_col=0, parse_dates=True)
             data = pd.DataFrame(data.iloc[:, 0])
-
             dates = data.index
 
             # Build lag matrix
@@ -168,10 +199,6 @@ class KNNDailyTestCases(unittest.TestCase):
 
             # Configure KNNDaily
             kn = KNNDaily(knnvar_inputs = var_in, knnvar_outputs = var_out)
-
-            kn.config['halfwindow'] = halfwin
-            kn.config['nb_nn'] = nb_nn
-            kn.config['randomize_ties'] = 1
             kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
 
             nrand = var_in.shape[0]
@@ -240,6 +267,46 @@ class KNNDailyTestCases(unittest.TestCase):
 
             print(('\t\tTEST KNNDaily RAINFALL {0:02d} : ' +
                   'runtime = {1:0.5f}ms/10years').format(i+1, dta))
+
+
+    def test_knndaily_forecastrainfall(self):
+
+        lf = [os.path.join(self.FHERE, 'data', f)
+                for f in os.listdir(os.path.join(self.FHERE, 'data'))
+                    if f.startswith('KNNTEST')]
+
+        fts = os.path.join(self.FHERE, 'data', lf[0])
+        data = pd.read_csv(fts, comment='#', index_col=0, parse_dates=True)
+        dates = data.index
+
+        # Build input matrix
+        var_in = data.iloc[:, 0].values
+        var_out = var_in
+
+        # Configure simulation model
+        kn = KNNDaily(knnvar_inputs = var_in, knnvar_outputs = var_out)
+        kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
+
+        nrand = var_in.shape[0]
+        rand = np.random.uniform(0, 1, nrand)
+        kn.allocate(rand, kn.knnvar_outputs.shape[1])
+
+        # Configure forecast model to run monthly forecasts
+        fkn = ForecastModel(kn)
+
+        nens = 50
+        findex = np.where(dates.day == 1)[0]
+        finputs = Matrix.from_dims('finputs', nval = len(findex),
+                nvar = 1, nlead = 92, nens = nens, index=findex)
+        fkn.allocate(finputs)
+
+        # Run model
+        states = [var_in[0], kn.config['date_ini']]
+        fkn.initialise(states)
+        fkn.run()
+
+        import pdb; pdb.set_trace()
+
 
 
 if __name__ == '__main__':
