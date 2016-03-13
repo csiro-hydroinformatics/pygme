@@ -129,8 +129,8 @@ class ForecastModelTestCases(unittest.TestCase):
 
         # Check forecasts
         for k in range(fc_nval):
-            res, idx = fc.get_forecast(index[k])
-            err = np.abs(expected[idx, :] - res)
+            res = fc.get_forecast(index[k])
+            err = np.abs(expected[res.index, :] - res.data)
 
             ck = np.allclose(err, 0.)
             self.assertTrue(ck)
@@ -193,9 +193,9 @@ class ForecastModelTestCases(unittest.TestCase):
 
             # Check output
             for i in index:
-                res, idx = fc.get_forecast(i)
-                expected = qsim[idx]
-                ck = np.allclose(res.flat[:], expected)
+                res = fc.get_forecast(i)
+                expected = qsim[res.index]
+                ck = np.allclose(res.data, expected)
 
 
 

@@ -70,7 +70,7 @@ class KNNDaily(Model):
         # Run model
         ierr = c_pygme_models_knndaily.knndaily_run(istart, iend,
             self.config.data,
-            self.inputs,
+            self.inputs.copy(),
             self.knnvar_inputs,
             self.states,
             self.knn_ipos)

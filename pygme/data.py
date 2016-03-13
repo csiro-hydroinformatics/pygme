@@ -697,16 +697,15 @@ class Matrix(object):
                 data = self._data[:, :, :, kk]
 
             aggdata = np.apply_over_axes(aggfunc, data, [naxis])
-            aggdata = np.squeeze(aggdata)
 
             if axis == 'val':
-                aggmat._data[k, :, :, :] = aggdata
+                aggmat._data[k, :, :, :] = aggdata[0, :, :, :]
             if axis == 'var':
-                aggmat._data[:, k, :, :] = aggdata
+                aggmat._data[:, k, :, :] = aggdata[:, 0, :, :]
             elif axis == 'lead':
-                aggmat._data[:, :, k, :] = aggdata
+                aggmat._data[:, :, k, :] = aggdata[:, :, 0, :]
             elif axis == 'ens':
-                aggmat._data[:, :, :, k] = aggdata
+                aggmat._data[:, :, :, k] = aggdata[:, :, :, 0]
 
 
         return aggmat

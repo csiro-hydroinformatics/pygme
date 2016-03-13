@@ -265,7 +265,6 @@ class ForecastModel(Model):
         idx_max = np.max(smod._inputs._index)
 
         for (ifc, index_end) in enumerate(fc_index):
-
             # Check validity of index
             if index_end > idx_max:
                 raise ValueError(('With {0} model, forecast index index_end ({1}) '+
@@ -294,8 +293,8 @@ class ForecastModel(Model):
             fmod.initialise(smod.states, smod.statesuh)
 
             # Run forecast for all lead times
-            fmod._inputs.data = np.ascontiguousarray(self._inputs._data[ifc, :, 1:, iens_inputs].T)
-            import pdb; pdb.set_trace()
+            finputs = np.transpose(self._inputs._data[ifc, :, 1:, iens_inputs])
+            fmod.inputs = finputs
             fmod.run(seed)
 
             # Store outputs in forecast mode
@@ -310,23 +309,27 @@ class ForecastModel(Model):
     def get_forecast(self, index):
         ''' Extract forecast at index up to lead time = nlead. First value is the simulation mode '''
 
-        # Extract forecast data
-        kidx = np.where(self._outputs.index == index)[0][0]
-        iens = self.get_iens('outputs')
-        fc = self._outputs._data[kidx, :, :, iens].T
-
         # Forecast index
         # Use the index defined for the simulation model
         sim_index = self._sim_model._inputs.index
+        istart = np.where(sim_index == index)[0][0]
+
         nval = self._sim_model._inputs.nval
-        kidx = np.where(sim_index == index)[0][0]
-        kidx2 = min(nval, kidx+self._outputs.nlead)
-        idx = sim_index[range(kidx, kidx2)]
+        iend = min(nval, istart+self._outputs.nlead)
+
+        forc_data_index = sim_index[range(istart, iend)]
 
         # Fill up with nan if we reach the end of the index vector
-        idx = np.concatenate([idx,
-            [np.nan] * (len(fc) - len(idx))]).astype(np.int32)
-        # TODO define index lead for matrix
+        forc_data_index = np.concatenate([forc_data_index,
+            [np.nan] * (self._outputs.nlead - len(forc_data_index))]).astype(np.int32)
 
-        return fc, idx
+        # Extract forecast data
+        forc_index = self._outputs.index
+        iforc = np.where(forc_index == index)[0][0]
+        data = self._outputs._data[iforc, :, :, :].transpose((1, 0, 2))
+
+        forc_data = Matrix.from_data('{0}_forecasts'.format(self.sim_model.name),
+                data, index=forc_data_index)
+
+        return forc_data
 

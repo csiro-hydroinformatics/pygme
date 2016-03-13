@@ -23,7 +23,6 @@ from hyplot import putils
 
 set_seed(333)
 
-
 # Utility function to compute rainfall stats
 def rain_stats(x, plow, nmonths):
     xv = x.values
@@ -295,15 +294,20 @@ class KNNDailyTestCases(unittest.TestCase):
         fkn = ForecastModel(kn)
 
         nens = 50
-        findex = np.where(dates.day == 1)[0]
+        findex = np.where(dates.day == 1)[0][:10]
         finputs = Matrix.from_dims('finputs', nval = len(findex),
-                nvar = 1, nlead = 92, nens = nens, index=findex)
+                nvar = 1, nlead = 90, nens = nens, index=findex)
+        finputs.random()
         fkn.allocate(finputs)
 
         # Run model
         states = [var_in[0], kn.config['date_ini']]
         fkn.initialise(states)
         fkn.run()
+
+        months = np.sort(np.tile(range(3), 30))
+        monthly = fkn._outputs.aggregate(aggindex=months, aggfunc=np.sum, axis='lead')
+        monthly_med = monthly.aggregate(aggfunc=np.median, axis='ens')
 
         import pdb; pdb.set_trace()
 
