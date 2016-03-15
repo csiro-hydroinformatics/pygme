@@ -106,15 +106,12 @@ class MonthlyPattern(Model):
 class SinusPattern(Model):
 
     def __init__(self,
-            startdate,
-            lower=0.,
-            upper=100.,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
 
         Model.__init__(self, 'sinuspattern',
-            nconfig=2,
+            nconfig=4,
             ninputs=0,
             nparams=4,
             nstates=2,
@@ -123,17 +120,16 @@ class SinusPattern(Model):
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
-        self.config.names = ['is_cumulative', 'startdate']
-        self.config.default = [0., startdate]
+        self.config.names = ['is_cumulative', 'vmin', 'vmax', 'startdate']
+        self.config.default = [0., 0., 1e3, 20010101.]
         self.config.reset()
 
         self._params.names = ['lower', 'upper', 'phi', 'nu']
         self._params.default = [0., 1., 0., 0.]
-        self._params.min = [lower, lower, 0., -6.]
-        self._params.max = [upper, upper, 1., 6.]
+        self._params.min = [0., 0., 0., -6.]
+        self._params.max = [1., 1., 1., 6.]
 
         self.reset()
-
 
 
     def initialise(self, states=None, statesuh=None):

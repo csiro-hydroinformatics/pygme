@@ -68,8 +68,8 @@ def sinuspattern_run(int start, int end,
     cdef int ierr
 
     # check dimensions
-    if config.shape[0] < 1:
-        raise ValueError('config.shape[0] < 2')
+    if config.shape[0] < 3:
+        raise ValueError('config.shape[0] < 3')
 
     if states.shape[0] < 2:
         raise ValueError('states.shape[0] < 2')

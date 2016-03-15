@@ -131,17 +131,21 @@ class SinusPatternTestCases(unittest.TestCase):
         self.FHERE = os.path.dirname(os.path.abspath(__file__))
 
     def test_print(self):
-        sp = SinusPattern(20010101)
+        sp = SinusPattern()
         str_sp = '%s' % sp
 
     def test_sinuspattern_run(self):
 
-        params = [0, 2, 0., 1.5]
+        params = [0.1, 0.9, 0., 1.5]
+        vmin = -2.
+        vmax = 100.
 
-        sp = SinusPattern(20010101)
+        sp = SinusPattern()
 
         nval = 365
         sp.allocate(np.zeros((nval, 0)))
+        sp.config['vmin'] = vmin
+        sp.config['vmax'] = vmax
         sp.initialise()
         sp.params = params
         sp.run()
@@ -149,21 +153,29 @@ class SinusPatternTestCases(unittest.TestCase):
         x = (np.sin((np.arange(1, nval+1).astype(float)/365-params[2])*2*np.pi) + 1)/2
         nue = math.sinh(params[3])
         y = (np.exp(nue*x)-1)/(np.exp(nue) - 1)
-        y = params[0] + (params[1]-params[0]) * y
+
+        A = vmin + params[0] *(vmax-vmin)
+        B = A + params[1] *(vmax-A)
+        y = A + (B-A) * y
         ck = np.allclose(sp.outputs[:, 0], y)
         self.assertTrue(ck)
 
+
     def test_sinuspattern_runlong(self):
 
-        params = [0, 2, 0., 1.5]
+        params = [0.1, 0.9, 0., 1.5]
+        vmin = -2.
+        vmax = 100.
 
-        sp = SinusPattern(20010101)
+        sp = SinusPattern()
 
         nval = 1000
         dt = pd.date_range('2001-01-01', freq='D', periods=nval)
         doy = np.array([d.timetuple().tm_yday for d in dt])
 
         sp.allocate(np.zeros((nval, 0)))
+        sp.config['vmin'] = vmin
+        sp.config['vmax'] = vmax
         sp.initialise()
         sp.params = params
         sp.run()
@@ -171,7 +183,11 @@ class SinusPatternTestCases(unittest.TestCase):
         x = (np.sin((doy.astype(float)/365-params[2])*2*np.pi) + 1)/2
         nue = math.sinh(params[3])
         y = (np.exp(nue*x)-1)/(np.exp(nue) - 1)
-        y = params[0] + (params[1]-params[0]) * y
+
+        A = vmin + params[0] *(vmax-vmin)
+        B = A + params[1] *(vmax-A)
+        y = A + (B-A) * y
+
         ck = np.allclose(sp.outputs[:, 0], y)
         self.assertTrue(ck)
 
@@ -187,10 +203,10 @@ class SinusPatternTestCases(unittest.TestCase):
         obs = Matrix.from_data('obs', obss.values)
         inputs = Matrix.from_dims('inputs', obs.nval, 0)
 
-        qmax = np.nanmax(obs.data)
-        sp = SinusPattern(data[0, 0], upper=qmax)
+        sp = SinusPattern()
+        sp.config['startdate'] = data[0, 0]
+        sp.config['vmax'] = np.nanmax(obs.data)
         sp.allocate(inputs)
 
         cal = Calibration(sp, 4, errfun=sse_qreg50)
         final, out, outfun = cal.run(obs, inputs, ftol=1e-5)
-

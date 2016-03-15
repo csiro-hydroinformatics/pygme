@@ -26,6 +26,7 @@ int c_monthlypattern_run(int nval,
     double * outputs);
 
 int sinuspattern_runtimestep(int is_cumulative, 
+    double vmin, double vmax,
     int nparams, 
     int nstates,
     int noutputs,

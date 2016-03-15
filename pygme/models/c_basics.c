@@ -84,7 +84,10 @@ int c_monthlypattern_run(int nval,
 }
 
 
-int sinuspattern_runtimestep(int is_cumulative, int nparams, 
+int sinuspattern_runtimestep(int is_cumulative, 
+    double vmin,
+    double vmax,
+    int nparams, 
     int nstates,
     int noutputs,
     double * params,
@@ -113,17 +116,17 @@ int sinuspattern_runtimestep(int is_cumulative, int nparams,
         CS = 0;
 
     /* model parameters */
-    lower = params[0];
-    upper = params[1];
+    lower = vmin + (vmax-vmin) * params[0];
+    upper = lower + (vmax-lower) * params[1];
     phi = params[2];
-    nu = params[3];
+    nu = sinh(params[3]);
 
     /* Run sinus component */
     S = (sin((doy/365-phi)*2*UTILS_PI)+1)/2;
 
     /* Run shape component */
     if(abs(nu) > SINUSPATTERN_NUMIN)
-        S = (exp(S*sinh(nu))-1)/(exp(sinh(nu))-1);
+        S = (exp(S*nu)-1)/(exp(nu)-1);
 
     /* Run scaling component */
     S = lower+(upper-lower)*S;
@@ -164,10 +167,10 @@ int c_sinuspattern_run(int nval,
     double * outputs)
 {
     int ierr=0, i, is_cumulative;
-    double lower, upper, phi, nu;
+    double lower, upper, phi, nu, vmin, vmax;
 
     /* Check dimensions */
-    if(nconfig < 1)
+    if(nconfig < 3)
         return BASICS_ERROR + __LINE__;
 
     if(nparams < 4)
@@ -194,7 +197,8 @@ int c_sinuspattern_run(int nval,
     phi = params[2];
     nu = params[3];
 
-    upper = upper < lower ? lower : upper;
+    lower = lower < 0 ? 0 : lower > 1 ? 1 : lower;
+    upper = upper < 0 ? 0 : upper > 1 ? 1 : upper;
     phi = phi < 0. ? 0. : phi > 1. ? 1. : phi;
     nu = nu < -6. ? -6. : nu > 6. ? 6. : nu;
 
@@ -208,11 +212,15 @@ int c_sinuspattern_run(int nval,
     if(is_cumulative != 0 && is_cumulative != 1)
         return BASICS_ERROR + __LINE__;
 
+    vmin = config[1];
+    vmax = config[2];
+
     /* Run timeseries */
     for(i = start; i <= end; i++)
     {
         /* Run timestep model and update states */
-    	ierr = sinuspattern_runtimestep(is_cumulative, nparams,
+    	ierr = sinuspattern_runtimestep(is_cumulative, vmin, vmax, 
+                nparams,
                 nstates,
                 noutputs,
                 params,
