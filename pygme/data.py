@@ -478,6 +478,42 @@ class Matrix(object):
 
         return str
 
+    def __arithmetic_preprocess(self, other):
+        dim1 = (self.nval, self.nvar, self.nlead, self.nens)
+        dim2 = (other.nval, other.nvar, other.nlead, other.nens)
+
+        if dim1 != dim2:
+            raise ValueError(('Dimensions of matrix {0} ({1}) not' +
+                    ' equal to matrix {2} ({3})').format(self.id, dim1, other.id, dim2))
+
+        output = self.clone()
+        output._id = self.id + '+' + other.id
+        return output
+
+
+    def __add__(self, other):
+        output = self.__arithmetic_preprocess(other)
+        output._data = self._data + other._data
+        return output
+
+
+    def __sub__(self, other):
+        output = self.__arithmetic_preprocess(other)
+        output._data = self._data - other._data
+        return output
+
+
+    def __mul__(self, other):
+        output = self.__arithmetic_preprocess(other)
+        output._data = self._data * other._data
+        return output
+
+
+    def __div__(self, other):
+        output = self.__arithmetic_preprocess(other)
+        output._data = self._data / other._data
+        return output
+
 
     @property
     def nvar(self):

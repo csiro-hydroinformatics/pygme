@@ -465,6 +465,41 @@ class MatrixTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
 
+    def test_matrix_aggregate_arithmetic(self):
+        nval = 100
+        nvar = 5
+        nlead = 180
+        nens = 5
+        mat1 = Matrix.from_dims('data1', nval, nvar, nlead, nens)
+        mat1.random()
+
+        mat2 = Matrix.from_dims('data2', nval, nvar, nlead, nens)
+        mat2.random()
+
+        mat3 = mat1 + mat2
+        ck = np.allclose(mat3._data, mat1._data + mat2._data)
+        self.assertTrue(ck)
+
+        mat3 = mat1 - mat2
+        ck = np.allclose(mat3._data, mat1._data - mat2._data)
+        self.assertTrue(ck)
+
+        mat3 = mat1 * mat2
+        ck = np.allclose(mat3._data, mat1._data * mat2._data)
+        self.assertTrue(ck)
+
+        mat3 = mat1 / mat2
+        ck = np.allclose(mat3._data, mat1._data / mat2._data)
+        self.assertTrue(ck)
+
+
+        mat2 = Matrix.from_dims('data2', nval-1, nvar, nlead, nens)
+        try:
+            mat3 = mat1 + mat2
+        except ValueError, e:
+            pass
+        self.assertTrue(str(e).startswith('Dimensions of matrix'))
+
 
 if __name__ == '__main__':
     unittest.main()
