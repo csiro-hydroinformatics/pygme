@@ -123,7 +123,7 @@ int sinuspattern_runtimestep(int is_cumulative, int nparams,
 
     /* Run shape component */
     if(abs(nu) > SINUSPATTERN_NUMIN)
-        S = (exp(S*nu)-1)/(exp(nu)-1);
+        S = (exp(S*sinh(nu))-1)/(exp(sinh(nu))-1);
 
     /* Run scaling component */
     S = lower+(upper-lower)*S;
@@ -184,13 +184,19 @@ int c_sinuspattern_run(int nval,
 
     /* check model parameters */
     lower = params[0];
+    if(isnan(lower))
+        return BASICS_ERROR + __LINE__;
+
     upper = params[1];
+    if(isnan(upper))
+        return BASICS_ERROR + __LINE__;
+
     phi = params[2];
     nu = params[3];
 
     upper = upper < lower ? lower : upper;
-    phi = phi < 0 ? 0. : phi > 1 ? 1. : phi;
-    nu = nu < -10 ? -10. : nu > 10 ? 10. : nu;
+    phi = phi < 0. ? 0. : phi > 1. ? 1. : phi;
+    nu = nu < -6. ? -6. : nu > 6. ? 6. : nu;
 
     params[0] = lower;
     params[1] = upper;

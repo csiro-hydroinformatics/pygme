@@ -12,19 +12,19 @@ now = datetime.now
 
 def sse(obs, sim, errparams):
     err = obs-sim
-    return np.sum(err*err)
+    return np.nansum(err*err)
 
 
 def sseabs_bias(obs, sim, errparams):
     err = np.abs(obs-sim)
-    E = np.sum(err*err)
+    E = np.nansum(err*err)
     B = np.mean(obs-sim)
     return E*(1+abs(B))
 
 
 def ssqe_bias(obs, sim, errparams):
     err = np.sqrt(obs)-np.sqrt(sim)
-    E = np.sum(err*err)
+    E = np.nansum(err*err)
     B = np.mean(obs-sim)
     return E*(1+abs(B))
 
@@ -34,8 +34,25 @@ def sls_llikelihood(obs, sim, errparams):
     sigma = errparams[0]
     nval = len(obs)
 
-    ll = np.sum(err*err)/(2*sigma*sigma) + nval * math.log(sigma)
+    ll = np.nansum(err*err)/(2*sigma*sigma) + nval * math.log(sigma)
     return ll
+
+# Objective functions to perform quantile regression
+def sse_qreg(obs, sim, alpha):
+    idx = obs >= sim
+    qq1 = alpha * np.nansum(obs[idx]-sim[idx])
+    qq2 = (alpha-1) * np.nansum(obs[~idx]-sim[~idx])
+
+    return qq1+qq2
+
+def sse_qreg50(obs, sim, errparams):
+    return sse_qreg(obs, sim, 0.5)
+
+def sse_qreg10(obs, sim, errparams):
+    return sse_qreg(obs, sim, 0.1)
+
+def sse_qreg90(obs, sim, errparams):
+    return sse_qreg(obs, sim, 0.9)
 
 
 
@@ -73,7 +90,7 @@ class Calibration(object):
         self._calparams.means = np.zeros(ncalparams, dtype=np.float64)
         self._calparams.covar = np.eye(ncalparams, dtype=np.float64)
 
-        self.errfun = sse
+        self.errfun = errfun
 
         # Wrapper around optimizer to
         # send the current calibration object

@@ -106,12 +106,15 @@ class MonthlyPattern(Model):
 class SinusPattern(Model):
 
     def __init__(self,
+            startdate,
+            lower=0.,
+            upper=100.,
             nens_params=1,
             nens_states=1,
             nens_outputs=1):
 
         Model.__init__(self, 'sinuspattern',
-            nconfig=1,
+            nconfig=2,
             ninputs=0,
             nparams=4,
             nstates=2,
@@ -120,14 +123,14 @@ class SinusPattern(Model):
             nens_states=nens_states,
             nens_outputs=nens_outputs)
 
-        self.config.names = ['is_cumulative']
-        self.config.default = [0.]
+        self.config.names = ['is_cumulative', 'startdate']
+        self.config.default = [0., startdate]
         self.config.reset()
 
         self._params.names = ['lower', 'upper', 'phi', 'nu']
         self._params.default = [0., 1., 0., 0.]
-        self._params.min = [-np.inf, -np.inf, 0., -10.]
-        self._params.max = [np.inf, np.inf, 1., 10.]
+        self._params.min = [lower, lower, 0., -6.]
+        self._params.max = [upper, upper, 1., 6.]
 
         self.reset()
 
@@ -137,7 +140,7 @@ class SinusPattern(Model):
 
         # Set default initial states
         if states is None:
-            states = [20100101.]
+            states = [self.config['startdate'], 0.]
 
         super(SinusPattern, self).initialise(states, statesuh)
 
@@ -153,5 +156,4 @@ class SinusPattern(Model):
         if ierr > 0:
             raise ValueError(('c_pygme_models_basics.sinuspattern_run' +
                 ' returns {0}').format(ierr))
-
 

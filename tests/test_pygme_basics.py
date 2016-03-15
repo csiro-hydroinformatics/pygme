@@ -11,6 +11,11 @@ import pandas as pd
 from calendar import month_abbr as month
 
 from pygme.models.basics import MonthlyPattern, NodeModel, SinusPattern
+from pygme.data import Matrix
+from pygme.calibration import Calibration, sse_qreg50, sse_qreg90, sse_qreg10
+
+import matplotlib.pyplot as plt
+from hyplot import putils
 
 
 class MonthlyPatternTestCases(unittest.TestCase):
@@ -123,49 +128,69 @@ class SinusPatternTestCases(unittest.TestCase):
     def setUp(self):
         print('\t=> SinusPatternTestCase')
 
+        self.FHERE = os.path.dirname(os.path.abspath(__file__))
+
     def test_print(self):
-        sp = SinusPattern()
+        sp = SinusPattern(20010101)
         str_sp = '%s' % sp
 
     def test_sinuspattern_run(self):
 
-        params = [0, 2, 0., 3.5]
+        params = [0, 2, 0., 1.5]
 
-        sp = SinusPattern()
+        sp = SinusPattern(20010101)
 
         nval = 365
         sp.allocate(np.zeros((nval, 0)))
-        sp.initialise([20010101, 0.])
+        sp.initialise()
         sp.params = params
         sp.run()
 
         x = (np.sin((np.arange(1, nval+1).astype(float)/365-params[2])*2*np.pi) + 1)/2
-        nu = params[3]
-        y = (np.exp(nu*x)-1)/(np.exp(nu) - 1)
+        nue = math.sinh(params[3])
+        y = (np.exp(nue*x)-1)/(np.exp(nue) - 1)
         y = params[0] + (params[1]-params[0]) * y
         ck = np.allclose(sp.outputs[:, 0], y)
         self.assertTrue(ck)
 
     def test_sinuspattern_runlong(self):
 
-        params = [0, 2, 0., 3.5]
+        params = [0, 2, 0., 1.5]
 
-        sp = SinusPattern()
+        sp = SinusPattern(20010101)
 
         nval = 1000
         dt = pd.date_range('2001-01-01', freq='D', periods=nval)
         doy = np.array([d.timetuple().tm_yday for d in dt])
 
         sp.allocate(np.zeros((nval, 0)))
-        sp.initialise([dt[0].year*1e4 + dt[0].month*1e2 + dt[0].day, 0.])
+        sp.initialise()
         sp.params = params
         sp.run()
 
         x = (np.sin((doy.astype(float)/365-params[2])*2*np.pi) + 1)/2
-        nu = params[3]
-        y = (np.exp(nu*x)-1)/(np.exp(nu) - 1)
+        nue = math.sinh(params[3])
+        y = (np.exp(nue*x)-1)/(np.exp(nue) - 1)
         y = params[0] + (params[1]-params[0]) * y
         ck = np.allclose(sp.outputs[:, 0], y)
         self.assertTrue(ck)
 
+
+    def test_sinuspattern_calibrate(self):
+
+        i = 6
+        fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+                self.FHERE, i+1)
+        data = np.loadtxt(fts, delimiter=',')
+        obss = pd.Series(data[:, 3])
+        obss[obss<0] = np.nan
+        obs = Matrix.from_data('obs', obss.values)
+        inputs = Matrix.from_dims('inputs', obs.nval, 0)
+
+        qmax = np.nanmax(obs.data)
+        sp = SinusPattern(data[0, 0], upper=qmax)
+        sp.allocate(inputs)
+
+        cal = Calibration(sp, 4, errfun=sse_qreg50)
+        final, out, outfun = cal.run(obs, inputs, ftol=1e-5)
 
