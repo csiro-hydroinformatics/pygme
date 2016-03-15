@@ -10,7 +10,7 @@ import pandas as pd
 
 from calendar import month_abbr as month
 
-from pygme.models.basics import MonthlyPattern, NodeModel
+from pygme.models.basics import MonthlyPattern, NodeModel, SinusPattern
 
 
 class MonthlyPatternTestCases(unittest.TestCase):
@@ -59,7 +59,7 @@ class NodeModelTestCases(unittest.TestCase):
         nd = NodeModel(4, 2)
         str_nd = '%s' % nd
 
-    def test_nodemodel1(self):
+    def test_nodemodel_sum(self):
         ninputs = 4
         nd = NodeModel(ninputs)
 
@@ -73,7 +73,7 @@ class NodeModelTestCases(unittest.TestCase):
 
         self.assertTrue(ck)
 
-    def test_nodemodel2(self):
+    def test_nodemodel_split(self):
         ninputs = 4
         noutputs = 5
         nd = NodeModel(ninputs, noutputs)
@@ -97,7 +97,7 @@ class NodeModelTestCases(unittest.TestCase):
         ck = np.allclose(o, nd.outputs)
         self.assertTrue(ck)
 
-    def test_nodemodel3(self):
+    def test_nodemodel_clip(self):
         dm = NodeModel()
 
         dm.config['min'] = 1.
@@ -117,5 +117,55 @@ class NodeModelTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
 
+
+class SinusPatternTestCases(unittest.TestCase):
+
+    def setUp(self):
+        print('\t=> SinusPatternTestCase')
+
+    def test_print(self):
+        sp = SinusPattern()
+        str_sp = '%s' % sp
+
+    def test_sinuspattern_run(self):
+
+        params = [0, 2, 0., 3.5]
+
+        sp = SinusPattern()
+
+        nval = 365
+        sp.allocate(np.zeros((nval, 0)))
+        sp.initialise([20010101, 0.])
+        sp.params = params
+        sp.run()
+
+        x = (np.sin((np.arange(1, nval+1).astype(float)/365-params[2])*2*np.pi) + 1)/2
+        nu = params[3]
+        y = (np.exp(nu*x)-1)/(np.exp(nu) - 1)
+        y = params[0] + (params[1]-params[0]) * y
+        ck = np.allclose(sp.outputs[:, 0], y)
+        self.assertTrue(ck)
+
+    def test_sinuspattern_runlong(self):
+
+        params = [0, 2, 0., 3.5]
+
+        sp = SinusPattern()
+
+        nval = 1000
+        dt = pd.date_range('2001-01-01', freq='D', periods=nval)
+        doy = np.array([d.timetuple().tm_yday for d in dt])
+
+        sp.allocate(np.zeros((nval, 0)))
+        sp.initialise([dt[0].year*1e4 + dt[0].month*1e2 + dt[0].day, 0.])
+        sp.params = params
+        sp.run()
+
+        x = (np.sin((doy.astype(float)/365-params[2])*2*np.pi) + 1)/2
+        nu = params[3]
+        y = (np.exp(nu*x)-1)/(np.exp(nu) - 1)
+        y = params[0] + (params[1]-params[0]) * y
+        ck = np.allclose(sp.outputs[:, 0], y)
+        self.assertTrue(ck)
 
 

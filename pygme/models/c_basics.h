@@ -7,11 +7,7 @@
 
 #include "c_utils.h"
 
-/* Number of states returned by MONTHLYPATTERN run */
-#define MONTHLYPATTERN_NSTATES 1
-
-/* Number of outputs returned by MONTHLYPATTERN run */
-#define MONTHLYPATTERN_NOUTPUTS 1
+#define SINUSPATTERN_NUMIN 1e-30
 
 int monthlypattern_runtimestep(int nconfig, 
     int nstates,
@@ -29,3 +25,21 @@ int c_monthlypattern_run(int nval,
     double * statesini,
     double * outputs);
 
+int sinuspattern_runtimestep(int is_cumulative, 
+    int nparams, 
+    int nstates,
+    int noutputs,
+    double * params,
+    double * states,
+    double * outputs);
+
+int c_sinuspattern_run(int nval,
+    int nconfig, 
+    int nparams,
+    int nstates,
+    int noutputs,
+    int start, int end,
+    double * config,
+    double * params,
+    double * statesini,
+    double * outputs);

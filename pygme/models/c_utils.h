@@ -18,6 +18,8 @@
 #define KNNDAILY_ERROR 16000
 #define RIVERMODELS_ERROR 17000
 
+#define UTILS_PI 3.14159265358979323846264338327950288
+
 /* utility functions */
 double c_utils_minmax(double min,double max,double input);
 

@@ -103,3 +103,55 @@ class MonthlyPattern(Model):
                 ' returns {0}').format(ierr))
 
 
+class SinusPattern(Model):
+
+    def __init__(self,
+            nens_params=1,
+            nens_states=1,
+            nens_outputs=1):
+
+        Model.__init__(self, 'sinuspattern',
+            nconfig=1,
+            ninputs=0,
+            nparams=4,
+            nstates=2,
+            noutputs_max=1,
+            nens_params=nens_params,
+            nens_states=nens_states,
+            nens_outputs=nens_outputs)
+
+        self.config.names = ['is_cumulative']
+        self.config.default = [0.]
+        self.config.reset()
+
+        self._params.names = ['lower', 'upper', 'phi', 'nu']
+        self._params.default = [0., 1., 0., 0.]
+        self._params.min = [-np.inf, -np.inf, 0., -10.]
+        self._params.max = [np.inf, np.inf, 1., 10.]
+
+        self.reset()
+
+
+
+    def initialise(self, states=None, statesuh=None):
+
+        # Set default initial states
+        if states is None:
+            states = [20100101.]
+
+        super(SinusPattern, self).initialise(states, statesuh)
+
+
+    def runblock(self, istart, iend, seed=None):
+
+        ierr = c_pygme_models_basics.sinuspattern_run(istart, iend,
+            self.config.data,
+            self._params.data,
+            self._states.data,
+            self._outputs.data)
+
+        if ierr > 0:
+            raise ValueError(('c_pygme_models_basics.sinuspattern_run' +
+                ' returns {0}').format(ierr))
+
+
