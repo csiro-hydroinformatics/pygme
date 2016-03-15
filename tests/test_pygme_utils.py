@@ -62,6 +62,17 @@ class UtilsTestCases(unittest.TestCase):
             ck = np.allclose(dd, dd2)
             self.assertTrue(ck)
 
+    def test_accumulate(self):
 
+        nval = 365
+        a = np.ones(nval)
+        start = 20010101.
+        mstart = 3
+        b = a*0.
+        utils.accumulate(start, mstart, a, b)
+
+        expected = np.array(range(1, 60) + range(1, 307)).astype(float)
+        ck = np.allclose(b, expected)
+        self.assertTrue(ck)
 
 

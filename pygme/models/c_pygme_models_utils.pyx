@@ -13,6 +13,11 @@ cdef extern from 'c_utils.h':
 cdef extern from 'c_utils.h':
     int c_utils_add1day(int * date)
 
+cdef extern from 'c_utils.h':
+    int c_utils_accumulate(int nval, double start,
+            int year_monthstart,
+            double * inputs, double * outputs)
+
 cdef extern from 'c_uh.h':
     int c_uh_getnuhmaxlength()
 
@@ -67,4 +72,18 @@ def add1day(np.ndarray[int, ndim=1, mode='c'] date not None):
     return ierr
 
 
+def accumulate(double start, int year_monthstart,
+        np.ndarray[double, ndim=1, mode='c'] inputs not None,
+        np.ndarray[double, ndim=1, mode='c'] outputs not None):
 
+    cdef int ierr
+
+    if inputs.shape[0] != outputs.shape[0]:
+        raise ValueError('inputs.shape[0] != outputs.shape[0]')
+
+    ierr = c_utils_accumulate(inputs.shape[0], start,
+        year_monthstart,
+        <double*> np.PyArray_DATA(inputs),
+        <double*> np.PyArray_DATA(outputs))
+
+    return ierr

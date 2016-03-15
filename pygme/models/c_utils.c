@@ -112,3 +112,35 @@ int c_utils_getdate(double day, int * date)
 
     return 0;
 }
+
+int c_utils_accumulate(int nval, double start,
+        int year_monthstart,
+        double * inputs, double * outputs)
+{
+    int i, ierr, date[3];
+    double CS, I1, I2;
+
+    ierr = c_utils_getdate(start, date);
+    if(ierr < 0)
+        return UTILS_ERROR + __LINE__;
+
+    CS = 0;
+    I2 = 0;
+    for(i=0; i<nval; i++)
+    {
+        if(date[1] == year_monthstart && date[2] == 1)
+            CS = 0;
+
+        ierr = c_utils_add1day(date);
+
+        I1 = inputs[i];
+        if(!isnan(I1))
+            I2 = I1;
+
+        CS += I2;
+        outputs[i] = CS;
+    }
+
+    return 0;
+}
+

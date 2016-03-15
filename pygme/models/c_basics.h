@@ -9,7 +9,7 @@
 
 #define SINUSPATTERN_NUMIN 1e-30
 
-int monthlypattern_runtimestep(int nconfig, 
+int monthlypattern_runtimestep(int nconfig,
     int nstates,
     int noutputs,
     double * config,
@@ -25,9 +25,9 @@ int c_monthlypattern_run(int nval,
     double * statesini,
     double * outputs);
 
-int sinuspattern_runtimestep(int is_cumulative, 
-    double vmin, double vmax,
-    int nparams, 
+int sinuspattern_runtimestep(int is_cumulative,
+    int doy0, double vmin, double vmax,
+    int nparams,
     int nstates,
     int noutputs,
     double * params,
@@ -35,7 +35,7 @@ int sinuspattern_runtimestep(int is_cumulative,
     double * outputs);
 
 int c_sinuspattern_run(int nval,
-    int nconfig, 
+    int nconfig,
     int nparams,
     int nstates,
     int noutputs,

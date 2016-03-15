@@ -35,4 +35,8 @@ int c_utils_add1day(int * date);
 
 int c_utils_getdate(double day, int * date);
 
+int c_utils_accumulate(int nval, double start,
+        int year_monthstart,
+        double * inputs, double * outputs);
+
 #endif

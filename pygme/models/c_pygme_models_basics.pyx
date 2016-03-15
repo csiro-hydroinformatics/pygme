@@ -68,8 +68,8 @@ def sinuspattern_run(int start, int end,
     cdef int ierr
 
     # check dimensions
-    if config.shape[0] < 3:
-        raise ValueError('config.shape[0] < 3')
+    if config.shape[0] < 4:
+        raise ValueError('config.shape[0] < 4')
 
     if states.shape[0] < 2:
         raise ValueError('states.shape[0] < 2')
@@ -81,12 +81,12 @@ def sinuspattern_run(int start, int end,
     ierr = c_sinuspattern_run(outputs.shape[0],
             config.shape[0],
             params.shape[0],
-            states.shape[0], 
-            outputs.shape[1], 
+            states.shape[0],
+            outputs.shape[1],
             start, end,
-            <double*> np.PyArray_DATA(config), 
-            <double*> np.PyArray_DATA(params), 
-            <double*> np.PyArray_DATA(states), 
+            <double*> np.PyArray_DATA(config),
+            <double*> np.PyArray_DATA(params),
+            <double*> np.PyArray_DATA(states),
             <double*> np.PyArray_DATA(outputs))
 
     return ierr

@@ -1,6 +1,6 @@
 #include "c_basics.h"
 
-int monthlypattern_runtimestep(int nconfig, 
+int monthlypattern_runtimestep(int nconfig,
     int nstates,
     int noutputs,
     double * config,
@@ -8,7 +8,7 @@ int monthlypattern_runtimestep(int nconfig,
     double * outputs)
 {
     int ierr=0, nbday, date[3];
-    double day, Dmonth, D; 
+    double day, Dmonth, D;
 
     /* inputs  and states */
     day = states[0];
@@ -84,18 +84,19 @@ int c_monthlypattern_run(int nval,
 }
 
 
-int sinuspattern_runtimestep(int is_cumulative, 
+int sinuspattern_runtimestep(int is_cumulative,
+    int year_monthstart,
     double vmin,
     double vmax,
-    int nparams, 
+    int nparams,
     int nstates,
     int noutputs,
     double * params,
     double * states,
     double * outputs)
 {
-    int ierr=0, day, date[3];
-    double doy, lower, upper, S, CS, phi, nu; 
+    int ierr=0, day, doy, date[3];
+    double doyd, lower, upper, S, CS, phi, nu;
 
     /* inputs  and states */
     day = states[0];
@@ -107,12 +108,12 @@ int sinuspattern_runtimestep(int is_cumulative,
         return ierr;
 
     /* Get day of year */
-    doy = (double) c_utils_dayofyear(date[1], date[2]);
+    doy = c_utils_dayofyear(date[1], date[2]);
     if(doy < 0)
         return BASICS_ERROR + __LINE__;
 
     /* Reset cumulative */
-    if(doy < 2)
+    if(date[1] == year_monthstart && date[2] == 1)
         CS = 0;
 
     /* model parameters */
@@ -122,7 +123,8 @@ int sinuspattern_runtimestep(int is_cumulative,
     nu = sinh(params[3]);
 
     /* Run sinus component */
-    S = (sin((doy/365-phi)*2*UTILS_PI)+1)/2;
+    doyd = (double) doy;
+    S = (sin((doyd/365-phi)*2*UTILS_PI)+1)/2;
 
     /* Run shape component */
     if(abs(nu) > SINUSPATTERN_NUMIN)
@@ -166,11 +168,11 @@ int c_sinuspattern_run(int nval,
     double * statesini,
     double * outputs)
 {
-    int ierr=0, i, is_cumulative;
+    int ierr=0, i, is_cumulative, year_monthstart;
     double lower, upper, phi, nu, vmin, vmax;
 
     /* Check dimensions */
-    if(nconfig < 3)
+    if(nconfig < 4)
         return BASICS_ERROR + __LINE__;
 
     if(nparams < 4)
@@ -212,19 +214,24 @@ int c_sinuspattern_run(int nval,
     if(is_cumulative != 0 && is_cumulative != 1)
         return BASICS_ERROR + __LINE__;
 
-    vmin = config[1];
-    vmax = config[2];
+    year_monthstart = rint(config[1]);
+    if(year_monthstart < 1 || year_monthstart > 12)
+        return BASICS_ERROR + __LINE__;
+
+    vmin = config[2];
+    vmax = config[3];
 
     /* Run timeseries */
     for(i = start; i <= end; i++)
     {
         /* Run timestep model and update states */
-    	ierr = sinuspattern_runtimestep(is_cumulative, vmin, vmax, 
+    	ierr = sinuspattern_runtimestep(is_cumulative,
+                year_monthstart, vmin, vmax,
                 nparams,
                 nstates,
                 noutputs,
                 params,
-                statesini, 
+                statesini,
                 &(outputs[noutputs*i]));
 
 	if(ierr>0)
