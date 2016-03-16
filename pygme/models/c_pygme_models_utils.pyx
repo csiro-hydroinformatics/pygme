@@ -14,6 +14,9 @@ cdef extern from 'c_utils.h':
     int c_utils_add1day(int * date)
 
 cdef extern from 'c_utils.h':
+    int c_utils_add1month(int * date)
+
+cdef extern from 'c_utils.h':
     int c_utils_accumulate(int nval, double start,
             int year_monthstart,
             double * inputs, double * outputs)
@@ -68,6 +71,15 @@ def add1day(np.ndarray[int, ndim=1, mode='c'] date not None):
     cdef int ierr
 
     ierr = c_utils_add1day(<int*> np.PyArray_DATA(date))
+
+    return ierr
+
+
+def add1month(np.ndarray[int, ndim=1, mode='c'] date not None):
+
+    cdef int ierr
+
+    ierr = c_utils_add1month(<int*> np.PyArray_DATA(date))
 
     return ierr
 

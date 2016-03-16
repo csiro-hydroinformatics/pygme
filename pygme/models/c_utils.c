@@ -54,13 +54,41 @@ int c_utils_dayofyear(int month, int day)
 }
 
 
-int c_utils_add1day(int * date)
+int c_utils_add1month(int * date)
 {
     int nbday;
 
+    /* change month */
+    if(date[1] < 12)
+    {
+        date[1] += 1;
+    }
+    else
+    {
+        /* change year */
+        date[1] = 1;
+        date[0] += 1;
+    }
+
+    /* Check that day is not greater than
+     * number of days in month */
     nbday = c_utils_daysinmonth(date[0], date[1]);
     if(nbday < 0)
-        return 6000+__LINE__;
+        return UTILS_ERROR + __LINE__;
+
+    if(date[2] > nbday)
+        date[2] = nbday;
+
+   return 0;
+}
+
+int c_utils_add1day(int * date)
+{
+    int nbday;
+    nbday = c_utils_daysinmonth(date[0], date[1]);
+
+    if(nbday < 0)
+        return UTILS_ERROR + __LINE__;
 
     if(date[2] < nbday)
     {

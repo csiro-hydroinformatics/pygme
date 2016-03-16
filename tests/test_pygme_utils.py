@@ -47,7 +47,7 @@ class UtilsTestCases(unittest.TestCase):
 
 
     def test_add1day(self):
-        dt = pd.date_range('1800-01-01', '2200-12-31', freq='MS')
+        dt = pd.date_range('1800-01-01', '2200-12-31', freq='10D')
 
         for i, d in enumerate(dt):
 
@@ -61,6 +61,23 @@ class UtilsTestCases(unittest.TestCase):
 
             ck = np.allclose(dd, dd2)
             self.assertTrue(ck)
+
+    def test_add1month(self):
+        dt = pd.date_range('1800-01-01', '2200-12-31', freq='10D')
+
+        for i, d in enumerate(dt):
+
+            dn = d + delta(months=1)
+            dd = np.array([dn.year, dn.month, dn.day])
+
+            dd2 = np.array([d.year, d.month, d.day]).astype(np.int32)
+            utils.add1month(dd2)
+
+            ck = np.allclose(dd, dd2)
+            if not ck:
+                import pdb; pdb.set_trace()
+            self.assertTrue(ck)
+
 
     def test_accumulate(self):
 
