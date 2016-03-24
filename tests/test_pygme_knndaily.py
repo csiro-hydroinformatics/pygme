@@ -294,9 +294,10 @@ class KNNDailyTestCases(unittest.TestCase):
         fkn = ForecastModel(kn)
 
         nens = 50
+        nlead = 70
         findex = np.where(dates.day == 1)[0][:10]
         finputs = Matrix.from_dims('finputs', nval = len(findex),
-                nvar = 1, nlead = 90, nens = nens, index=findex)
+                nvar = 1, nlead = nlead, nens = nens, index=findex)
         finputs.random()
         fkn.allocate(finputs)
 
@@ -305,10 +306,29 @@ class KNNDailyTestCases(unittest.TestCase):
         fkn.initialise(states)
         fkn.run()
 
-        months = np.sort(np.tile(range(3), 30))
-        monthly = fkn._outputs.aggregate(aggindex=months, aggfunc=np.sum, axis='lead')
-        monthly_med = monthly.aggregate(aggfunc=np.median, axis='ens')
+        # Aggregate forecast by period of 7 days up to 10 weeks
+        aggindex = np.sort(np.tile(range(10), 7))[:nlead]
+        sim = fkn._outputs.aggregate(aggindex=aggindex, aggfunc=np.sum, axis='lead')
+        med = sim.aggregate(aggfunc=np.median, axis='ens')
 
+        # Create obs matrix
+        tmp = pd.DataFrame({'lead{0:02d}'.format(i):
+            data['rainfall_mmd'].shift(-i) for i in range(1, finputs.nlead+1)})
+        df = {}
+        for a in np.unique(aggindex):
+            df['lead{0}'.format(a)] = tmp.iloc[:, aggindex == a].sum(axis=1)
+        df = pd.DataFrame(df).iloc[findex, :]
+        mdf = df.mean()
+
+        obs = Matrix.from_dims('obs', len(findex), 1, med.nlead, index=findex)
+        for ilead in range(obs.nlead):
+            obs.ilead = ilead
+            obs.data = df['lead{0}'.format(ilead)].values
+
+        # Compute forecast error
+        err = med - obs
+        err = err * err
+        merr = err.aggregate(aggfunc=np.mean, axis='val')
         import pdb; pdb.set_trace()
 
 
