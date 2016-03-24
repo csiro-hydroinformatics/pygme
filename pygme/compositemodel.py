@@ -296,7 +296,7 @@ class CompositeModel(Model):
 
     def run(self, seed=None):
 
-        start, end = self.startend
+        start, end = self.get_ipos_startend()
         kk = np.arange(start, end + 1)
 
         _, nvar, _, _ = self.get_dims('outputs')
