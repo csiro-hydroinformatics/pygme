@@ -97,7 +97,7 @@ setup(
         ext_basics
     ],
     test_suite='nose.collector',
-    tests_require=['nose'],
+    tests_require=['nose', 'hydrodiy'],
     classifiers=[
         'Operating System :: OS Independent',
         'Intended Audience :: Developers',

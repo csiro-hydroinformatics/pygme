@@ -2,8 +2,6 @@
 import numpy as np
 import pandas as pd
 
-from hystat import sutils
-
 from pygme.model import Model
 from pygme.forecastmodel import ForecastModel
 

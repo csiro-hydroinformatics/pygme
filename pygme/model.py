@@ -3,9 +3,9 @@ import copy
 import random
 import numpy as np
 
-import c_hymod_models_utils
+import c_pygme_models_utils
 
-NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
+NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 from pygme.data import Vector, Matrix
 

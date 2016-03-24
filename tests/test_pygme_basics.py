@@ -16,9 +16,6 @@ from pygme.calibration import Calibration, sse_qreg50, sse_qreg90, sse_qreg10
 
 import c_pygme_models_utils as utils
 
-import matplotlib.pyplot as plt
-from hyplot import putils
-
 
 class MonthlyPatternTestCases(unittest.TestCase):
 
