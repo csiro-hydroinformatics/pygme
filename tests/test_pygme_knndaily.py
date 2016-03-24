@@ -18,8 +18,8 @@ from pygme.data import Matrix, set_seed
 
 import c_pygme_models_utils
 
-from hystat.linreg import Linreg
-from hyplot import putils
+from hydrodiy.stat.linreg import Linreg
+from hydrodiy.plot import putils
 
 set_seed(333)
 

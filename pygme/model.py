@@ -3,9 +3,9 @@ import copy
 import random
 import numpy as np
 
-import c_hymod_models_utils
+import c_pygme_models_utils
 
-NUHMAXLENGTH = c_hymod_models_utils.uh_getnuhmaxlength()
+NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 from pygme.data import Vector, Matrix
 
@@ -453,7 +453,7 @@ class Model(object):
         setattr(self, item, obj.default)
 
 
-    def random(self, item='params', distribution='normal', seed=3):
+    def random(self, item='params', *args, **kwargs):
         ''' Function to randomise model items '''
         obj = getattr(self, '_{0}'.format(item))
 
@@ -461,7 +461,7 @@ class Model(object):
             raise ValueError(('With model {0}, Model does not have object {1}').format( \
                                 self.name, item))
 
-        obj.random(distribution, seed)
+        obj.random(*args, **kwargs)
 
 
     def run(self, seed=None):
