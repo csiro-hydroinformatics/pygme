@@ -62,7 +62,7 @@ class Calibration(object):
             ncalparams,
             warmup=0,
             nens_params = 1,
-            errfun=None,
+            errfun=sse,
             minimize=True,
             optimizer=fmin_powell,
             initialise_model=True,
@@ -382,7 +382,7 @@ class Calibration(object):
 
         # Get random samples from parameter
         calparams_explore = self._calparams.clone(nsamples)
-        calparams_explore.random()
+        calparams_explore.random(distribution=distribution)
 
         # Setup objective function
         ofun_explore = np.zeros(nsamples) * np.nan
