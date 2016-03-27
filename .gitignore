@@ -5,8 +5,7 @@
 .coverage
 build
 pygme.egg-info
-c_pygme_models_gr2m.c
-c_pygme_models_gr4j.c
+c_pygme_models_grmodels.c
 c_pygme_models_lagroute.c
 c_pygme_models_utils.c
 c_pygme_models_knndaily.c
