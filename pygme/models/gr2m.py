@@ -6,7 +6,7 @@ import pandas as pd
 from pygme.model import Model
 from pygme.calibration import Calibration
 
-import c_pygme_models_gr2m
+import c_pygme_models_grmodels
 import c_pygme_models_utils
 
 
@@ -61,14 +61,14 @@ class GR2M(Model):
 
     def runblock(self, istart, iend, seed=None):
 
-        ierr = c_pygme_models_gr2m.gr2m_run(istart, iend,
+        ierr = c_pygme_models_grmodels.gr2m_run(istart, iend,
             self._params.data, \
             self._inputs.data, \
             self._states.data, \
             self._outputs.data)
 
         if ierr > 0:
-            raise ValueError(('Model gr2m, c_pygme_models_gr2m.gr2m_run' + \
+            raise ValueError(('Model gr2m, c_pygme_models_grmodels.gr2m_run' + \
                     'returns {0}').format(ierr))
 
 

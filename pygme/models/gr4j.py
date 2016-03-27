@@ -5,7 +5,7 @@ import pandas as pd
 from pygme.model import Model
 from pygme.calibration import Calibration
 
-import c_pygme_models_gr4j
+import c_pygme_models_grmodels
 import c_pygme_models_utils
 
 # Dimensions
@@ -87,7 +87,7 @@ class GR4J(Model):
 
     def runblock(self, istart, iend, seed=None):
 
-        ierr = c_pygme_models_gr4j.gr4j_run(self._nuh1,
+        ierr = c_pygme_models_grmodels.gr4j_run(self._nuh1,
             self._nuh2, istart, iend,
             self._params.data,
             self._uh.data,
@@ -98,7 +98,7 @@ class GR4J(Model):
             self._outputs.data)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_gr4j.gr4j_run' +
+            raise ValueError(('c_pygme_models_grmodels.gr4j_run' +
                 ' returns {0}').format(ierr))
 
 

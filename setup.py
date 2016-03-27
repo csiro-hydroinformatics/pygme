@@ -24,20 +24,13 @@ ext_utils=Extension(name='c_pygme_models_utils',
     ],
     include_dirs=[numpy.get_include()])
 
-ext_gr4j=Extension(name='c_pygme_models_gr4j',
+ext_grmodels=Extension(name='c_pygme_models_grmodels',
     sources=[
-        'pygme/models/c_pygme_models_gr4j.pyx',
+        'pygme/models/c_pygme_models_grmodels.pyx',
         'pygme/models/c_utils.c',
         'pygme/models/c_uh.c',
+        'pygme/models/c_gr2m.c',
         'pygme/models/c_gr4j.c'
-    ],
-    include_dirs=[numpy.get_include()])
-
-ext_gr2m=Extension(name='c_pygme_models_gr2m',
-    sources=[
-        'pygme/models/c_pygme_models_gr2m.pyx',
-        'pygme/models/c_utils.c',
-        'pygme/models/c_gr2m.c'
     ],
     include_dirs=[numpy.get_include()])
 
@@ -90,8 +83,7 @@ setup(
     cmdclass=cmdclass,
     ext_modules=[
         ext_utils,
-        ext_gr4j,
-        ext_gr2m,
+        ext_grmodels,
         ext_lagroute,
         ext_knn,
         ext_basics
