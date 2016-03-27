@@ -9,50 +9,115 @@ from pygme.data import Vector, Matrix
 
 now = datetime.now
 
+class ErrorFunction(object):
 
-def sse(obs, sim, errparams):
-    err = obs-sim
-    return np.nansum(err*err)
+    def __init__(self,
+            name,
+            nerrparams=0,
+            nconstants=0):
+
+        self.name = name
+        self.errparams = Vector('errparams', nerrparams)
+        self.constants = Vector('constants', nconstants)
+
+    def __str__(self):
+        str = 'Objective function {0}\n'.format(self.name)
+        str += '  nerrparams : {0}\n'.format(self.errparams.nval)
+        str += '  nconstant  : {0}\n'.format(self.constants.nval)
+
+        return str
 
 
-def sseabs_bias(obs, sim, errparams):
-    err = np.abs(obs-sim)
-    E = np.nansum(err*err)
-    B = np.mean(obs-sim)
-    return E*(1+abs(B))
+    def run(self, obs, sim):
+        raise ValueError('Need to override this function')
 
 
-def ssqe_bias(obs, sim, errparams):
-    err = np.sqrt(obs)-np.sqrt(sim)
-    E = np.nansum(err*err)
-    B = np.mean(obs-sim)
-    return E*(1+abs(B))
+class SseBias(ErrorFunction):
+
+    def __init__(self):
+        ErrorFunction.__init__(self, 'ssebias',
+            nerrparams=0,
+            nconstants=3)
+
+        self.constants.names = ['varexp', 'errexp', 'biasfactor']
+        self.constants.data = [1., 2., 0.]
+        self.constants.min = [0., 0., 0.]
+
+    def run(self, obs, sim):
+
+        # Transform variables
+        varexp = self.constants['varexp']
+        if np.allclose(varexp, 1.):
+            vo = obs
+            vs = sim
+        elif np.allclose(varexp, 0.5):
+            vo = np.sqrt(1.+obs)
+            vs = np.sqrt(1.+sim)
+        elif np.allclose(varexp, 0.):
+            vo = np.log(1.+obs)
+            vs = np.log(1.+sim)
+        else:
+            vo = (1.+obs)**varexp
+            vs = (1.+sim)**varexp
+
+        # Transform error
+        err = np.abs(vo-vs)
+        errexp = self.constants['errexp']
+        if np.allclose(errexp, 1.):
+            objfun = np.nanmean(err)
+        else:
+            objfun = np.nanmean(err**errexp)
+
+        # Bias constraint
+        biasfactor = self.constants['biasfactor']
+        if not np.allclose(biasfactor, 0.):
+            bias = np.mean(obs-sim)/(1+abs(np.mean(obs)))
+            objfun = objfun*(1+biasfactor*bias*bias)
+
+        return objfun
 
 
-def sls_llikelihood(obs, sim, errparams):
-    err = obs-sim
-    sigma = errparams[0]
-    nval = len(obs)
+class SlsLikelihood(ErrorFunction):
 
-    ll = np.nansum(err*err)/(2*sigma*sigma) + nval * math.log(sigma)
-    return ll
+    def __init__(self):
+        ErrorFunction.__init__(self, 'slslikelihood',
+            nerrparams=1,
+            nconstants=0)
 
-# Objective functions to perform quantile regression
-def sse_qreg(obs, sim, alpha):
-    idx = obs >= sim
-    qq1 = alpha * np.nansum(obs[idx]-sim[idx])
-    qq2 = (alpha-1) * np.nansum(obs[~idx]-sim[~idx])
+        self.errparams.names = ['logsigma']
+        self.errparams.min = [0.]
 
-    return qq1+qq2
+    def run(self, obs, sim):
+        err = obs-sim
+        logsigma = self.errparams['logsigma']
+        sigma = np.exp(logsigma)
+        nval = len(obs)
 
-def sse_qreg50(obs, sim, errparams):
-    return sse_qreg(obs, sim, 0.5)
+        ll = np.nansum(err*err)/(2*sigma*sigma) + nval * logsigma
 
-def sse_qreg10(obs, sim, errparams):
-    return sse_qreg(obs, sim, 0.1)
+        return ll
 
-def sse_qreg90(obs, sim, errparams):
-    return sse_qreg(obs, sim, 0.9)
+
+class QuantileRegression(ErrorFunction):
+
+    def __init__(self):
+        ErrorFunction.__init__(self, 'quantileregression',
+            nerrparams=0,
+            nconstants=1)
+
+        self.constants.name = ['quantile']
+        self.constants.data = [0.5]
+        self.constants.min = [0.]
+        self.constants.max = [1.]
+
+    def run(obs, sim):
+
+        alpha = self.constants['quantile']
+        idx = obs >= sim
+        qq1 = alpha * np.nansum(obs[idx]-sim[idx])
+        qq2 = (alpha-1) * np.nansum(obs[~idx]-sim[~idx])
+
+        return qq1+qq2
 
 
 
@@ -62,7 +127,7 @@ class Calibration(object):
             ncalparams,
             warmup=0,
             nens_params = 1,
-            errfun=sse,
+            errfun=None,
             minimize=True,
             optimizer=fmin_powell,
             initialise_model=True,
@@ -90,7 +155,9 @@ class Calibration(object):
         self._calparams.means = np.zeros(ncalparams, dtype=np.float64)
         self._calparams.covar = np.eye(ncalparams, dtype=np.float64)
 
-        self.errfun = errfun
+        # Objective function
+        if errfun is None:
+            self.errfun = SseBias()
 
         # Wrapper around optimizer to
         # send the current calibration object
@@ -105,6 +172,7 @@ class Calibration(object):
     def __str__(self):
         str = ('Calibration instance ' +
                 'for model {0}\n').format(self._model.name)
+        str += '  errfun     : {0}\n'.format(self.errfun.name)
         str += '  status     : {0}\n'.format(self._status)
         str += '  warmup     : {0}\n'.format(self._warmup)
         str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
@@ -202,7 +270,7 @@ class Calibration(object):
 
             # Get error model parameters if they exist
             # example standard deviation of normal gaussian error model
-            errparams = self.cal2err(calparams)
+            self.errfun.errparams = self.cal2err(calparams)
 
             # Locate indexes in the calibration period
             index = self._obsdata.index
@@ -218,8 +286,8 @@ class Calibration(object):
             model.index_end = self._index_cal[-1]
 
             # Compute objectif function
-            ofun = self._errfun(self.obsdata[kk, :], \
-                    self._model.outputs[kk, :], errparams)
+            ofun = self._errfun.run(self.obsdata[kk, :], \
+                        self._model.outputs[kk, :])
 
             if not self._minimize:
                 ofun *= -1

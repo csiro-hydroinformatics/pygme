@@ -4,12 +4,14 @@ import unittest
 
 from timeit import Timer
 import time
+import math
 
 import numpy as np
 
 from pygme import data
 from pygme.data import Matrix
 from pygme.calibration import Calibration, CrossValidation
+from pygme.calibration import SseBias, QuantileRegression, SlsLikelihood
 
 from dummy import Dummy, CalibrationDummy
 
@@ -24,6 +26,53 @@ def get_startend(xv, is_cal=True, is_leave=True):
     return [[per['ipos_{0}_start{1}'.format(label1, label2)],
                 per['ipos_{0}_end{1}'.format(label1, label2)]]
                     for per in xv._calperiods]
+
+
+
+class ErrFunctionTestCases(unittest.TestCase):
+
+    def setUp(self):
+        print('\t=> ErrFunctionTestCase')
+        self.obs = np.random.uniform(-1, 1, size=1000)
+        self.sim = np.random.uniform(-1, 1, size=1000)
+
+    def test_ssebias(self):
+        of = SseBias()
+        value = of.run(self.obs, self.sim)
+        expected = np.mean((self.obs-self.sim)**2)
+        self.assertTrue(np.allclose(value, expected))
+
+        of.constants['errexp'] = 1.
+        value = of.run(self.obs, self.sim)
+        expected = np.mean(np.abs(self.obs-self.sim))
+        self.assertTrue(np.allclose(value, expected))
+
+        of.constants['varexp'] = 0.5
+        value = of.run(self.obs, self.sim)
+        expected = np.nanmean(np.abs(np.sqrt(1+self.obs)-np.sqrt(1+self.sim)))
+        self.assertTrue(np.allclose(value, expected))
+
+        of.constants['biasfactor'] = 0.1
+        value = of.run(self.obs, self.sim)
+        expected = np.nanmean(np.abs(np.sqrt(1+self.obs)-np.sqrt(1+self.sim)))
+        bias = np.mean(self.obs-self.sim)/(1+abs(np.mean(self.obs)))
+        expected *= 1+0.1*bias*bias
+        self.assertTrue(np.allclose(value, expected))
+
+
+    def test_slslikelihood(self):
+        sls = SlsLikelihood()
+
+        sigma = 5.
+        sls.errparams['logsigma'] = np.log(sigma)
+        value = sls.run(self.obs, self.sim)
+
+        err = self.obs-self.sim
+        nval = len(self.obs)
+        expected = np.nansum(err*err)/(2*sigma*sigma) + nval * math.log(sigma)
+        self.assertTrue(np.allclose(value, expected))
+
+
 
 
 class CalibrationTestCases(unittest.TestCase):
@@ -196,7 +245,6 @@ class CrossValidationTestCases(unittest.TestCase):
         xv.set_periods(scheme='split', nperiods=3)
 
         ck = get_startend(xv, True, False) == [[100, 999]] * 3
-        import pdb; pdb.set_trace()
         self.assertTrue(ck)
 
         ck = get_startend(xv, True, True) == [[100, 399], [400, 699], [700, 999]]
