@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from calendar import month_abbr as month
 
 from pygme.compositemodel import CompositeModel, CompositeNetwork, CompositeNode
-from pygme.models.basics import NodeModel
+from pygme.models.node import NodeModel
 
 
 def get_model(nin, nout, nval=100):

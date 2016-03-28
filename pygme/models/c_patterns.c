@@ -1,4 +1,4 @@
-#include "c_basics.h"
+#include "c_patterns.h"
 
 int monthlypattern_runtimestep(int nconfig,
     int nstates,

@@ -99,3 +99,4 @@ def accumulate(double start, int year_monthstart,
         <double*> np.PyArray_DATA(outputs))
 
     return ierr
+

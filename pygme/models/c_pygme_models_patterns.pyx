@@ -5,7 +5,7 @@ np.import_array()
 
 # -- HEADERS --
 
-cdef extern from 'c_basics.h':
+cdef extern from 'c_patterns.h':
     int c_monthlypattern_run(int nval,
         int nconfig,
         int nstates,
@@ -16,7 +16,7 @@ cdef extern from 'c_basics.h':
         double * outputs)
 
 
-cdef extern from 'c_basics.h':
+cdef extern from 'c_patterns.h':
     int c_sinuspattern_run(int nval,
         int nconfig,
         int nparams,

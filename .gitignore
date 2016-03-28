@@ -10,7 +10,7 @@ c_pygme_models_lagroute.c
 c_pygme_models_utils.c
 c_pygme_models_knndaily.c
 c_pygme_models_rivermodel.c
-c_pygme_models_basics.c
+c_pygme_models_patterns.c
 nosetests.xml
 tests/matrix.hdf5
 tests/vector.json
