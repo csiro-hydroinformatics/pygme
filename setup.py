@@ -52,11 +52,11 @@ ext_knn=Extension(name='c_pygme_models_knndaily',
     include_dirs=[numpy.get_include()])
 
 
-ext_basics=Extension(name='c_pygme_models_basics',
+ext_patterns=Extension(name='c_pygme_models_patterns',
     sources=[
-        'pygme/models/c_pygme_models_basics.pyx',
+        'pygme/models/c_pygme_models_patterns.pyx',
         'pygme/models/c_utils.c',
-        'pygme/models/c_basics.c',
+        'pygme/models/c_patterns.c',
     ],
     include_dirs=[numpy.get_include()])
 
@@ -86,7 +86,7 @@ setup(
         ext_grmodels,
         ext_lagroute,
         ext_knn,
-        ext_basics
+        ext_patterns
     ],
     test_suite='nose.collector',
     tests_require=['nose', 'hydrodiy'],

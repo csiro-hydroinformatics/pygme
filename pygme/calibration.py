@@ -121,7 +121,7 @@ class ErrorFunctionSls(ErrorFunction):
 
     def run(self, obs, sim):
         err = obs-sim
-        logsigma = self._errparams['logsigma']
+        logsigma = self._errparams.data[0]
         sigma = np.exp(logsigma)
         nval = len(obs)
 
@@ -142,9 +142,9 @@ class ErrorFunctionQuantileReg(ErrorFunction):
         self._constants.min = [0.]
         self._constants.max = [1.]
 
-    def run(obs, sim):
+    def run(self, obs, sim):
 
-        alpha = self._constants['quantile']
+        alpha = self._constants.data[0]
         idx = obs >= sim
         qq1 = alpha * np.nansum(obs[idx]-sim[idx])
         qq2 = (alpha-1) * np.nansum(obs[~idx]-sim[~idx])
@@ -183,6 +183,8 @@ class Calibration(object):
         # Objective function
         if errfun is None:
             self._errfun = ErrorFunctionSseBias()
+        else:
+            self._errfun = errfun
 
         # Create vector of calibrated parameters
         # Can be smaller than model parameters and
@@ -658,23 +660,27 @@ class CrossValidation(object):
         self._mask = mask
 
 
-    def get_period_indexes(self, iperiod, is_cal=True):
+    def get_period_indexes(self, iperiod, type='cal'):
+
         if iperiod >= len(self._calperiods):
-            raise ValueError(('iperiod ({0}) is greater than the' +
+            raise ValueError(('iperiod ({0}) is greater or equal to the' +
                 ' number of periods ({1})').format(iperiod, len(self._calperiods)))
+
+        if not type in ['cal', 'val']:
+            raise ValueError(('type {0} is not valid. ' +
+                'Only cal or val'.format(type)))
 
         per = self._calperiods[iperiod]
 
         # Get total period
-        label = ['val', 'cal'][int(is_cal)]
-        ipos = np.arange(per['ipos_{0}_start'.format(label)],
-                    per['ipos_{0}_end'.format(label)]+1)
+        i1, i2 = per['ipos_{0}'.format(type)]
+        ipos = np.arange(i1, i2+1)
 
         # Remove leave out if any
-        item = 'ipos_{0}_startleaveout'.format(label)
+        item = 'ipos_{0}_leaveout'.format(type)
         if not per[item] is None:
-            ipos_leave = np.arange(per[item],
-                    per['ipos_{0}_endleaveout'.format(label)]+1)
+            i1, i2 = per[item]
+            ipos_leave = np.arange(i1, i2+1)
             ipos = ipos[~np.in1d(ipos, ipos_leave)]
 
         # Extract matrix index
@@ -720,49 +726,40 @@ class CrossValidation(object):
             for i in range(nperiods):
 
                 if scheme == 'split':
-                    ipos_cal_start = warmup + i*lengthper
-                    ipos_cal_end = ipos_cal_start + lengthper - 1
+                    i0 = warmup + i*lengthper
+                    ipos_cal = [i0, i0 + lengthper - 1]
 
                     # Break loop when reaching the end of the period
-                    if ipos_cal_end >= nval:
+                    if ipos_cal[1] >= nval:
                         break
 
                     # No leave out here
-                    ipos_cal_startleaveout = None
-                    ipos_cal_endleaveout = None
+                    ipos_cal_leaveout = None
 
                     # Validation on the entire period with cal period left out
-                    ipos_val_start = warmup
-                    ipos_val_end = nval-1
-                    ipos_val_startleaveout = ipos_cal_start
-                    ipos_val_endleaveout = ipos_cal_end
+                    ipos_val = [warmup, nval-1]
+                    ipos_val_leaveout = ipos_cal
 
                 else:
                     # Calibration on the entire period
-                    ipos_cal_start = warmup
-                    ipos_cal_end = nval-1
-                    ipos_cal_startleaveout = i*lengthper + warmup
-                    ipos_cal_endleaveout = ipos_cal_startleaveout + lengthper - 1
+                    ipos_cal = [warmup, nval-1]
 
-                    ipos_val_start = ipos_cal_startleaveout
-                    ipos_val_end = ipos_cal_startleaveout + lengthleaveout - 1
-                    ipos_val_startleaveout = None
-                    ipos_val_endleaveout = None
+                    i0 = i*lengthper + warmup
+                    ipos_cal_leaveout = [i0, i0 + lengthper - 1]
 
-                    if ipos_val_end >= nval:
+                    ipos_val = [i0, i0 + lengthleaveout - 1]
+                    ipos_val_leaveout = None
+
+                    if ipos_val[1] >= nval:
                         break
 
                 per = {
                     'scheme':scheme,
                     'id':'CALPER{0}'.format(i+1),
-                    'ipos_cal_start': ipos_cal_start,
-                    'ipos_cal_end': ipos_cal_end,
-                    'ipos_cal_startleaveout': ipos_cal_startleaveout,
-                    'ipos_cal_endleaveout': ipos_cal_endleaveout,
-                    'ipos_val_start': ipos_val_start,
-                    'ipos_val_end': ipos_val_end,
-                    'ipos_val_startleaveout': ipos_val_startleaveout,
-                    'ipos_val_endleaveout': ipos_val_endleaveout,
+                    'ipos_cal': ipos_cal,
+                    'ipos_cal_leaveout': ipos_cal_leaveout,
+                    'ipos_val': ipos_val,
+                    'ipos_val_leaveout': ipos_val_leaveout,
                     'warmup':warmup,
                     'log':{},
                     'completed':False
@@ -790,16 +787,14 @@ class CrossValidation(object):
             per = self._calperiods[i]
             per['log'][now()] = 'Calibration of subperiod {0} started'.format(i)
 
-            i1 = per['ipos_cal_start']
-            i2 = per['ipos_cal_end']
-            self.calib.index_cal = index[np.arange(i1, i2)]
+            i1, i2 = per['ipos_cal']
+            self.calib.index_cal = index[np.arange(i1, i2+1)]
 
             # Set leave out period
-            if len(per['index_cal_leaveout'])>0:
+            if not per['ipos_cal_leaveout'] is None:
                 self.calib._obsdata = self._obsdata.clone()
-                i1 = per['ipos_cal_startleaveout']
-                i2 = per['ipos_cal_endleaveout']
-                self.calib.obsdata[np.arange(i1, i2)] = np.nan
+                i1, i2 = per['ipos_cal_leaveout']
+                self.calib.obsdata[np.arange(i1, i2+1)] = np.nan
 
             # Define starting point
             if self._explore:

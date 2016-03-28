@@ -18,16 +18,6 @@ from dummy import Dummy, CalibrationDummy
 data.set_seed(100)
 
 
-def get_startend(xv, is_cal=True, is_leave=True):
-
-    label1= ['val', 'cal'][int(is_cal)]
-    label2= ['', 'leaveout'][int(is_leave)]
-
-    return [[per['ipos_{0}_start{1}'.format(label1, label2)],
-                per['ipos_{0}_end{1}'.format(label1, label2)]]
-                    for per in xv._calperiods]
-
-
 
 class ErrFunctionTestCases(unittest.TestCase):
 
@@ -153,13 +143,21 @@ class CalibrationTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(calib.model.params, params))
 
 
+
+def get_startend(xv, is_cal=True, is_leave=True):
+
+    label1= ['val', 'cal'][int(is_cal)]
+    label2= ['', 'leaveout'][int(is_leave)]
+
+    return [per[re.sub('_$', '', 'ipos_{0}_{1}'.format(label1, label2))]
+                    for per in xv._calperiods]
+
+
 class CrossValidationTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> CrossValidationTestCase')
 
-    def test_xv1(self):
-
         dum = Dummy()
         nval = 1000
         warmup = 100
@@ -172,93 +170,83 @@ class CrossValidationTestCases(unittest.TestCase):
         calib = CalibrationDummy(warmup=warmup)
         calib.setup(obs, inputs)
 
-        xv = CrossValidation(calib=calib)
+        self.xv = CrossValidation(calib=calib)
+
+
+    def test_xv_splitperiods(self):
 
         # Set split scheme - 2 periods
-        xv.set_periods(scheme='split', nperiods=2)
+        self.xv.set_periods(scheme='split', nperiods=2)
 
-        ck = get_startend(xv, is_cal=True, is_leave=False) == [[100, 549],
+        ck = get_startend(self.xv, is_cal=True, is_leave=False) == [[100, 549],
                                     [550, 999]]
         self.assertTrue(ck)
 
-        ck = get_startend(xv, is_cal=False, is_leave=True) == [[100, 549],
+        ck = get_startend(self.xv, is_cal=False, is_leave=True) == [[100, 549],
                                     [550, 999]]
         self.assertTrue(ck)
 
         # Set split scheme - 3 periods
-        xv.set_periods(scheme='split', nperiods=3)
+        self.xv.set_periods(scheme='split', nperiods=3)
 
-        ck = get_startend(xv, True, False) == [[100, 399], [400, 699], [700, 999]]
+        ck = get_startend(self.xv, True, False) == [[100, 399], [400, 699], [700, 999]]
         self.assertTrue(ck)
 
-        idx, _ = xv.get_period_indexes(0)
+        idx, _ = self.xv.get_period_indexes(0)
         ck = np.allclose(idx, np.arange(100, 400))
         self.assertTrue(ck)
 
-        ck = get_startend(xv, False, True) == [[100, 399], [400, 699], [700, 999]]
+        ck = get_startend(self.xv, False, True) == [[100, 399], [400, 699], [700, 999]]
         self.assertTrue(ck)
 
 
-    def test_xv2(self):
-
-        dum = Dummy()
-        nval = 1000
-        warmup = 100
-        inputs = Matrix.from_data('inputs',
-                np.random.uniform(0, 1, (nval, 2)))
-        dum.allocate(inputs, 2)
-        dum.initialise()
-
-        obs = inputs.clone()
-        calib = CalibrationDummy(warmup=warmup)
-        calib.setup(obs, inputs)
-
-        xv = CrossValidation(calib=calib)
+    def test_xv_leaveoutperiods(self):
 
         # Set leaveout scheme - 2 periods
-        xv.set_periods(scheme='leaveout', nperiods=2, lengthleaveout=100)
+        self.xv.set_periods(scheme='leaveout', nperiods=2, lengthleaveout=100)
 
-        ck = get_startend(xv, True, False) == [[100, 999]] * 2
+        ck = get_startend(self.xv, True, False) == [[100, 999]] * 2
         self.assertTrue(ck)
 
-        ck = get_startend(xv, True, True) == [[100, 549], [550, 999]]
+        ck = get_startend(self.xv, True, True) == [[100, 549], [550, 999]]
         self.assertTrue(ck)
 
-        idx, _ = xv.get_period_indexes(0, is_cal=True)
-        expected = np.arange(550, nval)
-        ck = np.allclose(idx, expected)
+        ck = get_startend(self.xv, False, True) == [None] * 2
         self.assertTrue(ck)
 
-        ck = get_startend(xv, False, True) == [[None] * 2] * 2
+        ck = get_startend(self.xv, False, False) == [[100, 199], [550, 649]]
         self.assertTrue(ck)
 
-        ck = get_startend(xv, False, False) == [[100, 199], [550, 649]]
+        # Set leaveout scheme - 3 periods
+        self.xv.set_periods(scheme='leaveout', nperiods=3)
+
+        ck = get_startend(self.xv, True, False) == [[100, 999]] * 3
         self.assertTrue(ck)
 
-        idx, _ = xv.get_period_indexes(0, is_cal=False)
+        ck = get_startend(self.xv, True, True) == [[100, 399], [400, 699], [700, 999]]
+        self.assertTrue(ck)
+
+
+    def test_xv_getperiod(self):
+
+        self.xv.set_periods(scheme='split', nperiods=2)
+        idx, _ = self.xv.get_period_indexes(0, 'val')
         expected = np.arange(100, 200)
         ck = np.allclose(idx, expected)
         self.assertTrue(ck)
 
-
-        # Set leaveout scheme - 3 periods
-        xv.set_periods(scheme='split', nperiods=3)
-
-        ck = get_startend(xv, True, False) == [[100, 999]] * 3
+        xv.set_periods(scheme='leaveout', nperiods=2, lengthleaveout=100)
+        idx, _ = xv.get_period_indexes(0, 'cal')
+        expected = np.arange(550, nval)
+        ck = np.allclose(idx, expected)
         self.assertTrue(ck)
 
-        ck = get_startend(xv, True, True) == [[100, 399], [400, 699], [700, 999]]
-        self.assertTrue(ck)
-
-        idx, _ = xv.get_period_indexes(1, is_cal=True)
+        idx, _ = xv.get_period_indexes(1, 'cal')
         expected = np.arange(0, nval)
         kk = np.arange(100, 400)
         expected = expected[~np.in1d(expected, kk)]
         ck = np.allclose(idx, expected)
         self.assertTrue(ck)
-
-        xv.set_periods(scheme='split', nperiods=3)
-        ck = get_startend(xv) == [[100, 399], [400, 699], [700, 999]]
 
 
 
