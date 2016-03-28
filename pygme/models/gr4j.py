@@ -111,8 +111,10 @@ class CalibrationGR4J(Calibration):
         Calibration.__init__(self,
             model = gr,
             warmup = 365,
-            ncalparams = 4,
             timeit = timeit)
+
+        # Calibration on sse square root with bias constraint
+        self._errfun.constants = [0.5, 2., 1.]
 
         self._calparams.means =  [5.8, -0.78, 3.39, 0.86]
 

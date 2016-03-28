@@ -10,8 +10,8 @@ import numpy as np
 
 from pygme import data
 from pygme.data import Matrix
-from pygme.calibration import Calibration, CrossValidation
-from pygme.calibration import SseBias, QuantileRegression, SlsLikelihood
+from pygme.calibration import Calibration, CrossValidation, powertrans
+from pygme.calibration import ErrorFunctionSseBias, ErrorFunctionQuantileReg, ErrorFunctionSls
 
 from dummy import Dummy, CalibrationDummy
 
@@ -37,34 +37,34 @@ class ErrFunctionTestCases(unittest.TestCase):
         self.sim = np.random.uniform(-1, 1, size=1000)
 
     def test_ssebias(self):
-        of = SseBias()
+        of = ErrorFunctionSseBias()
         value = of.run(self.obs, self.sim)
         expected = np.mean((self.obs-self.sim)**2)
         self.assertTrue(np.allclose(value, expected))
 
-        of.constants['errexp'] = 1.
+        of.constants = [1., 1., 0.]
         value = of.run(self.obs, self.sim)
         expected = np.mean(np.abs(self.obs-self.sim))
         self.assertTrue(np.allclose(value, expected))
 
-        of.constants['varexp'] = 0.5
+        of.constants = [0.5, 1., 0.]
         value = of.run(self.obs, self.sim)
-        expected = np.nanmean(np.abs(np.sqrt(1+self.obs)-np.sqrt(1+self.sim)))
+        expected = np.nanmean(np.abs(powertrans(self.obs, 0.5)-powertrans(self.sim, 0.5)))
         self.assertTrue(np.allclose(value, expected))
 
-        of.constants['biasfactor'] = 0.1
+        of.constants = [0.5, 1., 0.1]
         value = of.run(self.obs, self.sim)
-        expected = np.nanmean(np.abs(np.sqrt(1+self.obs)-np.sqrt(1+self.sim)))
+        expected = np.nanmean(np.abs(powertrans(self.obs, 0.5)-powertrans(self.sim, 0.5)))
         bias = np.mean(self.obs-self.sim)/(1+abs(np.mean(self.obs)))
         expected *= 1+0.1*bias*bias
         self.assertTrue(np.allclose(value, expected))
 
 
     def test_slslikelihood(self):
-        sls = SlsLikelihood()
+        sls = ErrorFunctionSls()
 
         sigma = 5.
-        sls.errparams['logsigma'] = np.log(sigma)
+        sls.errparams = np.log(sigma)
         value = sls.run(self.obs, self.sim)
 
         err = self.obs-self.sim

@@ -86,7 +86,6 @@ class GR2MTestCases(unittest.TestCase):
 
         # Calibration object
         calib = CalibrationGR2M()
-        calib.errfun = calibration.ssqe_bias
 
         # Sample parameters
         nsamples = 50
@@ -102,16 +101,25 @@ class GR2MTestCases(unittest.TestCase):
             expected = gr.params.copy()
             gr.initialise()
             gr.run()
-            obs = Matrix.from_data('obs', gr.outputs[:,0].copy())
+
+            # Produce theoretical observation
+            # with error corruption
+            err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-2
+            obs = Matrix.from_data('obs', gr.outputs[:,0].copy()+err)
 
             # Calibrate
             calib.setup(obs, inputs)
 
             ini, explo, explo_ofun = calib.explore()
-            final, _, _ = calib.fit(ini, iprint=0)
+            _, _, ofun = calib.fit(ini, iprint=0)
+            final = calib.model.params
 
-            err = np.abs(gr.params-expected)
-            ck = np.max(err) < 1e-5
+            err = np.abs(final-expected)/np.abs(expected)
+            ck = np.max(err) < 1e-3
+
+            if i%5 == 0:
+                print('\t\tsample {0:02d} : max err = {1:3.3e} ofun = {2}'.format(i,
+                            np.max(err), ofun))
 
             self.assertTrue(ck)
 

@@ -145,7 +145,6 @@ class GR4JTestCases(unittest.TestCase):
         warmup = 365*6
 
         calib = CalibrationGR4J()
-        calib.errfun = calibration.ssqe_bias
 
 
         fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
@@ -178,7 +177,7 @@ class GR4JTestCases(unittest.TestCase):
             ieval2 = calib.ieval - ieval1
 
             err = np.abs(calib.model.params - params_expected)
-            ck = np.max(err) < 1e-8
+            ck = np.max(err) < 1e-7
 
             print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}' +
                     ' neval= {2} + {3}').format( \

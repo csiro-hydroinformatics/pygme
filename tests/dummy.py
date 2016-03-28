@@ -99,9 +99,9 @@ class CalibrationDummy(Calibration):
         model = Dummy()
 
         Calibration.__init__(self,
+            nparams=2,
             warmup=warmup,
-            model = model, \
-            ncalparams = 2, \
+            model = model,
             timeit = True)
 
         self._calparams.means =  [1, 0]

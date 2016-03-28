@@ -82,12 +82,13 @@ class CalibrationGR2M(Calibration):
         Calibration.__init__(self,
             model = gr,
             warmup = 12,
-            ncalparams = 2,
             timeit = timeit)
+
+        # Calibration on sse square root with bias constraint
+        self._errfun.constants = [0.5, 2., 1.]
 
         self._calparams.means =  [5.9, -0.28]
         self._calparams.covar = [[0.52, 0.015], [0.015, 0.067]]
-
 
     def cal2true(self, calparams):
         return np.exp(calparams)

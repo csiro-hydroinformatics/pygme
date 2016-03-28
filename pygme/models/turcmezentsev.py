@@ -60,14 +60,10 @@ class CalibrationTurcMezentsev(Calibration):
 
         Calibration.__init__(self,
             model = tm, \
-            ncalparams = 1, \
             timeit = timeit)
 
         self._calparams.means =  [2.3]
         self._calparams.stdevs = [1.]
 
-
-    def cal2true(self, calparams):
-        return calparams
 
 

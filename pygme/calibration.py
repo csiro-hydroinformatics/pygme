@@ -17,59 +17,91 @@ class ErrorFunction(object):
             nconstants=0):
 
         self.name = name
-        self.errparams = Vector('errparams', nerrparams)
-        self.constants = Vector('constants', nconstants)
+        self._errparams = Vector('errparams', nerrparams)
+        self._constants = Vector('constants', nconstants)
 
     def __str__(self):
         str = 'Objective function {0}\n'.format(self.name)
-        str += '  nerrparams : {0}\n'.format(self.errparams.nval)
-        str += '  nconstant  : {0}\n'.format(self.constants.nval)
+        str += '  nerrparams : {0}\n'.format(self.nerrparams)
+        str += '  nconstant  : {0}\n'.format(self.nconstants)
 
         return str
+
+    @property
+    def nerrparams(self):
+        return self._errparams.nval
+
+    @property
+    def errparams(self):
+        return self._errparams.data
+
+    @errparams.setter
+    def errparams(self, value):
+        self._errparams.data = value
+
+
+    @property
+    def nconstants(self):
+        return self._constants.nval
+
+    @property
+    def constants(self):
+        return self._constants.data
+
+    @constants.setter
+    def constants(self, value):
+        self._constants.data = value
 
 
     def run(self, obs, sim):
         raise ValueError('Need to override this function')
 
 
-class SseBias(ErrorFunction):
+def powertrans(x, alpha):
+    if np.allclose(alpha, 1.):
+        return x
+    elif np.allclose(alpha, -1.):
+        return 1./x
+    else:
+        xa = np.abs(x)
+        xs = np.sign(x)
+
+        if np.allclose(alpha, 0.5):
+            return np.sqrt(xa) * xs
+        elif np.allclose(alpha, -0.5):
+            return xs/np.sqrt(xa)
+        else:
+            return xa**alpha * xs
+
+
+class ErrorFunctionSseBias(ErrorFunction):
 
     def __init__(self):
         ErrorFunction.__init__(self, 'ssebias',
             nerrparams=0,
             nconstants=3)
 
-        self.constants.names = ['varexp', 'errexp', 'biasfactor']
-        self.constants.data = [1., 2., 0.]
-        self.constants.min = [0., 0., 0.]
+        self._constants.names = ['varexp', 'errexp', 'biasfactor']
+        self._constants.data = [1., 2., 0.]
+        self._constants.min = [0., 0., 0.]
 
     def run(self, obs, sim):
 
         # Transform variables
-        varexp = self.constants['varexp']
-        if np.allclose(varexp, 1.):
-            vo = obs
-            vs = sim
-        elif np.allclose(varexp, 0.5):
-            vo = np.sqrt(1.+obs)
-            vs = np.sqrt(1.+sim)
-        elif np.allclose(varexp, 0.):
-            vo = np.log(1.+obs)
-            vs = np.log(1.+sim)
-        else:
-            vo = (1.+obs)**varexp
-            vs = (1.+sim)**varexp
+        varexp = self._constants['varexp']
+        vo = powertrans(obs, varexp)
+        vs = powertrans(sim, varexp)
 
         # Transform error
         err = np.abs(vo-vs)
-        errexp = self.constants['errexp']
+        errexp = self._constants['errexp']
         if np.allclose(errexp, 1.):
             objfun = np.nanmean(err)
         else:
             objfun = np.nanmean(err**errexp)
 
         # Bias constraint
-        biasfactor = self.constants['biasfactor']
+        biasfactor = self._constants['biasfactor']
         if not np.allclose(biasfactor, 0.):
             bias = np.mean(obs-sim)/(1+abs(np.mean(obs)))
             objfun = objfun*(1+biasfactor*bias*bias)
@@ -77,19 +109,19 @@ class SseBias(ErrorFunction):
         return objfun
 
 
-class SlsLikelihood(ErrorFunction):
+class ErrorFunctionSls(ErrorFunction):
 
     def __init__(self):
         ErrorFunction.__init__(self, 'slslikelihood',
             nerrparams=1,
             nconstants=0)
 
-        self.errparams.names = ['logsigma']
-        self.errparams.min = [0.]
+        self._errparams.names = ['logsigma']
+        self._errparams.min = [0.]
 
     def run(self, obs, sim):
         err = obs-sim
-        logsigma = self.errparams['logsigma']
+        logsigma = self._errparams['logsigma']
         sigma = np.exp(logsigma)
         nval = len(obs)
 
@@ -98,21 +130,21 @@ class SlsLikelihood(ErrorFunction):
         return ll
 
 
-class QuantileRegression(ErrorFunction):
+class ErrorFunctionQuantileReg(ErrorFunction):
 
     def __init__(self):
         ErrorFunction.__init__(self, 'quantileregression',
             nerrparams=0,
             nconstants=1)
 
-        self.constants.name = ['quantile']
-        self.constants.data = [0.5]
-        self.constants.min = [0.]
-        self.constants.max = [1.]
+        self._constants.name = ['quantile']
+        self._constants.data = [0.5]
+        self._constants.min = [0.]
+        self._constants.max = [1.]
 
     def run(obs, sim):
 
-        alpha = self.constants['quantile']
+        alpha = self._constants['quantile']
         idx = obs >= sim
         qq1 = alpha * np.nansum(obs[idx]-sim[idx])
         qq2 = (alpha-1) * np.nansum(obs[~idx]-sim[~idx])
@@ -124,7 +156,7 @@ class QuantileRegression(ErrorFunction):
 class Calibration(object):
 
     def __init__(self, model,
-            ncalparams,
+            nparams=None,
             warmup=0,
             nens_params = 1,
             errfun=None,
@@ -148,16 +180,24 @@ class Calibration(object):
         self._obsdata = None
         self._index_cal = None
 
+        # Objective function
+        if errfun is None:
+            self._errfun = ErrorFunctionSseBias()
+
         # Create vector of calibrated parameters
-        # (can be different from model parameters)
+        # Can be smaller than model parameters and
+        # includes error model parameters
+        if nparams is None:
+            nparams, _ = model.get_dims('params')
+
+        ncalparams = nparams + self.errfun.nerrparams
+        self._nparams = nparams
         self._calparams = Vector('calparams', ncalparams, nens_params)
+        self._calparams.names = ['X{0}'.format(i) for i in range(nparams)] \
+                        + ['XE{0}'.format(i) for i in range(self._errfun.nerrparams)]
         self._calparams.default = np.zeros(ncalparams, dtype=np.float64)
         self._calparams.means = np.zeros(ncalparams, dtype=np.float64)
         self._calparams.covar = np.eye(ncalparams, dtype=np.float64)
-
-        # Objective function
-        if errfun is None:
-            self.errfun = SseBias()
 
         # Wrapper around optimizer to
         # send the current calibration object
@@ -237,73 +277,6 @@ class Calibration(object):
     def errfun(self):
         return self._errfun
 
-    @errfun.setter
-    def errfun(self, value):
-        self._errfun = value
-
-        def objfun(calparams):
-
-            model = self._model
-
-            if self._timeit:
-                t0 = time.time()
-
-            # Set model parameters
-            params = self.cal2true(calparams)
-            model.params = params
-
-            # Exit objectif function if parameters hit bounds
-            if model._params.hitbounds and self._status:
-                return np.inf
-
-            # Run model initialisation if needed
-            if self._initialise_model:
-                model.initialise()
-
-            # run model
-            model.run()
-            self._ieval += 1
-
-            if self._timeit:
-                t1 = time.time()
-                self._runtime = (t1-t0)*1000
-
-            # Get error model parameters if they exist
-            # example standard deviation of normal gaussian error model
-            self.errfun.errparams = self.cal2err(calparams)
-
-            # Locate indexes in the calibration period
-            index = self._obsdata.index
-            kk = np.in1d(index, self._index_cal)
-
-            # Set start/end of model
-            istart = self._index_cal[0] - self.warmup
-            if istart < 0:
-                raise ValueError('Tried to set model start index before '
-                    'the first index')
-            istart = np.where(index == istart)[0]
-            model.index_start = index[istart]
-            model.index_end = self._index_cal[-1]
-
-            # Compute objectif function
-            ofun = self._errfun.run(self.obsdata[kk, :], \
-                        self._model.outputs[kk, :])
-
-            if not self._minimize:
-                ofun *= -1
-
-            # Print output if needed
-            if self._iprint>0:
-                if self._ieval % self._iprint == 0:
-                    self._calparams.data = calparams
-                    print('{4} {0:3d} : {1:3.3e} {2} ~ {3:.3f} ms'.format( \
-                        self._ieval, ofun, self._calparams.data, \
-                        self._runtime, self._status))
-
-            return ofun
-
-        self._objfun = objfun
-
 
     @property
     def index_cal(self):
@@ -344,6 +317,73 @@ class Calibration(object):
                     istart, self.warmup))
 
         self._index_cal = _index_cal
+
+
+    def _objfun(self, calparams):
+
+        model = self._model
+
+        # Set model parameters
+        calparams = np.atleast_1d(calparams)
+        params = self.cal2true(calparams[:self._nparams])
+        model.params = params
+
+        # Exit objectif function if parameters hit bounds
+        if model._params.hitbounds and self._status:
+            return np.inf
+
+        # Set error model parameters
+        # (example standard deviation of normal gaussian error model)
+        if self._errfun.nerrparams > 0:
+            self.errfun.errparams = calparams[self._nparams:]
+
+        # Set start/end of model
+        istart = self._index_cal[0] - self.warmup
+        if istart < 0:
+            raise ValueError('Tried to set model start index before '
+                'the first index')
+
+        index = self._obsdata.index
+        istart = np.where(index == istart)[0]
+        model.index_start = index[istart]
+        model.index_end = self._index_cal[-1]
+
+        # Initialise model if needed
+        if self._initialise_model:
+            model.initialise()
+
+        # Run model with runtime assessment
+        if self._timeit:
+            t0 = time.time()
+
+        model.run()
+        self._ieval += 1
+
+        if self._timeit:
+            t1 = time.time()
+            self._runtime = (t1-t0)*1000
+
+        # Locate indexes in the calibration period
+        kk = np.in1d(index, self._index_cal)
+
+        # Compute objectif function during calibration period
+        ofun = self._errfun.run(self.obsdata[kk, :], \
+                    self._model.outputs[kk, :])
+
+        if not self._minimize:
+            ofun *= -1
+
+        # Store data
+        self._calparams.data = calparams
+
+        # Print output if needed
+        if self._iprint>0:
+            if self._ieval % self._iprint == 0:
+                print('{4} {0:3d} : {1:3.3e} {2} ~ {3:.3f} ms'.format( \
+                    self._ieval, ofun, self._calparams.data, \
+                    self._runtime, self._status))
+
+        return ofun
 
 
     def check(self):
@@ -389,24 +429,10 @@ class Calibration(object):
         if not check:
             raise ValueError('cal2true does not return a 1D Numpy array')
 
-        errparams = self.cal2err(calparams)
-        if not errparams is None:
-            try:
-                check = (errparams.ndim == 1)
-            except Exception:
-                check = False
-            if not check:
-                raise ValueError('cal2err does not return a Numpy 1D Numpy array')
-
 
     def cal2true(self, calparams):
         ''' Convert calibrated parameters to true values '''
         return calparams
-
-
-    def cal2err(self, calparams):
-        ''' Get error model parameters from the list of calibrated parameters '''
-        return np.zeros(1)
 
 
     def setup(self, obsdata, inputs):
