@@ -5,7 +5,7 @@ import pandas as pd
 from pygme.model import Model
 from pygme.calibration import Calibration
 
-import c_pygme_models_lagroute
+import c_pygme_models_hydromodels
 import c_pygme_models_utils
 
 # Dimensions
@@ -79,7 +79,7 @@ class LagRoute(Model):
 
     def runblock(self, istart, iend, seed=None):
 
-        ierr = c_pygme_models_lagroute.lagroute_run(self._nuhlength, \
+        ierr = c_pygme_models_hydromodels.lagroute_run(self._nuhlength, \
             istart, iend,
             self.config.data, \
             self._params.data, \
@@ -90,7 +90,7 @@ class LagRoute(Model):
             self._outputs.data)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_lagroute.' + \
+            raise ValueError(('c_pygme_models_hydromodels.' + \
                 'lagroute_run returns {0}').format(ierr))
 
 

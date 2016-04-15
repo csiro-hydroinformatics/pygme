@@ -170,8 +170,6 @@ class KNNDailyTestCases(unittest.TestCase):
     def test_knndaily_rainfall(self):
         ''' Test to check that KNNDaily can reproduce rainfall stats '''
 
-        return
-
         lf = [os.path.join(self.FHERE, 'data', f)
                 for f in os.listdir(os.path.join(self.FHERE, 'data'))
                     if f.startswith('KNNTEST')]
@@ -199,6 +197,7 @@ class KNNDailyTestCases(unittest.TestCase):
             # Configure KNNDaily
             kn = KNNDaily(knnvar_inputs = var_in, knnvar_outputs = var_out)
             kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
+            kn.config['nb_nn'] = 5
 
             nrand = var_in.shape[0]
             kn.allocate(np.ones(nrand), kn.knnvar_outputs.shape[1])
@@ -266,71 +265,6 @@ class KNNDailyTestCases(unittest.TestCase):
 
             print(('\t\tTEST KNNDaily RAINFALL {0:02d} : ' +
                   'runtime = {1:0.5f}ms/10years').format(i+1, dta))
-
-
-    def test_knndaily_forecastrainfall(self):
-
-        lf = [os.path.join(self.FHERE, 'data', f)
-                for f in os.listdir(os.path.join(self.FHERE, 'data'))
-                    if f.startswith('KNNTEST')]
-
-        fts = os.path.join(self.FHERE, 'data', lf[0])
-        data = pd.read_csv(fts, comment='#', index_col=0, parse_dates=True)
-        dates = data.index
-
-        # Build input matrix
-        var_in = data.iloc[:, 0].values
-        var_out = var_in
-
-        # Configure simulation model
-        kn = KNNDaily(knnvar_inputs = var_in, knnvar_outputs = var_out)
-        kn.config['date_ini'] = dates[0].year * 1e4 + dates[0].month * 1e2 + dates[0].day
-
-        nrand = var_in.shape[0]
-        rand = np.random.uniform(0, 1, nrand)
-        kn.allocate(rand, kn.knnvar_outputs.shape[1])
-
-        # Configure forecast model to run monthly forecasts
-        fkn = ForecastModel(kn)
-
-        nens = 50
-        nlead = 70
-        findex = np.where(dates.day == 1)[0][:10]
-        finputs = Matrix.from_dims('finputs', nval = len(findex),
-                nvar = 1, nlead = nlead, nens = nens, index=findex)
-        finputs.random()
-        fkn.allocate(finputs)
-
-        # Run model
-        states = [var_in[0], kn.config['date_ini']]
-        fkn.initialise(states)
-        fkn.run()
-
-        # Aggregate forecast by period of 7 days up to 10 weeks
-        aggindex = np.sort(np.tile(range(10), 7))[:nlead]
-        sim = fkn._outputs.aggregate(aggindex=aggindex, aggfunc=np.sum, axis='lead')
-        med = sim.aggregate(aggfunc=np.median, axis='ens')
-
-        # Create obs matrix
-        tmp = pd.DataFrame({'lead{0:02d}'.format(i):
-            data['rainfall_mmd'].shift(-i) for i in range(1, finputs.nlead+1)})
-        df = {}
-        for a in np.unique(aggindex):
-            df['lead{0}'.format(a)] = tmp.iloc[:, aggindex == a].sum(axis=1)
-        df = pd.DataFrame(df).iloc[findex, :]
-        mdf = df.mean()
-
-        obs = Matrix.from_dims('obs', len(findex), 1, med.nlead, index=findex)
-        for ilead in range(obs.nlead):
-            obs.ilead = ilead
-            obs.data = df['lead{0}'.format(ilead)].values
-
-        # Compute forecast error
-        err = med - obs
-        err = err * err
-        merr = err.aggregate(aggfunc=np.mean, axis='val')
-        import pdb; pdb.set_trace()
-
 
 
 if __name__ == '__main__':

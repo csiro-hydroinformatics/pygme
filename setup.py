@@ -24,22 +24,14 @@ ext_utils=Extension(name='c_pygme_models_utils',
     ],
     include_dirs=[numpy.get_include()])
 
-ext_grmodels=Extension(name='c_pygme_models_grmodels',
+ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
     sources=[
-        'pygme/models/c_pygme_models_grmodels.pyx',
+        'pygme/models/c_pygme_models_hydromodels.pyx',
         'pygme/models/c_utils.c',
         'pygme/models/c_uh.c',
+        'pygme/models/c_lagroute.c',
         'pygme/models/c_gr2m.c',
         'pygme/models/c_gr4j.c'
-    ],
-    include_dirs=[numpy.get_include()])
-
-ext_lagroute=Extension(name='c_pygme_models_lagroute',
-    sources=[
-        'pygme/models/c_pygme_models_lagroute.pyx',
-        'pygme/models/c_utils.c',
-        'pygme/models/c_uh.c',
-        'pygme/models/c_lagroute.c'
     ],
     include_dirs=[numpy.get_include()])
 
@@ -50,7 +42,6 @@ ext_knn=Extension(name='c_pygme_models_knndaily',
         'pygme/models/c_knndaily.c',
     ],
     include_dirs=[numpy.get_include()])
-
 
 ext_patterns=Extension(name='c_pygme_models_patterns',
     sources=[
@@ -83,8 +74,7 @@ setup(
     cmdclass=cmdclass,
     ext_modules=[
         ext_utils,
-        ext_grmodels,
-        ext_lagroute,
+        ext_hydromodels,
         ext_knn,
         ext_patterns
     ],

@@ -12,7 +12,6 @@ class KNNDaily(Model):
 
     def __init__(self,
             knnvar_inputs,
-            knn_cycle_position=0,
             knnvar_outputs=None,
             nens_params=1,
             nens_states=1,
@@ -65,7 +64,7 @@ class KNNDaily(Model):
         nval, _, _, _ = self.get_dims('outputs')
         self.knn_ipos = np.zeros(nval, dtype=np.int32)
 
-        # Run model
+        # Run model to get resampled indexes
         ierr = c_pygme_models_knndaily.knndaily_run(istart, iend,
             self.config.data,
             self.inputs.copy(),
