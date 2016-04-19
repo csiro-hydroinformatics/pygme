@@ -375,6 +375,9 @@ class Calibration(object):
         if not self._minimize:
             ofun *= -1
 
+        if np.isnan(ofun):
+            raise ValueError('Objective function returns nan')
+
         # Store data
         self._calparams.data = calparams
 
@@ -385,6 +388,7 @@ class Calibration(object):
                     self._ieval, ofun, self._calparams.data, \
                     self._runtime, self._status))
 
+        import pdb; pdb.set_trace()
         return ofun
 
 
