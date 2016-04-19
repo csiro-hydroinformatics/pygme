@@ -388,7 +388,6 @@ class Calibration(object):
                     self._ieval, ofun, self._calparams.data, \
                     self._runtime, self._status))
 
-        import pdb; pdb.set_trace()
         return ofun
 
 
