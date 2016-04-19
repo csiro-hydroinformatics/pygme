@@ -103,7 +103,7 @@ class ErrorFunctionSseBias(ErrorFunction):
         # Bias constraint
         biasfactor = self._constants['biasfactor']
         if not np.allclose(biasfactor, 0.):
-            bias = np.mean(obs-sim)/(1+abs(np.mean(obs)))
+            bias = np.nanmean(obs-sim)/(1+abs(np.nanmean(obs)))
             objfun = objfun*(1+biasfactor*bias*bias)
 
         return objfun
