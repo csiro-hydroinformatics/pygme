@@ -13,7 +13,6 @@ from matplotlib.gridspec import GridSpec
 
 from pygme.models.knndaily import KNNDaily
 from pygme import calibration
-from pygme.forecastmodel import ForecastModel
 from pygme.data import Matrix, set_seed
 
 import c_pygme_models_utils

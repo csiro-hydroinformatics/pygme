@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 
 from pygme.model import Model
-from pygme.forecastmodel import ForecastModel
 
 import c_pygme_models_knndaily
 
