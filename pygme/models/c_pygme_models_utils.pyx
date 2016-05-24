@@ -7,41 +7,44 @@ np.import_array()
 cdef extern from 'c_utils.h':
     int c_utils_daysinmonth(int year, int month)
 
-cdef extern from 'c_utils.h':
     int c_utils_dayofyear(int month, int day)
 
-cdef extern from 'c_utils.h':
     int c_utils_add1day(int * date)
 
-cdef extern from 'c_utils.h':
     int c_utils_add1month(int * date)
 
-cdef extern from 'c_utils.h':
     int c_utils_accumulate(int nval, double start,
             int year_monthstart,
             double * inputs, double * outputs)
 
+    int c_utils_root_square_test(int ntest, int *niter, int *status,
+        double * roots,
+        int nargs, double * args)
+
+
 cdef extern from 'c_uh.h':
     int c_uh_getnuhmaxlength()
 
-cdef extern from 'c_uh.h':
     double c_uh_getuheps()
 
-cdef extern from 'c_uh.h':
     int c_uh_getuh(int nuhlengthmax,
             int uhid,
             double lag,
             int * nuh,
             double * uh)
 
+
 def __cinit__(self):
     pass
+
 
 def uh_getnuhmaxlength():
     return c_uh_getnuhmaxlength()
 
+
 def uh_getuheps():
     return c_uh_getuheps()
+
 
 def uh_getuh(int nuhlengthmax, int uhid, double lag,
         np.ndarray[int, ndim=1, mode='c'] nuh not None,
@@ -97,6 +100,33 @@ def accumulate(double start, int year_monthstart,
         year_monthstart,
         <double*> np.PyArray_DATA(inputs),
         <double*> np.PyArray_DATA(outputs))
+
+    return ierr
+
+
+def root_square_test(int ntest,
+        np.ndarray[int, ndim=1, mode='c'] niter not None,
+        np.ndarray[int, ndim=1, mode='c'] status not None,
+        np.ndarray[double, ndim=1, mode='c'] roots not None,
+        np.ndarray[double, ndim=1, mode='c'] args not None):
+
+    cdef int ierr
+
+    if niter.shape[0] != 1:
+        raise ValueError('niter.shape[0] != 1')
+
+    if status.shape[0] != 1:
+        raise ValueError('status.shape[0] != 1')
+
+    if roots.shape[0] != 3:
+        raise ValueError('roots.shape[0] != 3')
+
+    ierr = c_utils_root_square_test(ntest,
+        <int*> np.PyArray_DATA(niter),
+        <int*> np.PyArray_DATA(status),
+        <double*> np.PyArray_DATA(roots),
+        args.shape[0],
+        <double*> np.PyArray_DATA(args))
 
     return ierr
 

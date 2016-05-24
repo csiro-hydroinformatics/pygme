@@ -172,3 +172,102 @@ int c_utils_accumulate(int nval, double start,
     return 0;
 }
 
+
+int c_utils_root_square(double (*fun)(double, int, *double),
+        int *niter, int *status,
+        double * roots,
+        int nargs, double * args){
+
+    int i, nitermax;
+    double values[3];
+    double ca, cb, D, E, F, H, x0, eps, df;
+
+    *niter = 0;
+    *status = 0;
+    nitermax = 100;
+    eps = 1e-7;
+
+    /* Check roots are bracketing 0 */
+    for(i=0; i<3; i++)
+        values[i]= fun(roots[i], nargs, args);
+
+    if(values[0]*values[2]>0)
+            return UTILS_ERROR + __LINE__;
+
+    df = fabs(values[2]-values[0]);
+
+    /* Convergence loop */
+    while(*niter < nitermax){
+
+        for(i=0; i<3; i++)
+            values[i]= fun(roots[i], nargs, args);
+
+        if(fabs(values[2]-values[0]) < eps * df){
+            *status = 1;
+            return 0;
+        }
+
+        /* Square interpolation
+        * g(x) = f(a)(x-b) + f(b)(x-a) +
+        *           (x-a)(x-b) * [f(c)-f(a)*(c-b) - f(b)*(c-a)]/(c-a)/(c-b)
+        * As a result:
+        *   g(a) = f(a)
+        *   g(b) = f(b)
+        *   g(c) = f(c)
+        *
+        * with D = f(c)/(c-a)/(c-b) + f(a)/(c-a) + f(b)/(c-b)
+        * we have
+        * g(x) = a*b*D-f(a)*b-f(b)*a + [f(a)+f(b)-(a+b)*D] * x + D * x^2
+        *      = E + F x + D x^2
+        *
+        * Finally g(x0) = 0 leads to
+        *  H = F^2-4*E*D
+        *  x0 = (-F+sqrt(H))/2D
+        */
+
+        ca = roots[2]-roots[0];
+        cb = roots[2]-roots[1];
+
+        D = values[2]/ca/cb+values[0]/ca+values[1]/cb;
+        E = roots[0]*roots[1]*D-values[0]*roots[1]-values[1]*roots[0];
+        F = values[0]+values[1]-(roots[0]+roots[1])*D;
+
+        H = F*F-4*E*D;
+        if(H<0)
+            return UTILS_ERROR + __LINE__;
+
+        /* iteration */
+        x0 = (-F+sqrt(H))/2/D;
+        if(roots[1]<x0)
+            roots[0] = roots[1];
+        else
+            roots[2] = roots[1];
+
+        roots[1] = x0;
+
+        *niter++;
+    }
+
+    *status = 2;
+
+    return 0;
+}
+
+
+double funtest1(double x, int nargs, double * args){
+    double a, b, y, x4;
+    a = args[0];
+    b = args[1];
+    x4 = (x/a)*(x/a);
+    x4 = x4*x4;
+    y = -b+x-x/sqrt(sqrt(1+x4));
+    return y;
+}
+
+int c_utils_root_square_test(int ntest, int *niter, int *status,
+        double * roots, int nargs, double * args){
+
+    if(ntest == 0)
+        return c_utils_root_square(funtest1, niter,
+            status, roots, nargs, args);
+}
