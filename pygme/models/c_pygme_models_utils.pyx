@@ -17,7 +17,8 @@ cdef extern from 'c_utils.h':
             int year_monthstart,
             double * inputs, double * outputs)
 
-    int c_utils_root_square_test(int ntest, int *niter, int *status,
+    int c_utils_root_square_test(int ntest,
+        int *niter, int *status, double eps,
         double * roots,
         int nargs, double * args)
 
@@ -104,7 +105,7 @@ def accumulate(double start, int year_monthstart,
     return ierr
 
 
-def root_square_test(int ntest,
+def root_square_test(int ntest, double eps,
         np.ndarray[int, ndim=1, mode='c'] niter not None,
         np.ndarray[int, ndim=1, mode='c'] status not None,
         np.ndarray[double, ndim=1, mode='c'] roots not None,
@@ -124,6 +125,7 @@ def root_square_test(int ntest,
     ierr = c_utils_root_square_test(ntest,
         <int*> np.PyArray_DATA(niter),
         <int*> np.PyArray_DATA(status),
+        eps,
         <double*> np.PyArray_DATA(roots),
         args.shape[0],
         <double*> np.PyArray_DATA(args))

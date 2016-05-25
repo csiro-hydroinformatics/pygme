@@ -26,7 +26,8 @@ int c_utils_isleapyear(int year)
 int c_utils_daysinmonth(int year, int month)
 {
     int n;
-    int days_in_month[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    int days_in_month[13] = {0, 31, 28, 31, 30, 31, 30,
+                    31, 31, 30, 31, 30, 31};
 
     if(month < 1 || month > 12)
         return -1;
@@ -39,8 +40,8 @@ int c_utils_daysinmonth(int year, int month)
 
 int c_utils_dayofyear(int month, int day)
 {
-    int n;
-    int day_of_year[13] = {0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+    int day_of_year[13] = {0, 0, 31, 59, 90, 120,
+                        151, 181, 212, 243, 273, 304, 334};
 
     if(month < 1 || month > 12)
         return -1;
@@ -173,71 +174,105 @@ int c_utils_accumulate(int nval, double start,
 }
 
 
-int c_utils_root_square(double (*fun)(double, int, *double),
-        int *niter, int *status,
+int c_utils_root_square(double (*fun)(double, int, double *),
+        int *niter, int *status, double eps,
         double * roots,
         int nargs, double * args){
 
     int i, nitermax;
     double values[3];
-    double ca, cb, D, E, F, H, x0, eps, df;
+    double a, b, c, D, E, F, G, H, I, J, x0;
+    double dx, dx0, df, df0, eps2;
 
     *niter = 0;
     *status = 0;
-    nitermax = 100;
-    eps = 1e-7;
+    eps2 = 1e-8;
 
-    /* Check roots are bracketing 0 */
+    /* Maximum number of iteration */
+    nitermax = 20;
+
+    /* Check roots are increating and bracketing 0 */
+    if(roots[1]<roots[0] || roots[2]<roots[1])
+        return UTILS_ERROR + __LINE__;
+
     for(i=0; i<3; i++)
         values[i]= fun(roots[i], nargs, args);
 
-    if(values[0]*values[2]>0)
+    if(values[0]*values[2]>=0)
             return UTILS_ERROR + __LINE__;
 
-    df = fabs(values[2]-values[0]);
+    /* Convergence reference */
+    df0 = fabs(values[2]-values[0])*eps;
+    dx0 = fabs(roots[2]-roots[0])*eps;
 
     /* Convergence loop */
     while(*niter < nitermax){
 
-        for(i=0; i<3; i++)
-            values[i]= fun(roots[i], nargs, args);
-
-        if(fabs(values[2]-values[0]) < eps * df){
-            *status = 1;
+        /* Check convergence */
+        df = fabs(values[2]-values[0]);
+        if(df < df0 || df<eps2){
+            *status = 2;
             return 0;
         }
 
+        dx = fabs(roots[0]-roots[2]);
+        if(dx < dx0 || dx<eps2){
+            *status = 3;
+            return 0;
+        }
+
+
         /* Square interpolation
-        * g(x) = f(a)(x-b) + f(b)(x-a) +
-        *           (x-a)(x-b) * [f(c)-f(a)*(c-b) - f(b)*(c-a)]/(c-a)/(c-b)
+        * g(x) = (x-b)*(x-c) * f(a)/(a-b)/(a-c)
+                 (x-a)*(x-c) * f(b)/(b-a)/(b-c)
+        *        (x-a)(x-b) * f(c)/(c-a)/(c-b)
         * As a result:
         *   g(a) = f(a)
         *   g(b) = f(b)
         *   g(c) = f(c)
         *
-        * with D = f(c)/(c-a)/(c-b) + f(a)/(c-a) + f(b)/(c-b)
+        * with D = f(a)/(a-b)/(a-c)
+        *      E = f(b)/(b-a)/(b-c)
+        *      F = f(c)/(c-a)/(c-b)
         * we have
-        * g(x) = a*b*D-f(a)*b-f(b)*a + [f(a)+f(b)-(a+b)*D] * x + D * x^2
-        *      = E + F x + D x^2
+        * g(x) = D*b*c + E*a*c + F*a*b
+        *        - [D*(b+c)+E*(a+c)+F*(a+b)]*x
+        *        + (D+E+F)*x^2
+        *
+        * we pose
+        * G = D*b*c + E*a*c + F*a*b
+        * H = D*(b+c)+E*(a+c)+F*(a+b)
+        * I = D+E+F
         *
         * Finally g(x0) = 0 leads to
-        *  H = F^2-4*E*D
-        *  x0 = (-F+sqrt(H))/2D
+        *  J = H^2-4*G*I
+        *  x0 = (H+sqrt(J))/2I
         */
 
-        ca = roots[2]-roots[0];
-        cb = roots[2]-roots[1];
+        a = roots[0];
+        b = roots[1];
+        c = roots[2];
 
-        D = values[2]/ca/cb+values[0]/ca+values[1]/cb;
-        E = roots[0]*roots[1]*D-values[0]*roots[1]-values[1]*roots[0];
-        F = values[0]+values[1]-(roots[0]+roots[1])*D;
+        D = values[0]/(a-b)/(a-c);
+        E = values[1]/(b-a)/(b-c);
+        F = values[2]/(c-b)/(c-a);
 
-        H = F*F-4*E*D;
-        if(H<0)
+        G = D*b*c+E*a*c+F*a*b;
+        H = D*(b+c)+E*(a+c)+F*(a+b);
+        I = D+E+F;
+
+        J = H*H-4*G*I;
+        if(J<0){
+
+            fprintf(stdout, "\n\nIter [%d]:\n", *niter);
+            for(i=0; i<3; i++)
+                fprintf(stdout, "f(%f) = %0.10f\n", roots[i], values[i]);
+
             return UTILS_ERROR + __LINE__;
+        }
 
         /* iteration */
-        x0 = (-F+sqrt(H))/2/D;
+        x0 = (H+sqrt(J))/2/I;
         if(roots[1]<x0)
             roots[0] = roots[1];
         else
@@ -245,29 +280,36 @@ int c_utils_root_square(double (*fun)(double, int, *double),
 
         roots[1] = x0;
 
-        *niter++;
+        *niter = *niter + 1;
+
+        for(i=0; i<3; i++)
+            values[i]= fun(roots[i], nargs, args);
     }
 
-    *status = 2;
+    *status = 1;
 
     return 0;
 }
 
 
 double funtest1(double x, int nargs, double * args){
-    double a, b, y, x4;
+    double a, b, c, y;
     a = args[0];
     b = args[1];
-    x4 = (x/a)*(x/a);
-    x4 = x4*x4;
-    y = -b+x-x/sqrt(sqrt(1+x4));
+    c = args[2];
+    y = -a+x-x/pow(1+pow(x/b, c), 1./c);
     return y;
 }
 
 int c_utils_root_square_test(int ntest, int *niter, int *status,
+        double eps,
         double * roots, int nargs, double * args){
 
-    if(ntest == 0)
+    if(ntest == 1)
         return c_utils_root_square(funtest1, niter,
-            status, roots, nargs, args);
+            status, eps, roots, nargs, args);
+    else
+        return UTILS_ERROR + __LINE__;
+
+    return 0;
 }

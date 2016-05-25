@@ -2,6 +2,7 @@ import os
 import re
 import unittest
 
+from itertools import product as prod
 from datetime import datetime
 import calendar
 from dateutil.relativedelta import relativedelta as delta
@@ -74,8 +75,6 @@ class UtilsTestCases(unittest.TestCase):
             utils.add1month(dd2)
 
             ck = np.allclose(dd, dd2)
-            if not ck:
-                import pdb; pdb.set_trace()
             self.assertTrue(ck)
 
 
@@ -91,5 +90,57 @@ class UtilsTestCases(unittest.TestCase):
         expected = np.array(range(1, 60) + range(1, 307)).astype(float)
         ck = np.allclose(b, expected)
         self.assertTrue(ck)
+
+
+    def test_root_square_error(self):
+
+        niter = np.zeros((1,), np.int32)
+        status = np.zeros((1,), np.int32)
+        eps = 1e-4
+
+        b = 10.
+        c = 4.
+        roots = np.array([0., b/2, b]).astype(np.float64)
+        args = np.array([0., b, c]).astype(np.float64)
+
+        ierr = utils.root_square_test(1, eps, niter,
+                status, roots, args)
+
+        self.assertTrue(ierr>0)
+
+
+    def test_root_square(self):
+
+        niter = np.zeros((1,), np.int32)
+        status = np.zeros((1,), np.int32)
+        eps = 1e-4
+
+        def fun(x, b, c):
+            return x-x/(1+(x/b)**c)**(1./c)
+
+        bv = np.linspace(0.1, 100, 10)
+        uv = np.linspace(1e-2, 1, 10)
+        cv = np.linspace(0.1, 10, 10)
+
+        for u, b, c in prod(uv, bv, cv):
+            niter[0] = 0
+            status[0] = 0
+
+            a = u*fun(b, b, c)
+            roots = np.array([0., b/2, b]).astype(np.float64)
+            args = np.array([a, b, c]).astype(np.float64)
+
+            ierr = utils.root_square_test(1, eps, niter,
+                status, roots, args)
+
+            ck1 = ierr == 0
+            ck2 = status[0] > 1
+            err = abs(fun(roots[1], b, c)-a)
+            ck3 = err < 1e-6
+
+            if (not ck1) | (not ck2) | (not ck3):
+                import pdb; pdb.set_trace()
+
+            self.assertTrue(ck1 and ck2 and ck3)
 
 

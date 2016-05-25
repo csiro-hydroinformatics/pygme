@@ -50,13 +50,13 @@ int c_utils_accumulate(int nval, double start,
         double * inputs, double * outputs);
 
 
-int c_utils_root_square(double (*fun)(double, double *),
-        int *niter, double * roots,
-        int nargs, double * args);
+int c_utils_root_square(double (*fun)(double, int, double *),
+        int *niter, int * status, double eps,
+        double * roots, int nargs, double * args);
 
 
 int c_utils_root_square_test(int ntest, int *niter, int *status,
-        double * roots,
+        double eps, double * roots,
         int nargs, double * args);
 
 #endif
