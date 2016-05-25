@@ -188,7 +188,7 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
         fprintf(stdout, "\nnconfig = %d\n"
             "nval = %d\nnvar = %d\nnrand = %d\n"
             "start = %d\nend = %d\nhalfwindow = %d\n"
-            "nb_nn = %d\ndayofyear_ini = %0.0f\n\n",
+            "nb_nn = %d\ndayofyear_ini = %d\n\n",
             nconfig, nval, nvar, nrand, start, end,
             halfwindow, nb_nn, dayofyear_ini);
 
@@ -246,9 +246,10 @@ int c_knndaily_run(int nconfig, int nval, int nvar, int nrand,
         if(KNN_DEBUGFLAG_FLAG >= 1)
         {
             fprintf(stdout, "\n[%3d] ipos select = %7d, "
-                    "doy = %3d (%0.0f), doyi = %3d, dist = %0.3f\n      var = (", i,
-                        ipos_select, dayofyear, dayofyear_ini,
-                        states[nvar], dist);
+                    "doy = %3d, doyi = %3d, "
+                    "dist = %0.3f\n      var = (",
+                        i, ipos_select, dayofyear, dayofyear_ini,
+                        dist);
             for(k=0; k<nvar; k++)
                 fprintf(stdout, "%7.2f ", var[k+ipos_select*nvar]);
             fprintf(stdout, ")\n");
