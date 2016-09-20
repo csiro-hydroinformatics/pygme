@@ -97,8 +97,8 @@ def accumulate(double start, int year_monthstart,
     if inputs.shape[0] != outputs.shape[0]:
         raise ValueError('inputs.shape[0] != outputs.shape[0]')
 
-    if outputs.shape[1] != 2:
-        raise ValueError('outputs.shape[1] != 2')
+    if outputs.shape[1] != 3:
+        raise ValueError('outputs.shape[1] != 3')
 
     ierr = c_utils_accumulate(inputs.shape[0], start,
         year_monthstart,

@@ -84,7 +84,7 @@ class UtilsTestCases(unittest.TestCase):
         a = np.ones(nval)
         start = 20010101.
         mstart = 3
-        b = np.zeros((nval, 2))
+        b = np.zeros((nval, 3))
         utils.accumulate(start, mstart, a, b)
 
         expected = np.array(range(1, 60) + range(1, 307)).astype(float)
@@ -93,6 +93,10 @@ class UtilsTestCases(unittest.TestCase):
 
         expected = np.array([2001]*59 + [2002]*306).astype(float)
         ck = np.allclose(b[:, 1], expected)
+        self.assertTrue(ck)
+
+        expected = np.array([np.nan]*59 + range(1, 307)).astype(float)
+        ck = np.allclose(b[59:, 2], expected[59:])
         self.assertTrue(ck)
 
 

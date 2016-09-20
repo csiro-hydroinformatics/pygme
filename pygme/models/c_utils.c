@@ -142,26 +142,43 @@ int c_utils_getdate(double day, int * date)
     return 0;
 }
 
+/* The accumulate function compute the cumulative sum
+    of input vector with a reset at the beginning of
+    each water year. The function also computes the water year
+    and the day of the water year */
 int c_utils_accumulate(int nval, double start,
         int year_monthstart,
         double * inputs, double * outputs)
 {
     int i, ierr, date[3];
-    double CS, I1, I2, WY;
+    double CS, I1, I2, WY, DOY;
 
     ierr = c_utils_getdate(start, date);
     if(ierr < 0)
         return UTILS_ERROR + __LINE__;
 
-    CS = 0;
     I2 = 0;
+    /* Accumulated value */
+    CS = 0;
+    /* Water year */
     WY = date[0];
+    /* Day of year */
+    DOY = NAN;
 
     for(i=0; i<nval; i++)
     {
+        DOY += 1;
+
         if(date[1] == year_monthstart && date[2] == 1){
             CS = 0;
             WY += 1;
+            DOY = 1;
+        }
+
+        /* Skip day of year for leap years so that all years have
+            a max doy of 365 */
+        if(date[1] == 2 && date[2] == 29){
+            DOY -= 1;
         }
 
         ierr = c_utils_add1day(date);
@@ -171,8 +188,9 @@ int c_utils_accumulate(int nval, double start,
             I2 = I1;
 
         CS += I2;
-        outputs[2*i] = CS;
-        outputs[2*i+1] = WY;
+        outputs[3*i] = CS;
+        outputs[3*i+1] = WY;
+        outputs[3*i+2] = DOY;
     }
 
     return 0;
