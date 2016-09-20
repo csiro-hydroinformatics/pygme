@@ -147,7 +147,7 @@ int c_utils_accumulate(int nval, double start,
         double * inputs, double * outputs)
 {
     int i, ierr, date[3];
-    double CS, I1, I2;
+    double CS, I1, I2, WY;
 
     ierr = c_utils_getdate(start, date);
     if(ierr < 0)
@@ -155,10 +155,14 @@ int c_utils_accumulate(int nval, double start,
 
     CS = 0;
     I2 = 0;
+    WY = date[0];
+
     for(i=0; i<nval; i++)
     {
-        if(date[1] == year_monthstart && date[2] == 1)
+        if(date[1] == year_monthstart && date[2] == 1){
             CS = 0;
+            WY += 1;
+        }
 
         ierr = c_utils_add1day(date);
 
@@ -167,13 +171,14 @@ int c_utils_accumulate(int nval, double start,
             I2 = I1;
 
         CS += I2;
-        outputs[i] = CS;
+        outputs[2*i] = CS;
+        outputs[2*i+1] = WY;
     }
 
     return 0;
 }
 
-
+/* This is a simplistic root finder for function fun */
 int c_utils_root_square(double (*fun)(double, int, double *),
         int *niter, int *status, double eps,
         double * roots,
@@ -182,41 +187,54 @@ int c_utils_root_square(double (*fun)(double, int, double *),
     int i, nitermax;
     double values[3];
     double a, b, c, D, E, F, G, H, I, J, x0;
-    double dx, dx0, df, df0, eps2;
+    double dx, dx0, df, df0;
 
     *niter = 0;
     *status = 0;
-    eps2 = 1e-8;
 
     /* Maximum number of iteration */
     nitermax = 20;
 
-    /* Check roots are increating and bracketing 0 */
+    /* Check roots are increating */
     if(roots[1]<roots[0] || roots[2]<roots[1])
         return UTILS_ERROR + __LINE__;
 
-    for(i=0; i<3; i++)
+    df0 = 1e30;
+    for(i=0; i<3; i++){
         values[i]= fun(roots[i], nargs, args);
 
+        /* Computes reference for convergence test */
+        df = fabs(values[i]);
+        if(df<eps){
+            roots[1] = roots[i];
+            return 0;
+        }
+
+        if(df < df0)
+            df0 = df*eps;
+    }
+
+    /* Check roots are bracketing 0 */
     if(values[0]*values[2]>=0)
             return UTILS_ERROR + __LINE__;
 
-    /* Convergence reference */
-    df0 = fabs(values[2]-values[0])*eps;
-    dx0 = fabs(roots[2]-roots[0])*eps;
+    /* Computes reference for convergence test */
+    dx0 = fabs(roots[1]-roots[0]);
+    if(fabs(roots[2]-roots[1]) < dx0)
+        dx0 = fabs(roots[2]-roots[1]);
+    dx0 *= eps;
 
     /* Convergence loop */
     while(*niter < nitermax){
 
         /* Check convergence */
-        df = fabs(values[2]-values[0]);
-        if(df < df0 || df<eps2){
+        if(df < df0 || df<eps){
             *status = 2;
             return 0;
         }
 
         dx = fabs(roots[0]-roots[2]);
-        if(dx < dx0 || dx<eps2){
+        if(dx < dx0 || dx<eps){
             *status = 3;
             return 0;
         }
@@ -282,8 +300,13 @@ int c_utils_root_square(double (*fun)(double, int, double *),
 
         *niter = *niter + 1;
 
-        for(i=0; i<3; i++)
+        df = 1e30;
+        for(i=0; i<3; i++){
             values[i]= fun(roots[i], nargs, args);
+
+            if(fabs(values[i]) < df)
+                df = fabs(values[i])*eps;
+        }
     }
 
     *status = 1;

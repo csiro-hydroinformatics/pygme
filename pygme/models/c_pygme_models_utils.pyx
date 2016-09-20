@@ -90,12 +90,15 @@ def add1month(np.ndarray[int, ndim=1, mode='c'] date not None):
 
 def accumulate(double start, int year_monthstart,
         np.ndarray[double, ndim=1, mode='c'] inputs not None,
-        np.ndarray[double, ndim=1, mode='c'] outputs not None):
+        np.ndarray[double, ndim=2, mode='c'] outputs not None):
 
     cdef int ierr
 
     if inputs.shape[0] != outputs.shape[0]:
         raise ValueError('inputs.shape[0] != outputs.shape[0]')
+
+    if outputs.shape[1] != 2:
+        raise ValueError('outputs.shape[1] != 2')
 
     ierr = c_utils_accumulate(inputs.shape[0], start,
         year_monthstart,

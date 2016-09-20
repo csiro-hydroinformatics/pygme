@@ -84,11 +84,15 @@ class UtilsTestCases(unittest.TestCase):
         a = np.ones(nval)
         start = 20010101.
         mstart = 3
-        b = a*0.
+        b = np.zeros((nval, 2))
         utils.accumulate(start, mstart, a, b)
 
         expected = np.array(range(1, 60) + range(1, 307)).astype(float)
-        ck = np.allclose(b, expected)
+        ck = np.allclose(b[:, 0], expected)
+        self.assertTrue(ck)
+
+        expected = np.array([2001]*59 + [2002]*306).astype(float)
+        ck = np.allclose(b[:, 1], expected)
         self.assertTrue(ck)
 
 
@@ -113,7 +117,7 @@ class UtilsTestCases(unittest.TestCase):
 
         niter = np.zeros((1,), np.int32)
         status = np.zeros((1,), np.int32)
-        eps = 1e-4
+        eps = 1e-8
 
         def fun(x, b, c):
             return x-x/(1+(x/b)**c)**(1./c)
@@ -136,10 +140,10 @@ class UtilsTestCases(unittest.TestCase):
             ck1 = ierr == 0
             ck2 = status[0] > 1
             err = abs(fun(roots[1], b, c)-a)
-            ck3 = err < 1e-6
+            ck3 = err < 1e-6*b
 
-            if (not ck1) | (not ck2) | (not ck3):
-                import pdb; pdb.set_trace()
+            #if (not ck1) | (not ck2) | (not ck3):
+            #    import pdb; pdb.set_trace()
 
             self.assertTrue(ck1 and ck2 and ck3)
 
