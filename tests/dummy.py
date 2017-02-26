@@ -7,29 +7,21 @@ from pygme.calibration import Calibration
 
 class Dummy(Model):
 
-    def __init__(self,
-            nens_params=1,
-            nens_states=1,
-            nens_outputs=1):
+    def __init__(self):
 
         Model.__init__(self, 'dummy',
-            nconfig=1,\
+            config_names=['continuous'], \
+            params_names=['X1', 'X2', 'X3'], \
+            states_names=['S1', 'S2'], \
             ninputs=2, \
-            nparams=3, \
-            nstates=2, \
-            noutputs_max=2,
-            run_as_block=True,
-            nens_params=nens_params,
-            nens_states=nens_states,
-            nens_outputs=nens_outputs)
+            noutputs=2)
 
-        self._params.default = [0., 1., 0.]
-        self._params.min = [-10., -10., -10.]
-        self._params.max = [10., 10., 10.]
+        self._params.defaults = [0., 1., 0.]
+        self._params.mins = [-10., -10., -10.]
+        self._params.maxs = [10., 10., 10.]
 
-        self.config.names = 'continuous'
-        self.config.default = 1
-        self.config.data = 1
+        self._config.defaults = 1
+        self._config.values = 1
 
 
     def runblock(self, istart, iend, seed=None):
