@@ -9,23 +9,31 @@ NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 from hydrodiy.data.containers import Vector
 
+# Overload Vector class to handle post-setter of UH
+class ParamsVector(Vector):
+
+    def __init__(self, params, post_setter_args):
+        Vector.__init__(self, params.names, \
+            params.defaults, params.mins, params.maxs, \
+            params.hitbounds, \
+            post_setter_args=post_setter_args)
+
+    def post_setter(self, model):
+        model.post_params_setter()
+
 
 class Model(object):
 
-    def __init__(self, name, \
-            config_names, \
-            params_names, \
-            states_names, \
-            ninputs, \
-            noutputs):
+    def __init__(self, name, config, params, states, \
+            ninputs, noutputs, nuh=2):
 
         # Model name
         self.name = name
 
-        # Vectors
-        self._config = Vector(config_names)
-        self._params = Vector(params_names)
-        self._states = Vector(states_names)
+        # Config and params vectors
+        self.config = config
+        self.params = ParamsVector(params, (self, ))
+        self.states = states
 
         # Dimensions
         self._ninputs = int(ninputs)
@@ -36,112 +44,47 @@ class Model(object):
         self._outputs = None
 
         # UH ordinates and states
+        self.nuh = nuh
         uh_names = ['UH'+str(k) for k in range(1, NUHMAXLENGTH+1)]
-        for iuh in range(1, 3):
-            # All values in [0, 1]
-            setattr(self, '_uh'+str(iuh),
+
+        for iuh in range(1, nuh+1):
+            setattr(self, 'uh'+str(iuh),
                 Vector(uh_names, \
                     defaults=np.zeros(NUHMAXLENGTH), \
                     mins=np.zeros(NUHMAXLENGTH), \
-                    maxs=np.ones(NUHMAXLENGTH))
+                    maxs=np.ones(NUHMAXLENGTH)))
 
             # All values in [0, +inf]
-            setattr(self, '_statesuh'+str(iuh),
+            setattr(self, 'statesuh'+str(iuh),
                 Vector(uh_names, \
                     defaults=np.zeros(NUHMAXLENGTH), \
-                    mins=np.zeros(NUHMAXLENGTH))
+                    mins=np.zeros(NUHMAXLENGTH)))
 
 
     def __str__(self):
-        str = '\n{0} model implementation\n'.format( \
-            self.name)
+        str = ('\n{0} model implementation\n'+\
+            '\tConfig: {1}\n\tParams: {2}\b\tStates: {3}\n\tNUH: {4}').format( \
+            self.name, self.config.names, self.params.names, \
+            self.states.names, self.nuh)
         return str
 
 
-    @property
-    def params_names(self):
-        return self._params.names
-
-    @property
-    def params(self):
-        return self._params.values
-
-    @params.setter
-    def params(self, value):
-        self._params.values = value
-
-        # When setting params, applies post-processing
-        # (e.g. UH setting)
-        self.post_params_setter()
-
-
-    def __uh_setter(self, iuh, value):
-        if np.abs(np.sum(value)-1.) > 1e-9:
+    def __uh_setter(self, iuh, values):
+        if np.abs(np.sum(values)-1.) > 1e-9:
             raise ValueError('Model {0}: Expected sum uh{1} = 1, got {2}'.format(\
-                                self.name, iuh, np.sum(value)))
-        uh = getattr(self, '_uh'+str(iuh))
-        uh.values = value
-
-    @property
-    def uh1(self):
-        return self._uh1.values
-
-    @uh1.setter
-    def uh1(self, value):
-        self.__uh_setter(1, value)
+                                self.name, iuh, np.sum(values)))
+        uh = getattr(self, 'uh'+str(iuh))
+        uh.values = values
 
 
     @property
-    def uh2(self):
-        return self._uh2.values
-
-    @uh2.setter
-    def uh2(self, value):
-        self.__uh_setter(2, value)
+    def ninputs(self):
+        return self._ninputs
 
 
     @property
-    def statesuh1(self):
-        return self._statesuh1.values
-
-    @statesuh1.setter
-    def statesuh1(self, value):
-        self._statesuh1.values = value
-
-
-    @property
-    def statesuh2(self):
-        return self._statesuh2.values
-
-    @statesuh2.setter
-    def statesuh2(self, value):
-        self._statesuh2.values = value
-
-
-    @property
-    def states_names(self):
-        return self._states.names
-
-    @property
-    def states(self):
-        return self._states.values
-
-    @states.setter
-    def states(self, value):
-        self._states.values = value
-
-
-    @property
-    def config_names(self):
-        return self._states.names
-
-    @property
-    def config(self):
-        return self._states.values
-
-    @config.setter
-    def config(self, value):
-        self._config.values = value
+    def noutputs(self):
+        return self._noutputs
 
 
     @property
@@ -154,13 +97,17 @@ class Model(object):
         return self._outputs
 
 
+    def post_params_setter(self):
+        pass
+
+
     def allocate(self, inputs, noutputs=1):
         ''' We define the number of outputs here to allow more flexible memory allocation '''
 
         if noutputs <= 0 or noutputs > self.noutputs:
             raise ValueError(('model {0}: ' +\
                 'Expected noutputs in [1, {1}], got {2}'.format(\
-                    self.name, self.noutputs, noutputs))
+                    self.name, self.noutputs, noutputs)))
 
         # Allocate inputs
         inputs = np.atleast_2d(inputs)
@@ -174,57 +121,26 @@ class Model(object):
         self._outputs = np.zeros((inputs.shape[0], noutputs))
 
 
-    def post_params_setter(self):
-        pass
-
-
-    def initialise(self, states=None, statesuh1=None, \
-                    statesuh2=None):
-
-        if self._states is None:
-            raise ValueError(('With model {0}, Cannot initialise when'+
-                ' states is None. Please allocate').format(self.name))
-
+    def initialise(self, states=None, *args):
+        ''' Initialise state vector and potentially all UH states vectors '''
         if states is None:
-            self._states.reset()
+            self.states.reset()
         else:
-            self._states.values = states
+            self.states.values = states
 
-        if statesuh1 is None:
-            self._statesuh1.reset()
-        else:
-            self._statesuh1.values = statesuh1
-
-        if statesuh2 is None:
-            self._statesuh2.reset()
-        else:
-            self._statesuh2.values = statesuh1
+        if len(args)>0:
+            for iuh in range(1, self.nuh+1):
+                suh = getattr(self, 'statesuh{0}'.format(iuh))
+                if iuh<=len(args):
+                    suh.reset()
+                else:
+                    suh.values = args[iuh]
 
 
-    def run(self, runblock=False):
+    def run(self, istart, iend, seed):
         ''' Run the model '''
-
-        if self._inputs is None or self._outputs is None:
-            raise ValueError('model {0}: '+\
-                'inputs or outputs are None'.format(self.name))
-
-        if runblock:
-            # Run model in block mode
-            self.runblock(istart, iend)
-
-        else:
-            # Run model in time step mode over the range
-            # [istart - iend]
-            for i in np.arange(istart, iend+1):
-                self.runtimestep(i)
-
-
-    def runblock(self, istart, iend):
         raise NotImplementedError(('model {0}: '+\
-            'Method runblock not implemented').format(self.model))
-
-    def runtimestep(self, istep):
-        self.runblock(istep, istep)
+            'Method run not implemented').format(self.model))
 
 
     def clone(self):

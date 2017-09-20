@@ -1,5 +1,6 @@
 import numpy as np
 
+from hydrodiy.data.containers import Vector
 from pygme.model import Model
 
 from pygme.calibration import Calibration
@@ -9,22 +10,20 @@ class Dummy(Model):
 
     def __init__(self):
 
+        config = Vector(['continuous'],\
+                    [0], [0], [1])
+
+        params = Vector(['X1', 'X2', 'X3'], \
+                    [0, 1, 0], [-10, -10, -10], [10, 10, 10])
+
+        states = Vector(['S1', 'S2', 'S3'])
+
         Model.__init__(self, 'dummy',
-            config_names=['continuous'], \
-            params_names=['X1', 'X2', 'X3'], \
-            states_names=['S1', 'S2'], \
+            config, params, states, \
             ninputs=2, \
             noutputs=2)
 
-        self._params.defaults = [0., 1., 0.]
-        self._params.mins = [-10., -10., -10.]
-        self._params.maxs = [10., 10., 10.]
-
-        self._config.defaults = 1
-        self._config.values = 1
-
-
-    def runblock(self, istart, iend, seed=None):
+    def run(self, istart, iend, seed=None):
 
         par1 = self.params[0]
         par2 = self.params[1]
@@ -52,33 +51,31 @@ class Dummy(Model):
 
 
     def post_params_setter(self):
-        uh = np.zeros(self._uh.nval)
+        uh = np.zeros(self.uh1.nval)
         uh[:4] = 0.25
-        self.uh =  uh
+        self.uh1.values =  uh
 
 
 
 class MassiveDummy(Model):
 
-    def __init__(self,
-            nens_params=1,
-            nens_states=1,
-            nens_outputs=1):
+    def __init__(self):
+
+        config = Vector(['continuous'],\
+                    [0], [0], [1])
+
+        params = Vector(['X1'], \
+                    [0], [-10], [10])
+
+        states = Vector(['S1'])
 
         Model.__init__(self, 'dummy',
-            nconfig=0,
-            ninputs=1,
-            nparams=0,
-            nstates=0,
-            noutputs_max=1,
-            run_as_block=True,
-            nens_params=nens_params,
-            nens_states=nens_states,
-            nens_outputs=nens_outputs)
+            config, params, states, \
+            ninputs=2, \
+            noutputs=2)
 
 
-    def runblock(self, istart, iend, seed=None):
-
+    def run(self, istart, iend, seed=None):
         kk = range(istart, iend+1)
         outputs = self.inputs + np.random.uniform(0, 1, (len(kk), 1))
         self.outputs[kk, :] = outputs[kk, :]

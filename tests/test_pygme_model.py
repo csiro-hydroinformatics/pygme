@@ -9,7 +9,6 @@ import numpy as np
 np.seterr(all='print')
 
 from pygme.model import Model
-from pygme.data import Matrix
 
 from dummy import Dummy, MassiveDummy
 
@@ -22,41 +21,32 @@ class ModelTestCases(unittest.TestCase):
         self.FOUT = FOUT
 
 
-    def test_model1(self):
+    def test_print(self):
         dum = Dummy()
         str = '{0}'.format(dum)
 
 
-    def test_model2(self):
+    def test_allocate(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         dum = Dummy()
         dum.allocate(inputs)
 
 
-    def test_model3(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
+    def test_set_params(self):
         params = [0.5, 10., 0.1]
         dum = Dummy()
-        dum.allocate(inputs)
-        dum.params = params
-
-        self.assertTrue(np.allclose(dum._params.data, params))
+        dum.params.values = params
+        self.assertTrue(np.allclose(dum.params.values, params))
 
 
-    def test_model4(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10., 0.1]
+    def test_initialise(self):
         dum = Dummy()
-        dum.allocate(inputs)
-        dum.params = params
-
-        states = [10, 0]
+        states = [5, 6, 7]
         dum.initialise(states)
+        self.assertTrue(np.allclose(dum.states.values, states))
 
-        self.assertTrue(np.allclose(dum._states.data, states))
 
-
-    def test_model5(self):
+    def test_run(self):
         nval = 100
         inputs = np.random.uniform(0, 1, (nval, 2))
         params = [0.5, 10., 0.]
@@ -88,7 +78,7 @@ class ModelTestCases(unittest.TestCase):
         dum.params = params
         dum.initialise(states=[10, 0])
 
-        dum.config.data = [10]
+        dum.config.values = [10]
 
         dum2 = dum.clone()
         dum2.inputs = dum2.inputs
@@ -108,12 +98,12 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(inputs, 2)
         dum.params = np.zeros(3)
 
-        uh = [0.25]*4 + [0.] * (len(dum.uh)-4)
+        uh = [0.25]*4 + [0.] * (len(dum.uh1)-4)
         uh = np.array(uh)
-        self.assertTrue(np.allclose(dum.uh, uh))
+        self.assertTrue(np.allclose(dum.uh1, uh))
 
         dum.params = [1., 2., 0.4]
-        self.assertTrue(np.allclose(dum.uh[:4], 0.25))
+        self.assertTrue(np.allclose(dum.uh1[:4], 0.25))
 
     def test_model8(self):
         inputs = np.random.uniform(0, 1, (1000, 1))
@@ -133,17 +123,16 @@ class ModelTestCases(unittest.TestCase):
             nens_states=4,
             nens_outputs=5)
 
-        nval = 1000
         noutputs = 2
-        nlead = 10
-        nens = 2
-        inputs = Matrix.from_dims('inputs', nval, 2, nlead, nens)
+        nval = 1000
+        nvar = 5
+        inputs = np.zeros((nval, nvar))
         dum.allocate(inputs, noutputs)
 
         self.assertTrue(dum.get_dims('params') == (3, 3))
         self.assertTrue(dum.get_dims('states') == (2, 4))
         self.assertTrue(dum.get_dims('inputs') == (nval, 2, nlead, 2))
-        self.assertTrue(dum.get_dims('outputs') == (nval, noutputs, nlead, 5))
+        self.assertTrue(dum.get_dims('outputs') == (nval, nvar))
 
 
     def test_model10(self):
@@ -153,7 +142,8 @@ class ModelTestCases(unittest.TestCase):
             nens_outputs=5)
 
         nval = 1000
-        inputs = Matrix.from_dims('inputs', nval, 2, 1, 10)
+        nvar = 5
+        inputs = np.zeros((nval, nvar))
         noutputs = 2
         dum.allocate(inputs, noutputs)
 
@@ -180,9 +170,10 @@ class ModelTestCases(unittest.TestCase):
 
         try:
             dum.index_end = nval+1
-        except Exception, e:
-            pass
-        self.assertTrue(e.message.startswith('With model dummy, index (1001)'))
+        except Exception as err:
+            self.assertTrue(err.message.startswith('With model dummy, index (1001)'))
+        else:
+            raise Exception('Problem with error generation')
 
 
     def test_model12(self):

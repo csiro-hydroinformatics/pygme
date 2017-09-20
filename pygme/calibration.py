@@ -5,7 +5,7 @@ import numpy as np
 
 from scipy.optimize import fmin_powell
 
-from pygme.data import Vector, Matrix
+from hydrodiy.data.containers import Vector
 
 now = datetime.now
 
