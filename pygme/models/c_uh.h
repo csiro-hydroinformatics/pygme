@@ -11,7 +11,7 @@
 #define NUHMAXLENGTH 300
 
 /* Check on uh sum */
-#define UHEPS 0.0001
+#define UHEPS 1e-6
 
 double uh_gr4j_ss1_daily(double ordinate, double lag);
 double uh_gr4j_ss2_daily(double ordinate, double lag);
@@ -27,14 +27,14 @@ int c_uh_getnuhmaxlength(void);
 double c_uh_getuheps(void);
 
 int c_uh_getuh(int nuhlengthmax,
-        int uhid, 
+        int uhid,
         double lag,
         int * nuh,
         double * uh);
 
-int uh_runtimestep(int nuh, 
-        double input, 
-        double * uh, 
+int uh_runtimestep(int nuh,
+        double input,
+        double * uh,
         double * states,
         double * outputs);
 

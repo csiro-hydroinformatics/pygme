@@ -8,17 +8,56 @@ import time
 import numpy as np
 np.seterr(all='print')
 
-from pygme.model import Model
-
+from pygme.model import Model, NUHMAXLENGTH, UH, UHNAMES
 from dummy import Dummy, MassiveDummy
+
+
+class UHTestCases(unittest.TestCase):
+
+    def setUp(self):
+        print('\t=> UHTestCase')
+        source_file = os.path.abspath(__file__)
+        self.ftest = os.path.dirname(source_file)
+
+
+    def test_init(self):
+        for nm in UHNAMES:
+            u = UH(nm)
+            s = str(u)
+
+        try:
+            u = UH('pignouf')
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Expected UH name'))
+        else:
+            raise ValueError('Problem with error handling')
+
+
+    def test_set_param(self):
+        for nm in UHNAMES:
+            u = UH(nm)
+            for p in np.linspace(0, 100, 500):
+                u.param = p
+                ck = np.allclose(np.sum(u.ord[:u.nuh]), 1., atol=1e-8)
+                self.assertTrue(ck)
+                self.assertTrue(np.allclose(u.states, 0.))
+
+
+    def test_set_states(self):
+        for nm in UHNAMES:
+            u = UH(nm)
+            u.states[:10] = 10.
+            u.param = 20
+            self.assertTrue(np.allclose(u.states[:u.nuh], 0.))
+
 
 
 class ModelTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> ModelTestCase')
-        FOUT = os.path.dirname(os.path.abspath(__file__))
-        self.FOUT = FOUT
+        source_file = os.path.abspath(__file__)
+        self.ftest = os.path.dirname(source_file)
 
 
     def test_print(self):
@@ -27,9 +66,20 @@ class ModelTestCases(unittest.TestCase):
 
 
     def test_allocate(self):
-        inputs = np.random.uniform(0, 1, (1000, 2))
         dum = Dummy()
+        inputs = np.random.uniform(0, 1, (1000, 2))
+
+        try:
+            n = dum.ntimesteps
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Inputs are not'))
+        else:
+            raise ValueError('Problem with error handling')
+
         dum.allocate(inputs)
+        self.assertTrue(dum.ninputs, 2)
+        self.assertTrue(dum.ntimesteps, 1000)
+        self.assertTrue(np.allclose(dum.inputs.shape, (1000, 2)))
 
 
     def test_set_params(self):
@@ -46,16 +96,36 @@ class ModelTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(dum.states.values, states))
 
 
+    def test_set_inputs(self):
+        nval = 100
+        inputs1 = np.random.uniform(0, 1, (nval, 2))
+        inputs2 = np.random.uniform(0, 1, (nval, 2))
+        dum = Dummy()
+        dum.inputs = inputs1
+        self.assertTrue(dum.ntimesteps, nval)
+        self.assertTrue(np.allclose(dum.inputs, inputs1))
+
+        dum.inputs = inputs2
+        self.assertTrue(dum.ntimesteps, nval)
+        self.assertTrue(np.allclose(dum.inputs, inputs2))
+
+        # Change inputs
+        nval = 10
+        inputs3 = np.random.uniform(0, 1, (nval, 2))
+        dum.inputs = inputs3
+        self.assertTrue(dum.ntimesteps, nval)
+
+
     def test_run(self):
         nval = 100
         inputs = np.random.uniform(0, 1, (nval, 2))
         params = [0.5, 10., 0.]
         dum = Dummy()
-        dum.allocate(inputs, 2)
-        dum.params = params
+        dum.allocate(inputs, 3)
+        dum.params.values = params
         dum.config['continuous'] = 1
 
-        states = np.array([10., 0.])
+        states = np.array([10., 0., 0.])
         dum.initialise(states=states)
 
         dum.index_start = 0
@@ -64,24 +134,23 @@ class ModelTestCases(unittest.TestCase):
 
         expected = params[0] + params[1] * inputs
         expected = np.cumsum(expected, 0)
-        expected = expected + states
-        ck = np.allclose(expected, dum.outputs)
+        expected = expected + states[:2][None, :]
+        ck = np.allclose(expected, dum.outputs[:, :2])
         self.assertTrue(ck)
 
 
-    def test_model6(self):
+    def test_inputs(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         params = [0.5, 10., 0.5]
 
         dum = Dummy()
-        dum.allocate(inputs)
-        dum.params = params
-        dum.initialise(states=[10, 0])
-
+        dum.inputs = inputs
+        dum.params.values = params
+        dum.initialise(states=[10, 5, 0])
         dum.config.values = [10]
 
         dum2 = dum.clone()
-        dum2.inputs = dum2.inputs
+        dum2.allocate(inputs)
 
         d1 = dum.inputs
         d2 = dum2.inputs
@@ -92,76 +161,54 @@ class ModelTestCases(unittest.TestCase):
         d2[0, 0] += 1
         self.assertTrue(np.allclose(d1[0, 0]+1, d2[0, 0]))
 
-    def test_model7(self):
+
+    def test_uh(self):
         dum = Dummy()
         inputs = np.random.uniform(0, 1, (10, 2))
         dum.allocate(inputs, 2)
-        dum.params = np.zeros(3)
+        dum.params.values = np.zeros(3)
 
-        uh = [0.25]*4 + [0.] * (len(dum.uh1)-4)
+        uh = [0.25]*4 + [0.] * (len(dum.uh1.values)-4)
         uh = np.array(uh)
-        self.assertTrue(np.allclose(dum.uh1, uh))
+        self.assertTrue(np.allclose(dum.uh1.values, uh))
 
-        dum.params = [1., 2., 0.4]
-        self.assertTrue(np.allclose(dum.uh1[:4], 0.25))
+        dum.params.values = [1., 2., 0.4]
+        self.assertTrue(np.allclose(dum.uh1.values[:4], 0.25))
 
-    def test_model8(self):
-        inputs = np.random.uniform(0, 1, (1000, 1))
+
+    def test_run_default(self):
         dum = MassiveDummy()
-        dum.params = []
+        dum.params.values = 0.
+        inputs = np.random.uniform(0, 1, (1000, 2))
         dum.allocate(inputs)
-        dum.initialise(states=[])
-        dum.inputs = inputs
+        dum.initialise(states=[0.])
 
         dum.index_start = 0
         dum.index_end = len(inputs)-1
         dum.run()
 
 
-    def test_model9(self):
-        dum = Dummy(nens_params=3,
-            nens_states=4,
-            nens_outputs=5)
-
-        noutputs = 2
-        nval = 1000
-        nvar = 5
-        inputs = np.zeros((nval, nvar))
-        dum.allocate(inputs, noutputs)
-
-        self.assertTrue(dum.get_dims('params') == (3, 3))
-        self.assertTrue(dum.get_dims('states') == (2, 4))
-        self.assertTrue(dum.get_dims('inputs') == (nval, 2, nlead, 2))
-        self.assertTrue(dum.get_dims('outputs') == (nval, nvar))
-
-
-    def test_model10(self):
-
-        dum = Dummy(nens_params=3,
-            nens_states=4,
-            nens_outputs=5)
-
-        nval = 1000
-        nvar = 5
-        inputs = np.zeros((nval, nvar))
-        noutputs = 2
-        dum.allocate(inputs, noutputs)
-
-        dum.random('params', 'uniform')
-        dum.random('states')
-        dum.random('statesuh')
-
-
-    def test_model11(self):
-
+    def test_allocate_dummy(self):
         dum = Dummy()
-
         nval = 1000
-        noutputs = 1
-        _, ninputs, _, _ = dum.get_dims('inputs')
+        ninputs = 2
+        dum.inputs = np.random.uniform(0, 1, (nval, ninputs))
+        nts = dum.ntimesteps
+
+        self.assertTrue(dum.params.nval == 3)
+        self.assertTrue(dum.states.nval == 3)
+        self.assertTrue(dum.uh1.nval == NUHMAXLENGTH)
+        self.assertTrue(dum.inputs.shape  == (nts, 2))
+        self.assertTrue(dum.outputs.shape  == (nts, 1))
+
+
+    def test_run_startend(self):
+        dum = Dummy()
+        nval = 1000
+        ninputs = 2
         inputs = np.random.uniform(0, 1, (nval, ninputs))
         dum.allocate(inputs)
-        dum.params = [1., 2., 0.]
+        dum.params.value = [1., 2., 0.]
 
         dum.index_start = 10
         dum.index_end = nval-1
@@ -171,35 +218,10 @@ class ModelTestCases(unittest.TestCase):
         try:
             dum.index_end = nval+1
         except Exception as err:
-            self.assertTrue(err.message.startswith('With model dummy, index (1001)'))
+            self.assertTrue(\
+                err.message.startswith('With model dummy, index (1001)'))
         else:
             raise Exception('Problem with error generation')
-
-
-    def test_model12(self):
-
-        dum = Dummy()
-
-        nval = 100
-        noutputs = 2
-        _, ninputs, _, _ = dum.get_dims('inputs')
-        inputs = np.random.uniform(0, 1, (nval, ninputs))
-        dum.allocate(inputs)
-        dum.params = [1., 2., 0.]
-
-        dum.run_as_block = True
-        dum.initialise()
-        dum.run()
-        o1 = dum.outputs.copy()
-
-        dum.run_as_block = False
-        dum.initialise()
-        dum.run()
-        o2 = dum.outputs.copy()
-
-        ck = np.allclose(o1, o2)
-        self.assertTrue(ck)
-
 
 
 if __name__ == '__main__':

@@ -41,8 +41,8 @@ double uh_gr4j_ss2_hourly(double ordinate,double lag)
 
 double uh_lag(double ordinate, double lag)
 {
-    double s = ordinate < lag ? 0. : 
-        ordinate > lag+1 ? 1. : 
+    double s = ordinate < lag ? 0. :
+        ordinate > lag+1 ? 1. :
         ordinate-lag;
 
     return s;
@@ -51,8 +51,14 @@ double uh_lag(double ordinate, double lag)
 
 double uh_triangle(double ordinate, double lag)
 {
-    double u = ordinate/lag;
-    double s = ordinate < 0. ? 0. : 
+    double u, s;
+
+    /* Prevent lag from being exactly equal to 0 */
+    lag = lag<UHEPS ? UHEPS : lag;
+
+    /* compute ordinage difference */
+    u = ordinate/lag;
+    s = ordinate < 0. ? 0. :
         ordinate < lag ?  u*u/2 :
         ordinate < 2*lag ? 1/2+(1-u)*(1-u)/2 : 1;
 
@@ -101,7 +107,7 @@ double c_uh_getuheps(void)
 
 
 int c_uh_getuh(int nuhlengthmax,
-        int uhid, 
+        int uhid,
         double lag,
         int * nuh,
         double * uh)
@@ -127,15 +133,21 @@ int c_uh_getuh(int nuhlengthmax,
 
     /* NUH is not big enough */
     if(1-suh > UHEPS || *nuh > nuhlengthmax)
+    {
+        fprintf(stdout, "suh=%0.4f\n", suh);
         return UH_ERROR + __LINE__;
+    }
+
+    /* Small correction of first ordinate to remove any bias */
+    uh[0] += 1-suh;
 
     return 0;
 }
 
 
-int uh_runtimestep(int nuh, 
-        double input, 
-        double * uh, 
+int uh_runtimestep(int nuh,
+        double input,
+        double * uh,
         double * states,
         double * outputs)
 {
@@ -143,10 +155,10 @@ int uh_runtimestep(int nuh,
 
     for (k=0;k<nuh-1;k++)
         states[k] = states[1+k]+uh[k]*input;
-    
+
     states[nuh-1] = uh[nuh-1]*input;
     *outputs = states[0];
-    
+
     return ierr;
 }
 
