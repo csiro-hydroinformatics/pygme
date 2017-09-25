@@ -12,46 +12,11 @@ from hydrodiy.data.containers import Vector
 
 UHNAMES = ['gr4j_ss1_daily', 'gr4j_ss2_daily', \
             'gr4j_ss1_hourly', 'gr4j_ss2_hourly', \
-            'lag', 'triangle']
-
-# Overload Vector class to change UH and corresponding states
-# when changing model parameters
-class ParamsVector(Vector):
-
-    def __init__(self, params, model, iuhparams):
-        Vector.__init__(self, params.names, \
-            params.defaults, params.mins, params.maxs, \
-            params.hitbounds)
-
-        self._model = model
-
-        if len(iuhparams) != model.nuh:
-            raise ValueError(('Expected length of iuhparams to be {0}. '+\
-                'Got {1}').format(self.nuh, iuhparams))
-
-
-    @Vector.values.setter
-    def values(self, val):
-        # Run the vector value setter
-        Vector.values.fset(self, val)
-
-        # Run post-setter
-        model = self._model
-        model.post_params_setter()
-
-        # Reset UH states whenever we change parameters
-        # this is a safeguard against keeping wrong uh states
-        # when uh parameter is changed.
-        # It may affect runtime though.
-        if model.nuh>0:
-            for iuh in range(1, model.nuh+1):
-                suh = getattr(model, 'statesuh'+str(iuh))
-                suh.reset()
-
+            'lag', 'triangle', 'flat']
 
 class UH(object):
 
-    def __init__(self, name, nuhmax=NUHMAXLENGTH):
+    def __init__(self, name, iparam=0, nuhmax=NUHMAXLENGTH):
 
         # Set max length of uh
         if nuhmax > NUHMAXLENGTH or nuhmax<=0:
@@ -75,9 +40,11 @@ class UH(object):
 
         # Initialise ordinates and states
         self._ord = np.zeros(nuhmax, dtype=np.float64)
+        self._ord[0] = 1.
         self._states = np.zeros(nuhmax, dtype=np.float64)
 
         # set param value
+        self._iparam = np.int32(iparam)
         self._param = 0.
 
         # Number of ordinates
@@ -109,6 +76,11 @@ class UH(object):
 
 
     @property
+    def iparam(self):
+        return self._iparam
+
+
+    @property
     def param(self):
         return self._param
 
@@ -116,9 +88,6 @@ class UH(object):
     def param(self, value):
         # Check value
         value = np.float64(value)
-        if value<0:
-            raise ValueError('Expected UH param>=0, got {0}'.format(\
-                                value))
 
         # Populate the uh ordinates
         ierr = c_pygme_models_utils.uh_getuh(self.nuhmax, self.uhid, \
@@ -144,6 +113,86 @@ class UH(object):
     @property
     def states(self):
         return self._states
+
+
+    def initialise(self, values=None):
+        nuh = self.nuh
+
+        if values is None:
+            self._states = np.zeros(nuh)
+        else:
+            values = np.atleast_1d(values)
+            if len(values) < nuh:
+                raise ValueError(('Expected state vector of length {0},'+\
+                                    ' got {1}').format(nuh, len(values)))
+
+            self._states[:nuh] = values
+
+
+# Overload Vector class to change UH and corresponding states
+# when changing model parameters
+class ParamsVector(Vector):
+
+    def __init__(self, params, uhs):
+
+        # Initialise Vector object
+        Vector.__init__(self, params.names, \
+            params.defaults, params.mins, params.maxs, \
+            params.hitbounds)
+
+        # Check values of iuhparams from uhs
+        iuhparams = np.array([uh.iparam for uh in uhs])
+        if len(iuhparams) != len(np.unique(iuhparams)):
+            raise ValueError(('Expected unique values in'+\
+                ' iuhparams, got {0}').format(iuhparams))
+
+        for iuh, uh in enumerate(uhs):
+            if uh.iparam>=self.nval | uh.iparam<0:
+                raise ValueError(('Expected uhs[{0}].iparam to be in [0, {1}[,'+\
+                                ' got {2}').format(iuh, self.nval, uh.iparam))
+
+        # Store unit hydrograhs objects
+        # (to be modified when parameter values change)
+        self._nuh = len(uhs)
+        self._uhs = uhs
+
+
+    def __setitem__(self, key, value):
+        # Set item for the vector
+        Vector.__setitem___(self, key, value)
+
+        # Set UH parameter
+        ip = self.__findname__(key)
+        if self.nuh>0:
+            for uh in self.uhs:
+                if uh.iparam == ip:
+                    uh.param = value
+                    break
+
+    @property
+    def nuh(self):
+        return self._nuh
+
+
+    @property
+    def uhs(self):
+        return self._uhs
+
+
+    @property
+    def iuhparams(self):
+        return self._iuhparams
+
+
+    @Vector.values.setter
+    def values(self, val):
+        # Run the vector value setter
+        Vector.values.fset(self, val)
+
+        # Set UH parameter
+        if self.nuh>0:
+            for uh in self.uhs:
+                uh.param = self.values[uh.iparam]
 
 
 
@@ -173,8 +222,8 @@ class Model(object):
         nuh = 0
         if not uhs is None:
             nuh = len(uhs)
-            self._uhs = uhs
 
+        self._uhs = uhs
         self.nuh = nuh
 
 
@@ -284,10 +333,6 @@ class Model(object):
             self.allocate(inputs, noutputs)
 
         self._outputs = values
-
-
-    def post_params_setter(self):
-        pass
 
 
     def allocate(self, inputs, noutputs=1):

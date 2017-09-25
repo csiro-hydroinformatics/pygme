@@ -8,7 +8,8 @@ import time
 import numpy as np
 np.seterr(all='print')
 
-from pygme.model import Model, NUHMAXLENGTH, UH, UHNAMES
+from hydrodiy.data.containers import Vector
+from pygme.model import Model, NUHMAXLENGTH, UH, UHNAMES, ParamsVector
 from dummy import Dummy, MassiveDummy
 
 
@@ -16,8 +17,6 @@ class UHTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> UHTestCase')
-        source_file = os.path.abspath(__file__)
-        self.ftest = os.path.dirname(source_file)
 
 
     def test_init(self):
@@ -49,6 +48,78 @@ class UHTestCases(unittest.TestCase):
             u.states[:10] = 10.
             u.param = 20
             self.assertTrue(np.allclose(u.states[:u.nuh], 0.))
+
+
+    def test_initialise(self):
+        for nm in UHNAMES:
+            u = UH(nm)
+            u.param = 5.5
+            nuh = u.nuh
+
+            u.initialise()
+            self.assertTrue(np.allclose(u.states, np.zeros(nuh)))
+
+            s = np.random.uniform(size=nuh)
+            u.initialise(s)
+            self.assertTrue(np.allclose(u.states, s))
+
+            try:
+                u.initialise(s[:2])
+            except ValueError as err:
+                self.assertTrue(str(err).startswith('Expected state vector'))
+            else:
+                raise ValueError('Problem in error handling')
+
+
+class ParamsVectorTestCases(unittest.TestCase):
+
+    def setUp(self):
+        print('\t=> ParamsVectorTestCase')
+
+
+    def test_init(self):
+        vect = Vector(['X{0}'.format(k) for k in range(10)])
+        uhs = [UH('lag', 3), UH('lag', 6), UH('triangle', 8)]
+        pv = ParamsVector(vect, uhs)
+
+        for k in range(len(uhs)):
+            self.assertTrue(np.allclose(pv.uhs[k].param, 0.))
+            self.assertTrue(np.allclose(pv.uhs[k].nuh, 1))
+
+            ordi = np.zeros(pv.uhs[k].nuhmax)
+            ordi[0] = 1
+            self.assertTrue(np.allclose(pv.uhs[k].ord, ordi))
+
+            states = np.zeros(pv.uhs[k].nuhmax)
+            self.assertTrue(np.allclose(pv.uhs[k].states, states))
+
+
+    def test_error_init(self):
+        vect = Vector(['X{0}'.format(k) for k in range(10)])
+        uhs = [UH('lag', 3), UH('lag', 3), UH('triangle', 8)]
+        try:
+            pv = ParamsVector(vect, uhs)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Expected unique values'))
+        else:
+            raise ValueError('Problem with error handling')
+
+        uhs = [UH('lag', 3), UH('lag', 13), UH('triangle', 8)]
+        try:
+            pv = ParamsVector(vect, uhs)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Expected uhs[1].iparam in '))
+        else:
+            raise ValueError('Problem with error handling')
+
+
+
+    def test_set_params(self):
+        vect = Vector(['X{0}'.format(k) for k in range(10)])
+        uhs = [UH('lag', 3), UH('lag', 6), UH('triangle', 8)]
+        pv = ParamsVector(vect, uhs)
+
+        pv['X3'] = 10
 
 
 

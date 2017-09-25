@@ -56,11 +56,24 @@ double uh_triangle(double ordinate, double lag)
     /* Prevent lag from being exactly equal to 0 */
     lag = lag<UHEPS ? UHEPS : lag;
 
-    /* compute ordinage difference */
+    /* compute ordinate difference */
     u = ordinate/lag;
     s = ordinate < 0. ? 0. :
         ordinate < lag ?  u*u/2 :
         ordinate < 2*lag ? 1/2+(1-u)*(1-u)/2 : 1;
+
+    return s;
+}
+
+double uh_flat(double ordinate, double lag)
+{
+    double s;
+
+    /* Prevent lag from being exactly equal to 0 */
+    lag = lag<UHEPS ? UHEPS : lag;
+
+    /* compute ordinate difference */
+    s = ordinate < lag ?  ordinate/lag : 1;
 
     return s;
 }
@@ -90,6 +103,10 @@ double uh_delta(int uhid, double lag, double ordinate)
     if(uhid == 6)
         return uh_triangle(ordinate+1, lag)
             - uh_triangle(ordinate, lag);
+
+    if(uhid == 7)
+        return uh_flat(ordinate+1, lag)
+            - uh_flat(ordinate, lag);
 
     return 0;
 }

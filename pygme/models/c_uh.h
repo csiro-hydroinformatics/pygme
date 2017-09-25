@@ -19,6 +19,7 @@ double uh_gr4j_ss1_hourly(double ordinate, double lag);
 double uh_gr4j_ss2_hourly(double ordinate, double lag);
 double uh_lag(double ordinate,double lag);
 double uh_triangle(double ordinate,double lag);
+double uh_flat(double ordinate,double lag);
 
 double uh_delta(int uhid, double lag, double ordinate);
 
