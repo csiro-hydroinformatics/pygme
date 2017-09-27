@@ -103,6 +103,7 @@ class UH(object):
         # Reset uh states to a vector of zeros
         # with length _nuh[0]
         self._states[:self._nuh[0]] = 0
+        self._ord[self._nuh[0]:] = 0
 
 
     @property
@@ -147,8 +148,8 @@ class ParamsVector(Vector):
                 ' iuhparams, got {0}').format(iuhparams))
 
         for iuh, uh in enumerate(uhs):
-            if uh.iparam>=self.nval | uh.iparam<0:
-                raise ValueError(('Expected uhs[{0}].iparam to be in [0, {1}[,'+\
+            if uh.iparam>=self.nval or uh.iparam<0:
+                raise ValueError(('Expected uhs[{0}].iparam in [0, {1}[,'+\
                                 ' got {2}').format(iuh, self.nval, uh.iparam))
 
         # Store unit hydrograhs objects
@@ -159,7 +160,7 @@ class ParamsVector(Vector):
 
     def __setitem__(self, key, value):
         # Set item for the vector
-        Vector.__setitem___(self, key, value)
+        Vector.__setitem__(self, key, value)
 
         # Set UH parameter
         ip = self.__findname__(key)

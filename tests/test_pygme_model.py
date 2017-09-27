@@ -71,6 +71,32 @@ class UHTestCases(unittest.TestCase):
                 raise ValueError('Problem in error handling')
 
 
+    def test_uh_lag(self):
+        u = UH('lag')
+
+        u.param = 5.5
+        o = np.zeros(u.nuhmax)
+        o[5:7] = 0.5
+        self.assertTrue(np.allclose(u.ord, o))
+
+        u.param = 5
+        o = np.zeros(u.nuhmax)
+        o[5] = 1
+        self.assertTrue(np.allclose(u.ord, o))
+
+
+    def test_uh_triangle(self):
+        u = UH('triangle')
+
+        # TODO !!!!
+
+
+    def test_uh_flat(self):
+        u = UH('flat')
+
+        # TODO !!!!
+
+
 class ParamsVectorTestCases(unittest.TestCase):
 
     def setUp(self):
@@ -113,14 +139,27 @@ class ParamsVectorTestCases(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
-
     def test_set_params(self):
         vect = Vector(['X{0}'.format(k) for k in range(10)])
         uhs = [UH('lag', 3), UH('lag', 6), UH('triangle', 8)]
         pv = ParamsVector(vect, uhs)
 
+        # Set params
         pv['X3'] = 10
+        pv['X6'] = 2.5
+        pv['X8'] = 5
 
+        zero = np.zeros(uhs[0].nuhmax)
+
+        o = zero.copy()
+        o[10] = 1
+        self.assertTrue(np.allclose(pv.uhs[0].ord, o))
+
+        o = zero.copy()
+        o[2:4] = 0.5
+        self.assertTrue(np.allclose(pv.uhs[1].ord, o))
+
+        import pdb; pdb.set_trace()
 
 
 class ModelTestCases(unittest.TestCase):
