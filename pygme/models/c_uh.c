@@ -60,7 +60,7 @@ double uh_triangle(double ordinate, double lag)
     u = ordinate/lag;
     s = ordinate < 0. ? 0. :
         ordinate < lag ?  u*u/2 :
-        ordinate < 2*lag ? 1/2+(1-u)*(1-u)/2 : 1;
+        ordinate < 2*lag ? 1-(2-u)*(2-u)/2 : 1;
 
     return s;
 }

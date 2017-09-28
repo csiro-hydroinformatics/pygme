@@ -88,13 +88,54 @@ class UHTestCases(unittest.TestCase):
     def test_uh_triangle(self):
         u = UH('triangle')
 
-        # TODO !!!!
+        u.param = 2.5
+        o = [0.08, 0.24, 0.36, 0.24, 0.08, 0.]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
+        u.param = 9.2
+        o = [0.005907372, 0.017722117, 0.029536862, 0.041351607, 0.053166352, \
+                0.064981096, 0.076795841, 0.088610586, 0.100425331, \
+                0.104678639, 0.093336484, 0.081521739, 0.069706994, \
+                0.057892250, 0.046077505, 0.034262760, 0.022448015, \
+                0.010633270, 0.000945180, 0.000000000]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
 
     def test_uh_flat(self):
         u = UH('flat')
 
-        # TODO !!!!
+        u.param = 2.5
+        o = [0.4, 0.4, 0.2]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
+        u.param = 9.2
+        o = [0.108695652]*9+[0.021739130, 0.]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
+
+    def test_uh_gr4j_ssh1_daily(self):
+        u = UH('gr4j_ss1_daily')
+
+        u.param = 2.5
+        o = [0.10119288512539, 0.47124051711456, 0.42756659776005, 0.]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
+        u.param = 1.3
+        o = [0.51896924219351, 0.48103075780649, 0.]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
+
+    def test_uh_gr4j_ssh2_daily(self):
+        u = UH('gr4j_ss2_daily')
+        u.param = 2.5
+
+        o = [0.05059644256269, 0.23562025855728, 0.42756659776005, \
+                            0.23562025855728, 0.05059644256269]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
+        u.param = 1.3
+        o = [0.25948462109675, 0.66815684654371, 0.07235853235954, 0.]
+        self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
 
 class ParamsVectorTestCases(unittest.TestCase):
