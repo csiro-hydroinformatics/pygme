@@ -141,12 +141,7 @@ class ParamsVector(Vector):
             params.defaults, params.mins, params.maxs, \
             params.hitbounds)
 
-        # Check values of iuhparams from uhs
-        iuhparams = np.array([uh.iparam for uh in uhs])
-        if len(iuhparams) != len(np.unique(iuhparams)):
-            raise ValueError(('Expected unique values in'+\
-                ' iuhparams, got {0}').format(iuhparams))
-
+        # Check param number set in uhs
         for iuh, uh in enumerate(uhs):
             if uh.iparam>=self.nval or uh.iparam<0:
                 raise ValueError(('Expected uhs[{0}].iparam in [0, {1}[,'+\

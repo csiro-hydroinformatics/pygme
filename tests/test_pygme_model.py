@@ -163,14 +163,6 @@ class ParamsVectorTestCases(unittest.TestCase):
 
     def test_error_init(self):
         vect = Vector(['X{0}'.format(k) for k in range(10)])
-        uhs = [UH('lag', 3), UH('lag', 3), UH('triangle', 8)]
-        try:
-            pv = ParamsVector(vect, uhs)
-        except ValueError as err:
-            self.assertTrue(str(err).startswith('Expected unique values'))
-        else:
-            raise ValueError('Problem with error handling')
-
         uhs = [UH('lag', 3), UH('lag', 13), UH('triangle', 8)]
         try:
             pv = ParamsVector(vect, uhs)
@@ -200,7 +192,6 @@ class ParamsVectorTestCases(unittest.TestCase):
         o[2:4] = 0.5
         self.assertTrue(np.allclose(pv.uhs[1].ord, o))
 
-        import pdb; pdb.set_trace()
 
 
 class ModelTestCases(unittest.TestCase):
