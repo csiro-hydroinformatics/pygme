@@ -50,25 +50,41 @@ class UHTestCases(unittest.TestCase):
             self.assertTrue(np.allclose(u.states[:u.nuh], 0.))
 
 
+    def test_reset(self):
+        for nm in UHNAMES:
+            u = UH(nm)
+            u.param = 5.5
+            u.states = np.random.uniform(size=u.nuh)
+            u.reset()
+            self.assertTrue(np.allclose(u.states, np.zeros(u.nuhmax)))
+
+
     def test_initialise(self):
         for nm in UHNAMES:
             u = UH(nm)
             u.param = 5.5
             nuh = u.nuh
 
-            u.initialise()
-            self.assertTrue(np.allclose(u.states, np.zeros(nuh)))
-
-            s = np.random.uniform(size=nuh)
-            u.initialise(s)
-            self.assertTrue(np.allclose(u.states, s))
+            states = np.random.uniform(size=nuh)
+            u.states = states
+            self.assertTrue(np.allclose(u.states[:nuh], states[:nuh]))
 
             try:
-                u.initialise(s[:2])
+                u.states = [0., 10.]
             except ValueError as err:
                 self.assertTrue(str(err).startswith('Expected state vector'))
             else:
                 raise ValueError('Problem in error handling')
+
+
+    def test_uh_nuhmax(self):
+        u = UH('lag', nuhmax=5)
+        try:
+            u.param = 10
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('When setting param to'))
+        else:
+            raise ValueError('Problem with error trapping')
 
 
     def test_uh_lag(self):
@@ -198,8 +214,6 @@ class ModelTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> ModelTestCase')
-        source_file = os.path.abspath(__file__)
-        self.ftest = os.path.dirname(source_file)
 
 
     def test_print(self):
@@ -214,13 +228,15 @@ class ModelTestCases(unittest.TestCase):
         try:
             n = dum.ntimesteps
         except ValueError as err:
-            self.assertTrue(str(err).startswith('Inputs are not'))
+            self.assertTrue(str(err).startswith('Trying to get ntimesteps'))
         else:
             raise ValueError('Problem with error handling')
 
         dum.allocate(inputs)
-        self.assertTrue(dum.ninputs, 2)
-        self.assertTrue(dum.ntimesteps, 1000)
+        self.assertTrue(dum.ninputs == 2)
+        self.assertTrue(dum.ntimesteps == 1000)
+        self.assertTrue(dum.istart == 0)
+        self.assertTrue(dum.iend == 999)
         self.assertTrue(np.allclose(dum.inputs.shape, (1000, 2)))
 
 
@@ -231,11 +247,19 @@ class ModelTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(dum.params.values, params))
 
 
-    def test_initialise(self):
+    def test_initialise_states(self):
         dum = Dummy()
         states = [5, 6, 7]
         dum.initialise(states)
         self.assertTrue(np.allclose(dum.states.values, states))
+
+
+    def test_initialise_uh(self):
+        dum = Dummy()
+        uhs = [UH(dum.params.uhs[0].name, 0)]
+        uhs[0].states += 4.
+        dum.initialise(uhs=uhs)
+        self.assertTrue(np.allclose(dum.params.uhs[0].states, uhs[0].states))
 
 
     def test_set_inputs(self):
@@ -263,15 +287,12 @@ class ModelTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (nval, 2))
         params = [0.5, 10., 0.]
         dum = Dummy()
-        dum.allocate(inputs, 3)
+        dum.allocate(inputs, 2)
         dum.params.values = params
         dum.config['continuous'] = 1
 
         states = np.array([10., 0., 0.])
         dum.initialise(states=states)
-
-        dum.index_start = 0
-        dum.index_end = nval-1
         dum.run()
 
         expected = params[0] + params[1] * inputs
@@ -308,14 +329,15 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         inputs = np.random.uniform(0, 1, (10, 2))
         dum.allocate(inputs, 2)
-        dum.params.values = np.zeros(3)
 
-        uh = [0.25]*4 + [0.] * (len(dum.uh1.values)-4)
-        uh = np.array(uh)
-        self.assertTrue(np.allclose(dum.uh1.values, uh))
+        dum.params.values = np.array([4, 0., 0.])
+        nval = dum.params.uhs[0].ord.shape[0]
+        o = np.array([0.25]*4 + [0.] * (nval-4))
+        self.assertTrue(np.allclose(dum.params.uhs[0].ord, o))
 
-        dum.params.values = [1., 2., 0.4]
-        self.assertTrue(np.allclose(dum.uh1.values[:4], 0.25))
+        dum.params['X1'] = 6
+        o = np.array([1./6]*6 + [0.] * (nval-6))
+        self.assertTrue(np.allclose(dum.params.uhs[0].ord, o))
 
 
     def test_run_default(self):
@@ -323,10 +345,7 @@ class ModelTestCases(unittest.TestCase):
         dum.params.values = 0.
         inputs = np.random.uniform(0, 1, (1000, 2))
         dum.allocate(inputs)
-        dum.initialise(states=[0.])
-
-        dum.index_start = 0
-        dum.index_end = len(inputs)-1
+        dum.initialise()
         dum.run()
 
 
@@ -339,7 +358,7 @@ class ModelTestCases(unittest.TestCase):
 
         self.assertTrue(dum.params.nval == 3)
         self.assertTrue(dum.states.nval == 3)
-        self.assertTrue(dum.uh1.nval == NUHMAXLENGTH)
+        self.assertTrue(dum.params.uhs[0].ord.shape[0] == NUHMAXLENGTH)
         self.assertTrue(dum.inputs.shape  == (nts, 2))
         self.assertTrue(dum.outputs.shape  == (nts, 1))
 
@@ -352,16 +371,15 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(inputs)
         dum.params.value = [1., 2., 0.]
 
-        dum.index_start = 10
-        dum.index_end = nval-1
-        dum.run()
-        self.assertTrue(np.all(np.isnan(dum.outputs[:10, 0])))
+        dum.istart = 10
+        dum.run_checked()
+        self.assertTrue(np.all(np.isnan(dum.outputs[:dum.istart, 0])))
 
         try:
-            dum.index_end = nval+1
+            dum.iend = nval+1
         except Exception as err:
             self.assertTrue(\
-                err.message.startswith('With model dummy, index (1001)'))
+                str(err).startswith('Expected iend in [0, 999], got 1001'))
         else:
             raise Exception('Problem with error generation')
 

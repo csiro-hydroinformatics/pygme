@@ -43,8 +43,10 @@ class UH(object):
         self._ord[0] = 1.
         self._states = np.zeros(nuhmax, dtype=np.float64)
 
+        # Index in the model parameter vector
+        self._imodelparam = np.int32(iparam)
+
         # set param value
-        self._iparam = np.int32(iparam)
         self._param = 0.
 
         # Number of ordinates
@@ -76,8 +78,8 @@ class UH(object):
 
 
     @property
-    def iparam(self):
-        return self._iparam
+    def imodelparam(self):
+        return self._imodelparam
 
 
     @property
@@ -93,7 +95,7 @@ class UH(object):
         ierr = c_pygme_models_utils.uh_getuh(self.nuhmax, self.uhid, \
                                         value, self._nuh, self._ord)
         if ierr>0:
-            raise ValueError(('Set param={0} for UH {1} - '+\
+            raise ValueError(('When setting param to {0} for UH {1}, '+\
                 'c_pygme_models_utils.uh_getuh returns {2}').format(\
                         value, self.name, ierr))
 
@@ -115,42 +117,50 @@ class UH(object):
     def states(self):
         return self._states
 
+    @states.setter
+    def states(self, values):
+        values = np.atleast_1d(values).astype(np.float64)
 
-    def initialise(self, values=None):
         nuh = self.nuh
+        if values.shape[0]<nuh:
+            raise ValueError('Expected state vector to be of length'+\
+                '>={0}, got {1}'.format(nuh, values.shape[0]))
 
-        if values is None:
-            self._states = np.zeros(nuh)
-        else:
-            values = np.atleast_1d(values)
-            if len(values) < nuh:
-                raise ValueError(('Expected state vector of length {0},'+\
-                                    ' got {1}').format(nuh, len(values)))
+        self.reset()
+        self._states[:nuh] = values[:nuh]
 
-            self._states[:nuh] = values
+
+    def reset(self):
+        self._states = np.zeros(self.nuhmax)
+
 
 
 # Overload Vector class to change UH and corresponding states
 # when changing model parameters
 class ParamsVector(Vector):
 
-    def __init__(self, params, uhs):
+    def __init__(self, params, uhs=None):
 
         # Initialise Vector object
         Vector.__init__(self, params.names, \
             params.defaults, params.mins, params.maxs, \
             params.hitbounds)
 
-        # Check param number set in uhs
-        for iuh, uh in enumerate(uhs):
-            if uh.iparam>=self.nval or uh.iparam<0:
-                raise ValueError(('Expected uhs[{0}].iparam in [0, {1}[,'+\
-                                ' got {2}').format(iuh, self.nval, uh.iparam))
+        if not uhs is None:
+            # Check param number set in uhs
+            for iuh, uh in enumerate(uhs):
+                if uh.imodelparam>=self.nval or uh.imodelparam<0:
+                    raise ValueError(('Expected uhs[{0}].iparam in [0, {1}[,'+\
+                                    ' got {2}').format(iuh, self.nval, \
+                                    uh.imodelparam))
 
-        # Store unit hydrograhs objects
-        # (to be modified when parameter values change)
-        self._nuh = len(uhs)
-        self._uhs = uhs
+            # Store unit hydrograhs objects
+            # (to be modified when parameter values change)
+            self._nuh = len(uhs)
+            self._uhs = uhs
+        else:
+            self._uhs = None
+            self._nuh = 0
 
 
     def __setitem__(self, key, value):
@@ -161,7 +171,7 @@ class ParamsVector(Vector):
         ip = self.__findname__(key)
         if self.nuh>0:
             for uh in self.uhs:
-                if uh.iparam == ip:
+                if uh.imodelparam == ip:
                     uh.param = value
                     break
 
@@ -188,21 +198,21 @@ class ParamsVector(Vector):
         # Set UH parameter
         if self.nuh>0:
             for uh in self.uhs:
-                uh.param = self.values[uh.iparam]
+                uh.param = self.values[uh.imodelparam]
 
 
 
 class Model(object):
 
     def __init__(self, name, config, params, states, \
-            ninputs, noutputsmax, uhs=None):
+            ninputs, noutputsmax):
 
         # Model name
         self.name = name
 
         # Config and params vectors
         self._config = config
-        self._params = ParamsVector(params, self)
+        self._params = params
         self._states = states
 
         # Dimensions
@@ -214,13 +224,9 @@ class Model(object):
         self._inputs = None
         self._outputs = None
 
-        # UH objects
-        nuh = 0
-        if not uhs is None:
-            nuh = len(uhs)
-
-        self._uhs = uhs
-        self.nuh = nuh
+        # Start/end index
+        self._istart = None
+        self._iend = None
 
 
     def __str__(self):
@@ -228,18 +234,9 @@ class Model(object):
                 '\tConfig: {1}\n\tParams: {2}\b\tStates: {3}'+\
                 '\n\tNUH: {4}').format( \
                     self.name, self.config.names, self.params.names, \
-                    self.states.names, self.nuh)
+                    self.states.names, self.params.nuh)
         return str
 
-
-    def __uh_setter(self, iuh, values):
-        if np.abs(np.sum(values)-1.) > 1e-9:
-            raise ValueError(('Model {0}: Expected sum uh{1} = 1, '+\
-                        'got {2}').format(\
-                            self.name, iuh, np.sum(values)))
-
-        uh = getattr(self, 'uh'+str(iuh))
-        uh.values = values
 
     @property
     def params(self):
@@ -264,9 +261,72 @@ class Model(object):
     @property
     def ntimesteps(self):
         if self._inputs is None:
-            raise ValueError('Inputs are not allocated. Please allocate')
+            raise ValueError('Trying to get ntimesteps, but inputs '+\
+                        'are not allocated. Please allocate')
 
         return self.inputs.shape[0]
+
+
+    @property
+    def istart(self):
+        if self._inputs is None:
+            raise ValueError('Trying to get istart, '+\
+                'but inputs are not allocated. Please allocate')
+
+        if self._istart is None:
+            raise ValueError('Trying to get istart, '+\
+                'but it is not set. Please set value')
+
+        return self._istart
+
+
+    @istart.setter
+    def istart(self, value):
+        ''' Set data '''
+        value = np.int32(value)
+
+        if self._inputs is None:
+            raise ValueError('Trying to set istart, '+\
+                'but inputs are not allocated. Please allocate')
+
+        if value<0 or value>self.ntimesteps-1:
+            raise ValueError('Expected istart in [0, {0}], got {2}'.format(\
+                self.ntimestep-1, value))
+
+        self._istart = value
+
+
+    @property
+    def iend(self):
+        if self._inputs is None:
+            raise ValueError('Trying to get iend, '+\
+                'but inputs are not allocated. Please allocate')
+
+        if self._iend is None:
+            raise ValueError('Trying to get iend, '+\
+                'but it is not set. Please set value')
+
+        return self._iend
+
+
+    @iend.setter
+    def iend(self, value):
+        ''' Set data '''
+        value = np.int32(value)
+
+        if self._inputs is None:
+            raise ValueError('Trying to set iend, '+\
+                'but inputs are not allocated. Please allocate')
+
+        # Syntactic sugar to get a simulation running for the whole period
+        if value == -1:
+            value = self.ntimesteps-1
+
+        if value<0 or value>self.ntimesteps-1:
+            raise ValueError('Expected iend in [0, {0}], got {1}'.format(\
+                self.ntimesteps-1, value))
+
+        self._iend = value
 
 
     @property
@@ -353,27 +413,72 @@ class Model(object):
         self._noutputs = noutputs
         self._outputs = np.zeros((inputs.shape[0], noutputs))
 
+        # Set istart/iend to default
+        self.istart = 0
+        self.iend = -1
 
-    def initialise(self, states=None, *args):
+
+    def initialise(self, states=None, uhs=None):
         ''' Initialise state vector and potentially all UH states vectors '''
         if states is None:
             self.states.reset()
         else:
             self.states.values = states
 
-        if len(args)>0:
-            for iuh in range(1, self.nuh+1):
-                suh = getattr(self, 'statesuh{0}'.format(iuh))
-                if iuh<=len(args):
-                    suh.reset()
-                else:
-                    suh.values = args[iuh]
+        if not uhs is None:
+            # Set uhs states values to argument
+            nuh = self.params.nuh
+            if len(uhs) != nuh:
+                raise ValueError(('Expected a list of {0} unit'+\
+                    ' hydrograpgs object for'+\
+                    ' initialisation, got {1}').format(\
+                    nuh, len(uhs)))
+
+            for iuh in range(nuh):
+                uh1 = self.params.uhs[iuh]
+                uh2 = uhs[iuh]
+
+                if uh1.nuh != uh2.nuh:
+                    raise ValueError(('Expected nuh for UH[{0}] to be {1}.'+\
+                            'Got {2}.').format(uh1.nuh, uh2.nuh))
+
+                if abs(uh1.param-uh2.param)>1e-8:
+                    raise ValueError(('Expected param for UH[{0}] to be {1}.'+\
+                            'Got {2}.').format(uh1.param, uh2.param))
+
+                uh1.reset()
+                uh1.states[:uh1.nuh] = uh2.states[:uh2.nuh]
+
+        else:
+            # Reset uhs states values
+            nuh = self.params.nuh
+            for iuh in range(nuh):
+                uh1 = self.params.uhs[iuh]
+                uh1.reset()
 
 
-    def run(self, istart=0, iend=-1):
+    def run(self):
         ''' Run the model '''
         raise NotImplementedError(('model {0}: '+\
             'Method run not implemented').format(self.model))
+
+
+    def run_checked(self):
+        ''' Run the model following inputs, outputs and istart/iend checks '''
+
+        if self._inputs is None:
+            raise ValueError('Trying to run the model, '+\
+                'but inputs are not allocated. Please allocate')
+
+        if self._outputs is None:
+            raise ValueError('Trying to run the model, '+\
+                'but outputs are not allocated. Please allocate')
+
+        if self.istart >= self.iend:
+            raise ValueError('Expected istart({0}) < iend({1})'.format(\
+                self.istart, self.iend))
+
+        self.run()
 
 
     def clone(self):

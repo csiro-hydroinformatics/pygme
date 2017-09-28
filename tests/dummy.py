@@ -1,7 +1,7 @@
 import numpy as np
 
 from hydrodiy.data.containers import Vector
-from pygme.model import Model
+from pygme.model import Model, ParamsVector, UH
 
 from pygme.calibration import Calibration
 
@@ -10,52 +10,48 @@ class Dummy(Model):
 
     def __init__(self):
 
+        # Config vector
         config = Vector(['continuous'],\
                     [0], [0], [1])
 
-        params = Vector(['X1', 'X2', 'X3'], \
+        # params vector
+        vect = Vector(['X1', 'X2', 'X3'], \
                     [0, 1, 0], [-10, -10, -10], [10, 10, 10])
+        uhs = [UH('flat', 0)]
+        params = ParamsVector(vect, uhs)
 
+        # State vector
         states = Vector(['S1', 'S2', 'S3'])
 
+        # Model
         Model.__init__(self, 'dummy',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=3, \
-            nuh=1)
+            noutputsmax=2)
 
-    def run(self, istart=0, iend=-1):
 
+    def run(self):
+        istart, iend = self.istart, self.iend
         par1, par2, par3 = self.params.values
-
-        if iend == -1:
-            iend = self.ntimesteps-1
 
         kk = range(istart, iend+1)
         outputs = par1 + par2 *self.inputs[kk, :]
-        outputs = np.column_stack([outputs, np.zeros(self.ntimesteps)])
         outputs = np.cumsum(outputs, 0)
 
         if np.allclose(self.config['continuous'], 1):
-            outputs = outputs + self.states.values[None, :]
+            outputs = outputs + self.states.values[None, :outputs.shape[1]]
 
         if par3 > 1e-10:
             outputs *= np.random.uniform(1-par3, \
                 1+par3+1e-20, size=(np.sum(kk), ))
 
         # Write data to selected output indexes
-        self.outputs[kk, :] = outputs[:, :self.noutputs]
+        self.outputs[:istart, :] = np.nan
+        self.outputs[kk, :self.noutputs] = outputs[:, :self.noutputs]
 
         # Store states
         self.states.values = np.concatenate([self.outputs[iend, :],\
                                 np.zeros(3-self.noutputs)])
-
-
-    def post_params_setter(self):
-        # Set the first uh ordinates to 0.25
-        uh = np.zeros(self.uh1.nval)
-        uh[:4] = 0.25
-        self.uh1.values =  uh
 
 
 
@@ -66,8 +62,8 @@ class MassiveDummy(Model):
         config = Vector(['continuous'],\
                     [0], [0], [1])
 
-        params = Vector(['X1'], \
-                    [0], [-10], [10])
+        params = ParamsVector(Vector(['X1'], \
+                    [0], [-10], [10]))
 
         states = Vector(['S1'])
 
@@ -77,9 +73,8 @@ class MassiveDummy(Model):
             noutputsmax=2)
 
 
-    def run(self, istart=0, iend=-1):
-        if iend == -1:
-            iend = self.ntimesteps-1
+    def run(self):
+        istart, iend = self.istart, self.iend
 
         kk = range(istart, iend+1)
         outputs = self.inputs + np.random.uniform(0, 1, (len(kk), 1))
@@ -94,8 +89,8 @@ class MassiveDummy2(Model):
         config = Vector(['continuous'],\
                     [0], [0], [1])
 
-        params = Vector(['X1'], \
-                    [0], [-10], [10])
+        params = ParamsVector(Vector(['X1'], \
+                    [0], [-10], [10]))
 
         states = Vector(['S1'])
 
@@ -105,9 +100,8 @@ class MassiveDummy2(Model):
             noutputsmax=2)
 
 
-    def run(self, istart=0, iend=-1):
-        if iend == -1:
-            iend = self.ntimesteps-1
+    def run(self):
+        istart, iend = self.istart, self.iend
 
         kk = range(istart, iend+1)
         outputs = np.random.uniform(0, 1, (len(kk), 1))
