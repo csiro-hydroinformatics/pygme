@@ -315,16 +315,16 @@ class Model(object):
         value = np.int32(value)
 
         if self._inputs is None:
-            raise ValueError('Trying to set iend, '+\
-                'but inputs are not allocated. Please allocate')
+            raise ValueError(('model {0}: Trying to set iend, '+\
+                'but inputs are not allocated. Please allocate').format(self.name))
 
         # Syntactic sugar to get a simulation running for the whole period
         if value == -1:
             value = self.ntimesteps-1
 
         if value<0 or value>self.ntimesteps-1:
-            raise ValueError('Expected iend in [0, {0}], got {1}'.format(\
-                self.ntimesteps-1, value))
+            raise ValueError('model {0}: Expected iend in [0, {1}], got {2}'.format(\
+                self.name, self.ntimesteps-1, value))
 
         self._iend = value
 
@@ -341,19 +341,12 @@ class Model(object):
     @inputs.setter
     def inputs(self, values):
         ''' Set data '''
-        inputs = np.atleast_2d(values).astype(np.float64)
+        inputs = np.ascontiguousarray(np.atleast_2d(values).astype(np.float64))
         if inputs.shape[1] != self.ninputs:
-            raise ValueError('Expected {0} inputs, got {1}'.format(\
-                self.ninputs, values.shape[1]))
+            raise ValueError('model {0}: Expected {1} inputs, got {2}'.format(\
+                self.name, self.ninputs, values.shape[1]))
 
-        noutputs = max(1, self.noutputs)
-        if self._inputs is None:
-            self.allocate(inputs, noutputs)
-        else:
-            if self.ntimesteps != inputs.shape[1]:
-                self.allocate(inputs, noutputs)
-            else:
-                self._inputs = values
+        self._inputs = inputs
 
 
     @property
@@ -369,8 +362,9 @@ class Model(object):
     @property
     def outputs(self):
         if self._outputs is None:
-            raise ValueError('Trying to access outputs, '+\
-                'but they are not allocated. Please allocate')
+            raise ValueError(('model {0}: Trying to access outputs, '+\
+                'but they are not allocated. Please allocate').format(\
+                    self.name))
 
         return self._outputs
 
@@ -378,17 +372,14 @@ class Model(object):
     @outputs.setter
     def outputs(self, values):
         ''' Set data '''
-        outputs = np.atleast_2d(values).astype(np.float64)
+        outputs = np.ascontiguousarray(np.atleast_2d(values).astype(np.float64))
         noutputs = max(1, self.noutputs)
+
         if outputs.shape[1] != noutputs:
-            raise ValueError('Expected {0} outputs, got {1}'.format(\
-                noutputs, values.shape[1]))
+            raise ValueError('model {0}: Expected {1} outputs, got {2}'.format(\
+                self.name, noutputs, values.shape[1]))
 
-        if self._inputs is None:
-            inputs = np.zeros((outputs.shape[0], self.ninputs))
-            self.allocate(inputs, noutputs)
-
-        self._outputs = values
+        self._outputs = outputs
 
 
     def allocate(self, inputs, noutputs=1):
@@ -402,16 +393,11 @@ class Model(object):
                     self.name, self.noutputsmax, noutputs))
 
         # Allocate inputs
-        inputs = np.atleast_2d(inputs)
-        if inputs.shape[1] != self._ninputs:
-            raise ValueError(('model {0}: Expected ninputs={1}, '+\
-                                'got {2}').format(self.name, self._ninputs, \
-                                inputs.shape[1]))
-        self._inputs = inputs
+        self.inputs = inputs
 
         # Allocate outputs
         self._noutputs = noutputs
-        self._outputs = np.zeros((inputs.shape[0], noutputs))
+        self.outputs = np.zeros((inputs.shape[0], noutputs))
 
         # Set istart/iend to default
         self.istart = 0
@@ -460,23 +446,28 @@ class Model(object):
     def run(self):
         ''' Run the model '''
         raise NotImplementedError(('model {0}: '+\
-            'Method run not implemented').format(self.model))
+            'Method run not implemented').format(self.name))
 
 
     def run_checked(self):
         ''' Run the model following inputs, outputs and istart/iend checks '''
 
         if self._inputs is None:
-            raise ValueError('Trying to run the model, '+\
-                'but inputs are not allocated. Please allocate')
+            raise ValueError(('model {0}: inputs are not allocated.'+\
+                ' Please allocate').format(self.name))
 
         if self._outputs is None:
-            raise ValueError('Trying to run the model, '+\
-                'but outputs are not allocated. Please allocate')
+            raise ValueError(('model {0}: outputs are not allocated.'+\
+                ' Please allocate').format(self.name))
+
+        if self.outputs.shape[0] != self.ntimesteps:
+            raise ValueError(('model {0}: expected dim 0 of outputs to be '+\
+                '{1}, got {2}').format(self.name, self.ntimesteps, \
+                    self.outputs.shape[0]))
 
         if self.istart >= self.iend:
-            raise ValueError('Expected istart({0}) < iend({1})'.format(\
-                self.istart, self.iend))
+            raise ValueError('model {0}: Expected istart({0}) < iend({1})'.format(\
+                self.name, self.istart, self.iend))
 
         self.run()
 

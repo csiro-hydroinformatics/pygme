@@ -307,7 +307,7 @@ class ModelTestCases(unittest.TestCase):
         params = [0.5, 10., 0.5]
 
         dum = Dummy()
-        dum.inputs = inputs
+        dum.allocate(inputs)
         dum.params.values = params
         dum.initialise(states=[10, 5, 0])
         dum.config.values = [10]
@@ -353,7 +353,7 @@ class ModelTestCases(unittest.TestCase):
         dum = Dummy()
         nval = 1000
         ninputs = 2
-        dum.inputs = np.random.uniform(0, 1, (nval, ninputs))
+        dum.allocate(np.random.uniform(0, 1, (nval, ninputs)))
         nts = dum.ntimesteps
 
         self.assertTrue(dum.params.nval == 3)

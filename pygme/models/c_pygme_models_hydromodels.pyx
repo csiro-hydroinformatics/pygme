@@ -24,7 +24,8 @@ cdef extern from 'c_gr4j.h':
             double * uh1,
             double * uh2,
     	    double * inputs,
-            double * statesuh,
+            double * statesuh1,
+            double * statesuh2,
     	    double * states,
             double * outputs)
 
@@ -92,7 +93,8 @@ def gr4j_run(int nuh1,
         np.ndarray[double, ndim=1, mode='c'] uh1 not None,
         np.ndarray[double, ndim=1, mode='c'] uh2 not None,
         np.ndarray[double, ndim=2, mode='c'] inputs not None,
-        np.ndarray[double, ndim=1, mode='c'] statesuh not None,
+        np.ndarray[double, ndim=1, mode='c'] statesuh1 not None,
+        np.ndarray[double, ndim=1, mode='c'] statesuh2 not None,
         np.ndarray[double, ndim=1, mode='c'] states not None,
         np.ndarray[double, ndim=2, mode='c'] outputs not None):
 
@@ -130,7 +132,8 @@ def gr4j_run(int nuh1,
             <double*> np.PyArray_DATA(uh1), \
             <double*> np.PyArray_DATA(uh2), \
             <double*> np.PyArray_DATA(inputs), \
-            <double*> np.PyArray_DATA(statesuh), \
+            <double*> np.PyArray_DATA(statesuh1), \
+            <double*> np.PyArray_DATA(statesuh2), \
             <double*> np.PyArray_DATA(states), \
             <double*> np.PyArray_DATA(outputs))
 

@@ -79,7 +79,8 @@ int gr4j_runtimestep(int nparams,
     double * uh1,
     double * uh2,
     double * inputs,
-    double * statesuh,
+    double * statesuh1,
+    double * statesuh2,
     double * states,
     double * outputs)
 {
@@ -110,8 +111,8 @@ int gr4j_runtimestep(int nparams,
     states[0] = prod[5];
 
     /* UH */
-    uh_runtimestep(nuh1, PR, uh1, statesuh, uhoutput1);
-    uh_runtimestep(nuh2, PR, uh2, &(statesuh[nuh1]), uhoutput2);
+    uh_runtimestep(nuh1, PR, uh1, statesuh1, uhoutput1);
+    uh_runtimestep(nuh2, PR, uh2, statesuh2, uhoutput2);
 
     /* Potential Water exchange */
     RR = states[1]/params[2];
@@ -210,7 +211,8 @@ int c_gr4j_run(int nval, int nparams,
     double * uh1,
     double * uh2,
     double * inputs,
-    double * statesuh,
+    double * statesuh1,
+    double * statesuh2,
     double * states,
     double * outputs)
 {
@@ -250,7 +252,8 @@ int c_gr4j_run(int nval, int nparams,
                 params,
                 uh1, uh2,
                 &(inputs[ninputs*i]),
-                statesuh,
+                statesuh1,
+                statesuh2,
                 states,
                 &(outputs[noutputs*i]));
 

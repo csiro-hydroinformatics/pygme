@@ -3,8 +3,9 @@ import math
 import numpy as np
 import pandas as pd
 
-from pygme.model import Model
-from pygme.calibration import Calibration
+from hydrodiy.data.containers import Vector
+from pygme.model import Model, ParamsVector
+#from pygme.calibration import Calibration
 
 import c_pygme_models_hydromodels
 import c_pygme_models_utils
@@ -13,59 +14,41 @@ import c_pygme_models_utils
 
 class GR2M(Model):
 
-    def __init__(self,
-            nens_params=1,
-            nens_states=1,
-            nens_outputs=1):
+    def __init__(self):
+
+        # Config vector
+        config = Vector(['catcharea'], [0], [0])
+
+        # params vector
+        vect = Vector(['X1', 'X2'], \
+                    [400, 0.8], [10., 0.1], [1e4, 3])
+        params = ParamsVector(vect)
+
+        # State vector
+        states = Vector(['S', 'R'])
+
+        # Model
+        Model.__init__(self, 'GR2M',
+            config, params, states, \
+            ninputs=2, \
+            noutputsmax=9)
 
 
-        Model.__init__(self, 'gr2m',
-            nconfig=1,
-            ninputs=2,
-            nparams=2,
-            nstates=2,
-            noutputs_max=9,
-            nens_params=nens_params,
-            nens_states=nens_states,
-            nens_outputs=nens_outputs)
-
-        self.config.names = 'catcharea'
-
-        self._params.names = ['S', 'IGF']
-        self._params.min = [10., 0.1]
-        self._params.max = [10000., 3.]
-        self._params.default = [400., 0.8]
-
-        self.reset()
-
-
-    def initialise(self, states=None, statesuh=None):
-
-        params = self.params
-
-        if self._states is None:
-            raise ValueError(('{0} model: states are None,' +
-                    ' please allocate').format(self.name))
-
-        # initialise GR4J with reservoir levels
+    def initialise(self, states=None, uhs=None):
+        ''' Initialise state vector and potentially all UH states vectors '''
         if states is None:
-            states = np.zeros(self._states.nval)
-            states[0] = params[0] * 0.5
-            states[1] = params[1] * 0.4
-
-            statesuh = np.zeros(self._statesuh.nval)
-
-        super(GR2M, self).initialise(states, statesuh)
+            X1, _ = self.params.values
+            self.states.values = [X1/2, 30]
+        else:
+            self.states.values = states
 
 
-
-    def runblock(self, istart, iend, seed=None):
-
-        ierr = c_pygme_models_hydromodels.gr2m_run(istart, iend,
-            self._params.data, \
-            self._inputs.data, \
-            self._states.data, \
-            self._outputs.data)
+    def run(self):
+        ierr = c_pygme_models_hydromodels.gr2m_run(self.istart, self.iend,
+            self.params.values, \
+            self.inputs, \
+            self.states.values, \
+            self.outputs)
 
         if ierr > 0:
             raise ValueError(('Model gr2m, c_pygme_models_hydromodels.gr2m_run' + \
@@ -73,24 +56,24 @@ class GR2M(Model):
 
 
 
-class CalibrationGR2M(Calibration):
-
-    def __init__(self, timeit=False):
-
-        gr = GR2M()
-
-        Calibration.__init__(self,
-            model = gr,
-            warmup = 12,
-            timeit = timeit)
-
-        # Calibration on sse square root with bias constraint
-        self._errfun.constants = [0.5, 2., 1.]
-
-        self._calparams.means =  [5.9, -0.28]
-        self._calparams.covar = [[0.52, 0.015], [0.015, 0.067]]
-
-    def cal2true(self, calparams):
-        return np.exp(calparams)
+#class CalibrationGR2M(Calibration):
+#
+#    def __init__(self, timeit=False):
+#
+#        gr = GR2M()
+#
+#        Calibration.__init__(self,
+#            model = gr,
+#            warmup = 12,
+#            timeit = timeit)
+#
+#        # Calibration on sse square root with bias constraint
+#        self._errfun.constants = [0.5, 2., 1.]
+#
+#        self._calparams.means =  [5.9, -0.28]
+#        self._calparams.covar = [[0.52, 0.015], [0.015, 0.067]]
+#
+#    def cal2true(self, calparams):
+#        return np.exp(calparams)
 
 

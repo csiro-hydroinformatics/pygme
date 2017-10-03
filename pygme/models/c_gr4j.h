@@ -38,7 +38,8 @@ int gr4j_runtimestep(int nparams,
     double * uh1,
     double * uh2,
     double * inputs,
-	double * statesuh,
+	double * statesuh1,
+	double * statesuh2,
     double * states,
     double * outputs);
 
@@ -54,7 +55,8 @@ int c_gr4j_run(int nval,
     double * uh1,
     double * uh2,
 	double * inputs,
-    double * statesuhini,
+    double * statesuh1,
+    double * statesuh2,
 	double * statesini,
     double * outputs);
 

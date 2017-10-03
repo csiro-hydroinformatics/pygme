@@ -3,7 +3,7 @@ import numpy as np
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 
-from pygme.calibration import Calibration
+#from pygme.calibration import Calibration
 
 
 class Dummy(Model):
@@ -109,27 +109,27 @@ class MassiveDummy2(Model):
 
 
 
-class CalibrationDummy(Calibration):
-
-    def __init__(self, warmup):
-        model = Dummy()
-
-        Calibration.__init__(self,
-            nparams=2,
-            warmup=warmup,
-            model = model,
-            timeit = True)
-
-        self._calparams.means =  [1, 0]
-        self._calparams.min =  [-10, -10]
-        self._calparams.max =  [10, 10]
-        self._calparams.covar = [[1, 0.], [0., 20]]
-
-
-    def cal2true(self, calparams):
-        true =  np.array([np.exp(calparams[0]),
-            (np.tanh(calparams[1])+1.)*10., 0])
-
-        return true
-
-
+#class CalibrationDummy(Calibration):
+#
+#    def __init__(self, warmup):
+#        model = Dummy()
+#
+#        Calibration.__init__(self,
+#            nparams=2,
+#            warmup=warmup,
+#            model = model,
+#            timeit = True)
+#
+#        self._calparams.means =  [1, 0]
+#        self._calparams.min =  [-10, -10]
+#        self._calparams.max =  [10, 10]
+#        self._calparams.covar = [[1, 0.], [0., 20]]
+#
+#
+#    def cal2true(self, calparams):
+#        true =  np.array([np.exp(calparams[0]),
+#            (np.tanh(calparams[1])+1.)*10., 0])
+#
+#        return true
+#
+#
