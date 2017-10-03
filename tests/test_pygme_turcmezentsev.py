@@ -7,8 +7,7 @@ import time
 
 import numpy as np
 
-from pygme.model import Matrix
-from pygme.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
+from pygme.models.turcmezentsev import TurcMezentsev #, CalibrationTurcMezentsev
 
 class TurcMezentsevTestCases(unittest.TestCase):
 
@@ -31,97 +30,97 @@ class TurcMezentsevTestCases(unittest.TestCase):
         tm.allocate(inputs, 2)
         tm.run()
         Q1 = tm.outputs[:, 0]
-        n = tm.params[0]
+        n = tm.params.values[0]
         Q2 = P*(1-1/(1+(P/PE)**n)**(1/n))
         self.assertTrue(np.allclose(Q1, Q2))
 
 
-    def test_calibrate(self):
+    #def test_calibrate(self):
 
-        Q = [85.5, \
-                331.7, \
-                87.5, \
-                109.6, \
-                60.3, \
-                122.4, \
-                87.9, \
-                57.8, \
-                290.2, \
-                304.4, \
-                24.8, \
-                503.4, \
-                261.4, \
-                626.4, \
-                206.4, \
-                165.6, \
-                348.5, \
-                329.5, \
-                214.9, \
-                297.4, \
-                507.2, \
-                164.4]
+    #    Q = [85.5, \
+    #            331.7, \
+    #            87.5, \
+    #            109.6, \
+    #            60.3, \
+    #            122.4, \
+    #            87.9, \
+    #            57.8, \
+    #            290.2, \
+    #            304.4, \
+    #            24.8, \
+    #            503.4, \
+    #            261.4, \
+    #            626.4, \
+    #            206.4, \
+    #            165.6, \
+    #            348.5, \
+    #            329.5, \
+    #            214.9, \
+    #            297.4, \
+    #            507.2, \
+    #            164.4]
 
-        P = [749.2, \
-                1142.0, \
-                896.3, \
-                820.8, \
-                735.7, \
-                901.1, \
-                800.6, \
-                808.5, \
-                956.9, \
-                954.2, \
-                668.7, \
-                1152.4, \
-                1049.3, \
-                1324.2, \
-                884.7, \
-                783.9, \
-                927.0, \
-                1034.7, \
-                1124.2, \
-                841.5, \
-                922.4, \
-                1020.1]
+    #    P = [749.2, \
+    #            1142.0, \
+    #            896.3, \
+    #            820.8, \
+    #            735.7, \
+    #            901.1, \
+    #            800.6, \
+    #            808.5, \
+    #            956.9, \
+    #            954.2, \
+    #            668.7, \
+    #            1152.4, \
+    #            1049.3, \
+    #            1324.2, \
+    #            884.7, \
+    #            783.9, \
+    #            927.0, \
+    #            1034.7, \
+    #            1124.2, \
+    #            841.5, \
+    #            922.4, \
+    #            1020.1]
 
-        E = [1173.7, \
-                1110.8, \
-                1150.5, \
-                1120.3, \
-                1141.2, \
-                1362.1, \
-                1237.0, \
-                1217.7, \
-                1172.7, \
-                1253.1, \
-                1421.2, \
-                1246.0, \
-                1333.7, \
-                1116.4, \
-                1167.3, \
-                1135.9, \
-                1177.4, \
-                1171.0, \
-                1231.1, \
-                1068.3, \
-                1006.3, \
-                1171.0]
+    #    E = [1173.7, \
+    #            1110.8, \
+    #            1150.5, \
+    #            1120.3, \
+    #            1141.2, \
+    #            1362.1, \
+    #            1237.0, \
+    #            1217.7, \
+    #            1172.7, \
+    #            1253.1, \
+    #            1421.2, \
+    #            1246.0, \
+    #            1333.7, \
+    #            1116.4, \
+    #            1167.3, \
+    #            1135.9, \
+    #            1177.4, \
+    #            1171.0, \
+    #            1231.1, \
+    #            1068.3, \
+    #            1006.3, \
+    #            1171.0]
 
-        inputs = Matrix.from_data('inputs', np.array([P, E]).T)
-        obs = Matrix.from_data('obs', np.array(Q))
-        calib = CalibrationTurcMezentsev()
-        calib.setup(obs, inputs)
-        calib.idx_cal = obs.data[:,0] == obs.data[:,0]
+    #    inputs = Matrix.from_data('inputs', np.array([P, E]).T)
+    #    obs = Matrix.from_data('obs', np.array(Q))
+    #    calib = CalibrationTurcMezentsev()
+    #    calib.setup(obs, inputs)
+    #    calib.idx_cal = obs.data[:,0] == obs.data[:,0]
 
-        start, _, _ = calib.explore()
-        end, _, _ = calib.fit(start)
+    #    start, _, _ = calib.explore()
+    #    end, _, _ = calib.fit(start)
 
-        tm = calib.model
+    #    tm = calib.model
 
-        ck = np.allclose(tm.params[0], 1.753469, atol=1e-3)
-        if not ck:
-            print('tm.trueparams = {0}'.format(tm.params['n']))
+    #    ck = np.allclose(tm.params[0], 1.753469, atol=1e-3)
+    #    if not ck:
+    #        print('tm.trueparams = {0}'.format(tm.params['n']))
 
-        self.assertTrue(ck)
+    #    self.assertTrue(ck)
 
 
