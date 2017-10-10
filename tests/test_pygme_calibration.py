@@ -8,60 +8,62 @@ import math
 
 import numpy as np
 
-from pygme import data
-from pygme.data import Matrix
-from pygme.calibration import Calibration, powertrans
-from pygme.calibration import ErrorFunctionSseBias, ErrorFunctionQuantileReg, ErrorFunctionSls
+from hydrodiy.stat.transform import BoxCox
+from pygme.calibration import Calibration
+from pygme.calibration import ErrModelSSE, ErrModelBCSLS
 
 from dummy import Dummy, CalibrationDummy
 
-data.set_seed(100)
+BC = BoxCox()
 
-
-
-class ErrFunctionTestCases(unittest.TestCase):
+class ErrModTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> ErrFunctionTestCase')
-        self.obs = np.random.uniform(-1, 1, size=1000)
-        self.sim = np.random.uniform(-1, 1, size=1000)
 
-    def test_ssebias(self):
-        of = ErrorFunctionSseBias()
-        value = of.run(self.obs, self.sim)
-        expected = np.mean((self.obs-self.sim)**2)
-        self.assertTrue(np.allclose(value, expected))
+        nval = 1000
+        obs = np.random.uniform(-0.1, 1, size=nval)
+        idx = np.random.choice(np.arange(nval), nval//100)
+        obs[idx] = np.nan
+        self.obs = obs
 
-        of.constants = [1., 1., 0.]
-        value = of.run(self.obs, self.sim)
-        expected = np.mean(np.abs(self.obs-self.sim))
-        self.assertTrue(np.allclose(value, expected))
-
-        of.constants = [0.5, 1., 0.]
-        value = of.run(self.obs, self.sim)
-        expected = np.nanmean(np.abs(powertrans(self.obs, 0.5)-powertrans(self.sim, 0.5)))
-        self.assertTrue(np.allclose(value, expected))
-
-        of.constants = [0.5, 1., 0.1]
-        value = of.run(self.obs, self.sim)
-        expected = np.nanmean(np.abs(powertrans(self.obs, 0.5)-powertrans(self.sim, 0.5)))
-        bias = np.mean(self.obs-self.sim)/(1+abs(np.mean(self.obs)))
-        expected *= 1+0.1*bias*bias
-        self.assertTrue(np.allclose(value, expected))
+        sim = np.random.uniform(-0.1, 1, size=nval)
+        idx = np.random.choice(np.arange(nval), nval//100)
+        sim[idx] = np.nan
+        self.sim = sim
 
 
-    def test_slslikelihood(self):
-        sls = ErrorFunctionSls()
+    def test_print(self):
+        of = ErrModelBCSLS()
+        print(of)
 
-        sigma = 5.
-        sls.errparams = np.log(sigma)
-        value = sls.run(self.obs, self.sim)
 
+    def test_SSE(self):
+        of = ErrModelSSE()
+        value = of.compute(self.obs, self.sim)
         err = self.obs-self.sim
-        nval = len(self.obs)
-        expected = np.nansum(err*err)/(2*sigma*sigma) + nval * math.log(sigma)
+        expected = np.nansum(err*err)
         self.assertTrue(np.allclose(value, expected))
 
+
+    def test_BCSLS(self):
+        sigma = 5.
+        sls = ErrModelBCSLS()
+        sls.params.values = math.log(sigma)
+        value = sls.compute(self.obs, self.sim)
+        err = self.obs-self.sim
+        nval = np.sum(~np.isnan(err))
+        expected = -np.nansum(err*err)/(2*sigma*sigma)-nval*math.log(sigma)
+        self.assertTrue(np.isclose(value, expected))
+
+        sls = ErrModelBCSLS(0.2)
+        sls.params.values = math.log(sigma)
+        value = sls.compute(self.obs, self.sim)
+        BC['lambda'] = sls.constants.values
+        err = BC.forward(self.obs)-BC.forward(self.sim)
+        nval = np.sum(~np.isnan(err))
+        expected = -np.nansum(err*err)/(2*sigma*sigma)-nval*math.log(sigma)
+        #self.assertTrue(np.isclose(value, expected))
 
 
 

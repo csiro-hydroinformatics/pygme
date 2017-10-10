@@ -1,172 +1,125 @@
 import math, time
-from datetime import datetime
 
 import numpy as np
 
 from scipy.optimize import fmin_powell
 
+from hydrodiy.stat import transform
 from hydrodiy.data.containers import Vector
 
-now = datetime.now
+BC = transform.BoxCox()
 
-class ErrorFunction(object):
+class ErrModel(object):
 
-    def __init__(self,
-            name,
-            nerrparams=0,
-            nconstants=0):
+    def __init__(self, name, orientation=1, \
+                params=None, constants=None):
 
         self.name = name
-        self._errparams = Vector('errparams', nerrparams)
-        self._constants = Vector('constants', nconstants)
+
+        if not orientation in [-1, 1]:
+            raise ValueError(('Expected orientation in [-1, 1],'+\
+                ' got {0}').format(orientation))
+
+        self.orientation = orientation
+
+        if not params is None:
+            self._params = params
+        else:
+            self._params = Vector([])
+
+        if not constants is None:
+            self._constants = constants
+        else:
+            self._constants = Vector([])
+
 
     def __str__(self):
         str = 'Objective function {0}\n'.format(self.name)
-        str += '  nerrparams : {0}\n'.format(self.nerrparams)
-        str += '  nconstant  : {0}\n'.format(self.nconstants)
+        str += '  orientation : {0}\n'.format(self.orientation)
+        str += '  params : {0}\n'.format(self.params.names)
+        str += '  constants  : {0}\n'.format(self.constants.names)
 
         return str
 
-    @property
-    def nerrparams(self):
-        return self._errparams.nval
-
-    @property
-    def errparams(self):
-        return self._errparams.data
-
-    @errparams.setter
-    def errparams(self, value):
-        self._errparams.data = value
-
-
-    @property
-    def nconstants(self):
-        return self._constants.nval
 
     @property
     def constants(self):
-        return self._constants.data
-
-    @constants.setter
-    def constants(self, value):
-        self._constants.data = value
+        return self._constants
 
 
-    def run(self, obs, sim):
+    @property
+    def params(self):
+        return self._params
+
+
+    def compute(self, obs, sim):
         raise ValueError('Need to override this function')
 
 
-def powertrans(x, alpha):
-    if np.allclose(alpha, 1.):
-        return x
-    elif np.allclose(alpha, -1.):
-        return 1./x
-    else:
-        xa = np.abs(x)
-        xs = np.sign(x)
 
-        if np.allclose(alpha, 0.5):
-            return np.sqrt(xa) * xs
-        elif np.allclose(alpha, -0.5):
-            return xs/np.sqrt(xa)
-        else:
-            return xa**alpha * xs
-
-
-class ErrorFunctionSseBias(ErrorFunction):
+class ErrModelSSE(ErrModel):
 
     def __init__(self):
-        ErrorFunction.__init__(self, 'ssebias',
-            nerrparams=0,
-            nconstants=3)
 
-        self._constants.names = ['varexp', 'errexp', 'biasfactor']
-        self._constants.data = [1., 2., 0.]
-        self._constants.min = [0., 0., 0.]
-
-    def run(self, obs, sim):
-
-        # Transform variables
-        varexp = self._constants['varexp']
-        vo = powertrans(obs, varexp)
-        vs = powertrans(sim, varexp)
-
-        # Transform error
-        err = np.abs(vo-vs)
-        errexp = self._constants['errexp']
-        if np.allclose(errexp, 1.):
-            objfun = np.nanmean(err)
-        else:
-            objfun = np.nanmean(err**errexp)
-
-        # Bias constraint
-        biasfactor = self._constants['biasfactor']
-        if not np.allclose(biasfactor, 0.):
-            bias = np.nanmean(obs-sim)/(1+abs(np.nanmean(obs)))
-            objfun = objfun*(1+biasfactor*bias*bias)
-
-        return objfun
+        ErrModel.__init__(self,'SSE')
 
 
-class ErrorFunctionSls(ErrorFunction):
-
-    def __init__(self):
-        ErrorFunction.__init__(self, 'slslikelihood',
-            nerrparams=1,
-            nconstants=0)
-
-        self._errparams.names = ['logsigma']
-        self._errparams.min = [0.]
-
-    def run(self, obs, sim):
+    def compute(self, obs, sim):
         err = obs-sim
-        logsigma = self._errparams.data[0]
-        sigma = np.exp(logsigma)
-        nval = len(obs)
+        return np.nansum(err*err)
 
-        ll = np.nansum(err*err)/(2*sigma*sigma) + nval * logsigma
+
+
+class ErrModelBCSLS(ErrModel):
+
+    def __init__(self, lam=1.):
+
+        params=Vector(['logsigma'], \
+                defaults=[1.],\
+                mins=[-10.],\
+                maxs=[10.])
+
+        constants=Vector(['lambda'], \
+                defaults=[lam],\
+                mins=[-1.],\
+                maxs=[3.])
+
+        ErrModel.__init__(self, 'BCSLS', params=params, \
+            constants=constants, \
+            orientation=-1)
+
+
+    def compute(self, obs, sim):
+        logsigma = self.params.values
+        lam = self.constants.values
+
+        if np.isclose(lam, 1.):
+            err = obs-sim
+        else:
+            BC['lambda'] = lam
+            err = BC.forward(obs)-BC.forward(sim)
+
+        sigma = math.exp(logsigma)
+        nval = np.sum(~np.isnan(err))
+        ll = -np.nansum(err*err)/(2*sigma*sigma)-nval*logsigma
 
         return ll
-
-
-class ErrorFunctionQuantileReg(ErrorFunction):
-
-    def __init__(self):
-        ErrorFunction.__init__(self, 'quantileregression',
-            nerrparams=0,
-            nconstants=1)
-
-        self._constants.name = ['quantile']
-        self._constants.data = [0.5]
-        self._constants.min = [0.]
-        self._constants.max = [1.]
-
-    def run(self, obs, sim):
-
-        alpha = self._constants.data[0]
-        idx = obs >= sim
-        qq1 = alpha * np.nansum(obs[idx]-sim[idx])
-        qq2 = (alpha-1) * np.nansum(obs[~idx]-sim[~idx])
-
-        return qq1+qq2
 
 
 
 class Calibration(object):
 
-    def __init__(self, model,
-            nparams=None,
-            warmup=0,
-            nens_params = 1,
-            errfun=None,
-            minimize=True,
-            optimizer=fmin_powell,
-            initialise_model=True,
-            timeit=False,
+    def __init__(self, model, params, \
+            warmup=0, \
+            errmod=ErrModelSSE, \
+            minimize=True, \
+            optimizer=fmin_powell, \
+            initialise_model=True, \
+            timeit=False, \
             nrepeat_fit=2):
 
         self._model = model
+        self._params = params
         self._warmup = warmup
         self._minimize = minimize
         self._timeit = timeit
@@ -180,45 +133,26 @@ class Calibration(object):
         self._obsdata = None
         self._index_cal = None
 
-        # Objective function
-        if errfun is None:
-            self._errfun = ErrorFunctionSseBias()
-        else:
-            self._errfun = errfun
-
-        # Create vector of calibrated parameters
-        # Can be smaller than model parameters and
-        # includes error model parameters
-        if nparams is None:
-            nparams, _ = model.get_dims('params')
-
-        ncalparams = nparams + self.errfun.nerrparams
-        self._nparams = nparams
-        self._calparams = Vector('calparams', ncalparams, nens_params)
-        self._calparams.names = ['X{0}'.format(i) for i in range(nparams)] \
-                        + ['XE{0}'.format(i) for i in range(self._errfun.nerrparams)]
-        self._calparams.default = np.zeros(ncalparams, dtype=np.float64)
-        self._calparams.means = np.zeros(ncalparams, dtype=np.float64)
-        self._calparams.covar = np.eye(ncalparams, dtype=np.float64)
+        self._errmod = errmod
 
         # Wrapper around optimizer to
         # send the current calibration object
-        def _optimizer(objfun, start, calib, disp, *args, **kwargs):
-            kwargs['disp'] = disp
-            final = optimizer(objfun, start, *args, **kwargs)
-            return final
+        #def _optimizer(objfun, start, calib, disp, *args, **kwargs):
+        #    kwargs['disp'] = disp
+        #    final = optimizer(objfun, start, *args, **kwargs)
+        #    return final
 
-        self._optimizer = _optimizer
+        self._optimizer = optimizer
 
 
     def __str__(self):
         str = ('Calibration instance ' +
                 'for model {0}\n').format(self._model.name)
-        str += '  errfun     : {0}\n'.format(self.errfun.name)
+        str += '  errmod     : {0}\n'.format(self.errmod.name)
         str += '  status     : {0}\n'.format(self._status)
         str += '  warmup     : {0}\n'.format(self._warmup)
         str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
-        str += '  ncalparams : {0}\n'.format(self.ncalparams)
+        str += '  ncalparams : {0}\n'.format(self.alparams)
         str += '  ieval      : {0}\n'.format(self._ieval)
 
         return str
@@ -276,8 +210,8 @@ class Calibration(object):
 
 
     @property
-    def errfun(self):
-        return self._errfun
+    def errmod(self):
+        return self._errmod
 
 
     @property
@@ -336,8 +270,8 @@ class Calibration(object):
 
         # Set error model parameters
         # (example standard deviation of normal gaussian error model)
-        if self._errfun.nerrparams > 0:
-            self.errfun.errparams = calparams[self._nparams:]
+        if self._errmod.nerrparams > 0:
+            self.errmod.errparams = calparams[self._nparams:]
 
         # Set start/end of model
         istart = self._index_cal[0] - self.warmup
@@ -369,7 +303,7 @@ class Calibration(object):
         kk = np.in1d(index, self._index_cal)
 
         # Compute objectif function during calibration period
-        ofun = self._errfun.run(self.obsdata[kk, :], \
+        ofun = self._errmod.compute(self.obsdata[kk, :], \
                     self._model.outputs[kk, :])
 
         if not self._minimize:
