@@ -9,10 +9,11 @@ from hydrodiy.data.containers import Vector
 
 BC = transform.BoxCox()
 
-class ErrModel(object):
+class ObjFun(object):
+    ''' Generic class to describe objective functions '''
 
     def __init__(self, name, orientation=1, \
-                params=None, constants=None):
+                    constants=None):
 
         self.name = name
 
@@ -22,34 +23,11 @@ class ErrModel(object):
 
         self.orientation = orientation
 
-        if not params is None:
-            self._params = params
-        else:
-            self._params = Vector([])
-
-        if not constants is None:
-            self._constants = constants
-        else:
-            self._constants = Vector([])
-
-
     def __str__(self):
         str = 'Objective function {0}\n'.format(self.name)
         str += '  orientation : {0}\n'.format(self.orientation)
-        str += '  params : {0}\n'.format(self.params.names)
-        str += '  constants  : {0}\n'.format(self.constants.names)
 
         return str
-
-
-    @property
-    def constants(self):
-        return self._constants
-
-
-    @property
-    def params(self):
-        return self._params
 
 
     def compute(self, obs, sim):
@@ -57,11 +35,11 @@ class ErrModel(object):
 
 
 
-class ErrModelSSE(ErrModel):
+class ObjFunSSE(ObjFun):
+    ''' Sum of squared error objective function '''
 
     def __init__(self):
-
-        ErrModel.__init__(self,'SSE')
+        ObjFun.__init__(self,'SSE')
 
 
     def compute(self, obs, sim):
@@ -69,49 +47,29 @@ class ErrModelSSE(ErrModel):
         return np.nansum(err*err)
 
 
+class ObjFunBCSSE(ObjFun):
+    ''' Sum of squared error objective function '''
 
-class ErrModelBCSLS(ErrModel):
+    def __init__(self, lam=0.2):
+        ObjFun.__init__(self,'BCSSE')
 
-    def __init__(self, lam=1.):
-
-        params=Vector(['logsigma'], \
-                defaults=[1.],\
-                mins=[-10.],\
-                maxs=[10.])
-
-        constants=Vector(['lambda'], \
-                defaults=[lam],\
-                mins=[-1.],\
-                maxs=[3.])
-
-        ErrModel.__init__(self, 'BCSLS', params=params, \
-            constants=constants, \
-            orientation=-1)
-
+        # Set Transform
+        BC['lambda'] = lam
+        self.trans = BC
 
     def compute(self, obs, sim):
-        logsigma = self.params.values
-        lam = self.constants.values
-
-        if np.isclose(lam, 1.):
-            err = obs-sim
-        else:
-            BC['lambda'] = lam
-            err = BC.forward(obs)-BC.forward(sim)
-
-        sigma = math.exp(logsigma)
-        nval = np.sum(~np.isnan(err))
-        ll = -np.nansum(err*err)/(2*sigma*sigma)-nval*logsigma
-
-        return ll
+        tobs = self.trans.forward(obs)
+        tsim = self.trans.forward(sim)
+        err = tobs-tsim
+        return np.nansum(err*err)
 
 
 
 class Calibration(object):
 
-    def __init__(self, model, params, \
+    def __init__(self, model, calparams, \
             warmup=0, \
-            errmod=ErrModelSSE, \
+            objfun=ObjFunSSE, \
             minimize=True, \
             optimizer=fmin_powell, \
             initialise_model=True, \
@@ -119,7 +77,7 @@ class Calibration(object):
             nrepeat_fit=2):
 
         self._model = model
-        self._params = params
+        self._calparams = calparams
         self._warmup = warmup
         self._minimize = minimize
         self._timeit = timeit
@@ -130,10 +88,10 @@ class Calibration(object):
         self._status = 'intialised'
         self._nrepeat_fit = nrepeat_fit
 
-        self._obsdata = None
+        self._obs = None
         self._index_cal = None
 
-        self._errmod = errmod
+        self._objfun = objfun
 
         # Wrapper around optimizer to
         # send the current calibration object
@@ -148,7 +106,7 @@ class Calibration(object):
     def __str__(self):
         str = ('Calibration instance ' +
                 'for model {0}\n').format(self._model.name)
-        str += '  errmod     : {0}\n'.format(self.errmod.name)
+        str += '  objfun     : {0}\n'.format(self.objfun.name)
         str += '  status     : {0}\n'.format(self._status)
         str += '  warmup     : {0}\n'.format(self._warmup)
         str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
@@ -167,17 +125,6 @@ class Calibration(object):
     def warmup(self):
         return self._warmup
 
-    @warmup.setter
-    def warmup(self, value):
-
-        if self._obsdata is None:
-            raise ValueError('No obsdata data. Please allocate')
-
-        nval = self._obsdata.nval
-        if value > nval:
-            raise ValueError('Tried setting warmup, got a value greater ({0}) ' +
-                'than the number of observations ({1})'.format(value, nval))
-        self._warmup = value
 
     @property
     def runtime(self):
@@ -185,18 +132,8 @@ class Calibration(object):
 
 
     @property
-    def ncalparams(self):
-        return self._calparams.nval
-
-
-    @property
     def calparams(self):
-        return self._calparams.data
-
-
-    @calparams.setter
-    def calparams(self, value):
-        self._calparams.data = value
+        return self._calparams
 
 
     @property
@@ -205,13 +142,8 @@ class Calibration(object):
 
 
     @property
-    def obsdata(self):
-        return self._obsdata.data
-
-
-    @property
-    def errmod(self):
-        return self._errmod
+    def obs(self):
+        return self._obs
 
 
     @property
@@ -221,10 +153,10 @@ class Calibration(object):
     @index_cal.setter
     def index_cal(self, value):
 
-        if self._obsdata is None:
-            raise ValueError('No obsdata data. Please allocate')
+        if self._obs is None:
+            raise ValueError('No obs data. Please allocate')
 
-        index = self._obsdata.index
+        index = self._obs.index
 
         # Set to all indexes if None
         if value is None:
@@ -240,10 +172,10 @@ class Calibration(object):
         else:
             _index_cal = value
 
-        # check value is within obsdata indexes
+        # check value is within obs indexes
         if np.any(~np.in1d(_index_cal, index)):
             raise ValueError(('Certain values in index_cal are not within '
-                'obsdata index'))
+                'obs index'))
 
         # Check value leaves enough data for warmup
         istart = np.where(_index_cal[0] == index)[0]
@@ -255,23 +187,18 @@ class Calibration(object):
         self._index_cal = _index_cal
 
 
-    def _objfun(self, calparams):
+    def _fitfun(self, calparams_values):
 
         model = self._model
 
         # Set model parameters
-        calparams = np.atleast_1d(calparams)
-        params = self.cal2true(calparams[:self._nparams])
-        model.params = params
+        calparams_values = np.atleast_1d(calparams_values)
+        params_values = self.cal2true(calparams_values)
+        model.params.values = params_values
 
         # Exit objectif function if parameters hit bounds
         if model._params.hitbounds and self._status:
             return np.inf
-
-        # Set error model parameters
-        # (example standard deviation of normal gaussian error model)
-        if self._errmod.nerrparams > 0:
-            self.errmod.errparams = calparams[self._nparams:]
 
         # Set start/end of model
         istart = self._index_cal[0] - self.warmup
@@ -279,10 +206,10 @@ class Calibration(object):
             raise ValueError('Tried to set model start index before '
                 'the first index')
 
-        index = self._obsdata.index
+        index = self._obs.index
         istart = np.where(index == istart)[0]
-        model.index_start = index[istart]
-        model.index_end = self._index_cal[-1]
+        model.istart = index[istart]
+        model.iend = self._index_cal[-1]
 
         # Initialise model if needed
         if self._initialise_model:
@@ -303,7 +230,7 @@ class Calibration(object):
         kk = np.in1d(index, self._index_cal)
 
         # Compute objectif function during calibration period
-        ofun = self._errmod.compute(self.obsdata[kk, :], \
+        ofun = self._objfun.compute(self.obs[kk, :], \
                     self._model.outputs[kk, :])
 
         if not self._minimize:
@@ -332,9 +259,9 @@ class Calibration(object):
         if self._index_cal is None:
             raise ValueError('No index_cal data. Please allocate')
 
-        # Check obsdata are allocated
-        if self._obsdata is None:
-            raise ValueError('No obsdata data. Please allocate')
+        # Check obs are allocated
+        if self._obs is None:
+            raise ValueError('No obs data. Please allocate')
 
         # Check inputs are allocated
         if self.model._inputs is None:
@@ -346,17 +273,17 @@ class Calibration(object):
             raise ValueError(('No outputs data for model {0}.' + \
                 ' Please allocate').format(self._model.name))
 
-        # Check inputs and obsdata have the right dimension
+        # Check inputs and obs have the right dimension
         nval, nvar, _, _ = self.model.get_dims('outputs')
-        nval2 = self._obsdata.nval
+        nval2 = self._obs.nval
         if nval != nval2:
             raise ValueError(('model inputs nval({0}) !=' + \
-                ' obsdata nval({1})').format(nval, nval2))
+                ' obs nval({1})').format(nval, nval2))
 
-        nvar2 = self._obsdata.nvar
+        nvar2 = self._obs.nvar
         if nvar != nvar2:
             raise ValueError(('model outputs nvar({0}) !=' + \
-                ' obsdata nvar({1})').format(nvar, nvar2))
+                ' obs nvar({1})').format(nvar, nvar2))
 
         # Check params size
         calparams = np.zeros(self.ncalparams)
@@ -369,31 +296,32 @@ class Calibration(object):
             raise ValueError('cal2true does not return a 1D Numpy array')
 
 
-    def cal2true(self, calparams):
+    def cal2true(self, calparams_values):
         ''' Convert calibrated parameters to true values '''
-        return calparams
+        return calparams_values
 
 
-    def setup(self, obsdata, inputs):
+    def allocate(self, obs, inputs):
 
-        if inputs.nval != obsdata.nval:
-            raise ValueError(('Number of value in inputs({0}) different' +
-                ' from obsdata ({1})').format(inputs.nval, obdata.nval))
+        obs = np.atleast_2d(obs)
+        inputs = np.atleast_2d(inputs)
 
-        if not np.allclose(inputs.index, obsdata.index):
-            raise ValueError('Different indexes in obsdata and inputs')
+        nval, noutputs = obs.shape
 
-        if obsdata.nvar > self._model.noutputs_max:
-            raise ValueError(('Number of variables in outputs({0}) greater' +
-                ' than model can produce ({1})').format(obsdata.nvar,
-                                                self._model.noutputs_max))
+        # Check inputs and outputs size
+        if inputs.shape[0] != nval:
+            raise ValueError(('Expected same number of timestep '+\
+                'in inputs({0}) and outputs({1})').format(\
+                    inputs.shape[0], nval))
 
-        self.model.allocate(inputs, obsdata.nvar)
+        # Allocate model
+        self.model.allocate(inputs, noutputs)
 
-        self._obsdata = obsdata
+        # Set obs data
+        self._obs = obs
 
         # By default calibrate on everything excluding warmup
-        index_cal = inputs.index[np.arange(obsdata.nval) >= self._warmup]
+        index_cal = np.arange(nval) >= self._warmup
         self._index_cal = index_cal
 
 
@@ -486,16 +414,16 @@ class Calibration(object):
         return final, outputs_final, ofun_final
 
 
-    def run(self, obsdata, inputs, \
+    def run(self, obs, inputs, \
             index_cal=None, \
             iprint=0, \
             nsamples=None,
             *args, **kwargs):
 
-        self.setup(obsdata, inputs)
+        self.setup(obs, inputs)
 
         if index_cal is None:
-            index_cal = obsdata.index
+            index_cal = obs.index
         self.index_cal = index_cal
 
         try:

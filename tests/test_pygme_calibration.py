@@ -10,13 +10,13 @@ import numpy as np
 
 from hydrodiy.stat.transform import BoxCox
 from pygme.calibration import Calibration
-from pygme.calibration import ErrModelSSE, ErrModelBCSLS
+from pygme.calibration import ObjFunSSE, ObjFunBCSSE
 
 from dummy import Dummy, CalibrationDummy
 
 BC = BoxCox()
 
-class ErrModTestCases(unittest.TestCase):
+class ObjFunTestCases(unittest.TestCase):
 
     def setUp(self):
         print('\t=> ErrFunctionTestCase')
@@ -34,37 +34,26 @@ class ErrModTestCases(unittest.TestCase):
 
 
     def test_print(self):
-        of = ErrModelBCSLS()
+        of = ObjFunBCSSE(0.2)
         print(of)
 
 
     def test_SSE(self):
-        of = ErrModelSSE()
+        of = ObjFunSSE()
         value = of.compute(self.obs, self.sim)
         err = self.obs-self.sim
         expected = np.nansum(err*err)
         self.assertTrue(np.allclose(value, expected))
 
 
-    def test_BCSLS(self):
-        sigma = 5.
-        sls = ErrModelBCSLS()
-        sls.params.values = math.log(sigma)
-        value = sls.compute(self.obs, self.sim)
-        err = self.obs-self.sim
-        nval = np.sum(~np.isnan(err))
-        expected = -np.nansum(err*err)/(2*sigma*sigma)-nval*math.log(sigma)
-        self.assertTrue(np.isclose(value, expected))
-
-        sls = ErrModelBCSLS(0.2)
-        sls.params.values = math.log(sigma)
-        value = sls.compute(self.obs, self.sim)
-        BC['lambda'] = sls.constants.values
-        err = BC.forward(self.obs)-BC.forward(self.sim)
-        nval = np.sum(~np.isnan(err))
-        expected = -np.nansum(err*err)/(2*sigma*sigma)-nval*math.log(sigma)
-        #self.assertTrue(np.isclose(value, expected))
-
+    def test_BCSSE(self):
+        for lam in [0.1, 0.5, 1., 2]:
+            of = ObjFunBCSSE(lam)
+            value = of.compute(self.obs, self.sim)
+            BC['lambda'] = lam
+            err = BC.forward(self.obs)-BC.forward(self.sim)
+            expected = np.nansum(err*err)
+            self.assertTrue(np.isclose(value, expected))
 
 
 class CalibrationTestCases(unittest.TestCase):
@@ -76,9 +65,9 @@ class CalibrationTestCases(unittest.TestCase):
         params = [0.5, 10., 0.]
         dum = Dummy()
         inputs = np.random.uniform(0, 1, (1000, 2))
-        dum.allocate(inputs, 2)
+        dum.allocate(inputs)
 
-        dum.params = params
+        dum.params.values = params
         dum.run()
         obs = dum.outputs[:, 0].copy()
 
@@ -155,3 +144,5 @@ def get_startend(xv, is_cal=True, is_leave=True):
                     for per in xv._calperiods]
 
 
+if __name__ == "__main__":
+    unittest.main()
