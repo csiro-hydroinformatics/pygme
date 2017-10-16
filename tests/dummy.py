@@ -3,7 +3,7 @@ import numpy as np
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 
-from pygme.calibration import Calibration
+from pygme.calibration import Calibration, CalibParamsVector
 
 
 class Dummy(Model):
@@ -15,13 +15,14 @@ class Dummy(Model):
                     [0], [0], [1])
 
         # params vector
-        vect = Vector(['X1', 'X2', 'X3'], \
-                    [0, 1, 0], [-10, -10, -10], [10, 10, 10])
+        eps = 1e-7
+        vect = Vector(['X1', 'X2'], \
+                    [eps, 1], [eps]*2, [10, 10])
         uhs = [UH('flat', 0)]
         params = ParamsVector(vect, uhs)
 
         # State vector
-        states = Vector(['S1', 'S2', 'S3'])
+        states = Vector(['S1', 'S2'])
 
         # Model
         Model.__init__(self, 'dummy',
@@ -32,18 +33,13 @@ class Dummy(Model):
 
     def run(self):
         istart, iend = self.istart, self.iend
-        par1, par2, par3 = self.params.values
+        par1, par2 = self.params.values
 
         kk = range(istart, iend+1)
-        outputs = par1 + par2 *self.inputs[kk, :]
-        outputs = np.cumsum(outputs, 0)
+        outputs = par1+par2*self.inputs[kk, :]
 
         if np.allclose(self.config['continuous'], 1):
             outputs = outputs + self.states.values[None, :outputs.shape[1]]
-
-        if par3 > 1e-10:
-            outputs *= np.random.uniform(1-par3, \
-                1+par3+1e-20, size=(np.sum(kk), ))
 
         # Write data to selected output indexes
         self.outputs[:istart, :] = np.nan
@@ -51,7 +47,7 @@ class Dummy(Model):
 
         # Store states
         self.states.values = np.concatenate([self.outputs[iend, :],\
-                                np.zeros(3-self.noutputs)])
+                                np.zeros(2-self.noutputs)])
 
 
 
@@ -112,24 +108,23 @@ class MassiveDummy2(Model):
 class CalibrationDummy(Calibration):
 
     def __init__(self, warmup):
+
+        # Input objects for Calibration class
         model = Dummy()
+        params = model.params
+        plib = np.random.multivariate_normal(mean=params.defaults, \
+                    cov=np.diag((params.maxs-params.mins)/2), \
+                    size=5000)
+        plib = np.clip(plib, params.mins, params.maxs)
 
-        Calibration.__init__(self,
-            nparams=2,
-            warmup=warmup,
-            model = model,
-            timeit = True)
+        cp = Vector(['tX1', 'tX2'], mins=[-10]*2, maxs=[10]*2, \
+                defaults=[1, 0])
+        calparams = CalibParamsVector(Dummy(), cp, trans2true='exp')
 
-        self._calparams.means =  [1, 0]
-        self._calparams.min =  [-10, -10]
-        self._calparams.max =  [10, 10]
-        self._calparams.covar = [[1, 0.], [0., 20]]
-
-
-    def cal2true(self, calparams):
-        true =  np.array([np.exp(calparams[0]),
-            (np.tanh(calparams[1])+1.)*10., 0])
-
-        return true
+        # Instanciate calibration
+        Calibration.__init__(self, calparams, \
+            warmup=warmup, \
+            timeit=True, \
+            paramslib=plib)
 
 

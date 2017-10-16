@@ -449,29 +449,6 @@ class Model(object):
             'Method run not implemented').format(self.name))
 
 
-    def run_checked(self):
-        ''' Run the model following inputs, outputs and istart/iend checks '''
-
-        if self._inputs is None:
-            raise ValueError(('model {0}: inputs are not allocated.'+\
-                ' Please allocate').format(self.name))
-
-        if self._outputs is None:
-            raise ValueError(('model {0}: outputs are not allocated.'+\
-                ' Please allocate').format(self.name))
-
-        if self.outputs.shape[0] != self.ntimesteps:
-            raise ValueError(('model {0}: expected dim 0 of outputs to be '+\
-                '{1}, got {2}').format(self.name, self.ntimesteps, \
-                    self.outputs.shape[0]))
-
-        if self.istart >= self.iend:
-            raise ValueError('model {0}: Expected istart({0}) < iend({1})'.format(\
-                self.name, self.istart, self.iend))
-
-        self.run()
-
-
     def clone(self):
         ''' Clone the current model instance'''
         return copy.deepcopy(self)

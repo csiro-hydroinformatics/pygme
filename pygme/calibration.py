@@ -1,13 +1,22 @@
-import math, time
-
 import numpy as np
+import time
+import logging
 
 from scipy.optimize import fmin_powell
 
 from hydrodiy.stat import transform
 from hydrodiy.data.containers import Vector
 
+# Setup login
+LOGGER = logging.getLogger(__name__)
+
+# Setup box cox transform
 BC = transform.BoxCox()
+
+
+def format_array(x, fmt='3.3e'):
+    return ' '.join([('{0:'+fmt+'}').format(u) for u in x])
+
 
 class ObjFun(object):
     ''' Generic class to describe objective functions '''
@@ -18,16 +27,15 @@ class ObjFun(object):
         self.name = name
 
         if not orientation in [-1, 1]:
-            raise ValueError(('Expected orientation in [-1, 1],'+\
+            raise ValueError(('Expected orientation to be -1 or 1,'+\
                 ' got {0}').format(orientation))
 
         self.orientation = orientation
 
-    def __str__(self):
-        str = 'Objective function {0}\n'.format(self.name)
-        str += '  orientation : {0}\n'.format(self.orientation)
 
-        return str
+    def __str__(self):
+        return '{0} objective function, orientation {1}'.format(\
+                    self.name, self.orientation)
 
 
     def compute(self, obs, sim):
@@ -47,15 +55,17 @@ class ObjFunSSE(ObjFun):
         return np.nansum(err*err)
 
 
+
 class ObjFunBCSSE(ObjFun):
     ''' Sum of squared error objective function '''
 
     def __init__(self, lam=0.2):
-        ObjFun.__init__(self,'BCSSE')
+        ObjFun.__init__(self, 'BCSSE')
 
         # Set Transform
         BC['lambda'] = lam
         self.trans = BC
+
 
     def compute(self, obs, sim):
         tobs = self.trans.forward(obs)
@@ -65,70 +75,327 @@ class ObjFunBCSSE(ObjFun):
 
 
 
+# Overload Vector class to include parameter transform
+class CalibParamsVector(Vector):
+
+    def __init__(self, model, tparams, trans2true=None, true2trans=None):
+
+        # Check mins and maxs are set
+        if np.any(np.isinf(tparams.mins)):
+            raise ValueError('Expected no infinite values in mins, '+
+                'got {0}'.format(tparams.mins))
+
+        if np.any(np.isinf(tparams.maxs)):
+            raise ValueError('Expected no infinite values in maxs, '+
+                'got {0}'.format(tparams.maxs))
+
+        # Initialise Vector object
+        Vector.__init__(self, tparams.names, \
+            tparams.defaults, tparams.mins, tparams.maxs, \
+            tparams.hitbounds)
+
+        # Syntactic sugar for common transforms
+        if trans2true == 'sinh':
+            trans2true = np.sinh
+            true2trans = np.arcsinh
+        elif trans2true == 'exp':
+            trans2true = np.exp
+            true2trans = np.log
+
+        # Set default transform as identity
+        if (trans2true is None and not true2trans is None)\
+            or (not trans2true is None and true2trans is None):
+            raise ValueError('Expected both trans2true and true2trans '+\
+                'to be either valid or None, got {0} and {1}'.format(\
+                    trans2true, true2trans))
+
+        if trans2true is None:
+            trans2true = lambda x: x
+            true2trans = lambda x: x
+
+        # Check transforms applied to default values
+        xd = trans2true(self.defaults)
+
+        if not isinstance(xd, np.ndarray):
+            raise ValueError('trans2true function does not return a '+
+                'numpy array')
+
+        if not xd.ndim == 1:
+            raise ValueError('trans2true function does not return a '+
+                '1d numpy array')
+
+        if not len(xd) == model.params.nval:
+            raise ValueError('Expected model params vector of '+\
+                'length {0}, got {1}'.format(model.params.nval, len(xd)))
+
+        if np.any(np.isnan(xd)):
+            raise ValueError('Expected no nan values in transform of '+\
+                ' default values, got {0}'.format(xd))
+
+        # Check back transforms applied to default values
+        xtd = true2trans(xd)
+
+        if not isinstance(xtd, np.ndarray):
+            raise ValueError('true2trans function does not return a '+
+                'numpy array')
+
+        if not xtd.ndim == 1:
+            raise ValueError('true2trans function does not return a '+
+                '1d numpy array')
+
+        if np.any(np.isnan(xtd)):
+            raise ValueError('Expected no nan values in transform of '+\
+                ' default values, got {0}'.format(xtd))
+
+        # Check trans2true is one to one
+        xmi = trans2true(self.mins)
+        xma = trans2true(self.maxs)
+
+        if np.any(np.isnan(xmi)) or np.any(np.isnan(xma)):
+            raise ValueError('Expected no nan values in transform of '+\
+                ' mins or maxs, got t(mins)={0} and t(maxs)={1}'.format(\
+                    xmi, xma))
+
+        if np.any((xd-xmi)<0):
+            raise ValueError('Expected transform of defaults to be greater'+\
+                ' than transform of mins, got t(defaults)={0} and t(mins)={1}'.format(\
+                    xd, xmi))
+
+        if np.any((xma-xd)<0):
+            raise ValueError('Expected transform of maximum to be greater'+\
+                ' than transform of defaults, got t(maxs)={0} and t(defaults)={1}'.format(\
+                    xmax, xd))
+
+        # Check transform followed by backtransform are neutral
+        xd2 = trans2true(xtd)
+
+        xtmi = true2trans(xmi)
+        xmi2 = trans2true(xtmi)
+
+        xtma = true2trans(xma)
+        xma2 = trans2true(xtma)
+
+        for v1, v2 in [[xd, xd2], [xmi, xmi2], [xma, xma2]]:
+            if not np.allclose(v1, v2):
+                raise ValueError('Expected trans2true followed by true2trans '+\
+                    'to return the original vector, got {0} -> {1}'.format(xd, \
+                    xd2))
+
+        # Store data
+        self._trans2true = trans2true
+        self._true2trans = true2trans
+        self._model = model
+        model.params.values = trans2true(self.defaults).copy()
+
+
+    def __setitem__(self, key, values):
+        # Set item for the vector
+        Vector.__setitem__(self, key, values)
+
+        # Set transform values
+        self._model.params.values = self.trans2true(self.values)
+
+
+    @property
+    def model(self):
+        return self._model
+
+
+    @property
+    def trans2true(self):
+        return self._trans2true
+
+
+    @property
+    def true2trans(self):
+        return self._true2trans
+
+
+    @property
+    def truevalues(self):
+        return self._model.params.values
+
+    @truevalues.setter
+    def truevalues(self, values):
+        # Set model params
+        self._model.params.values = values
+
+        # Run the vector value setter
+        tvalues = self.true2trans(self.model.params.values)
+        Vector.values.fset(self, tvalues)
+
+
+    @Vector.values.setter
+    def values(self, values):
+        # Run the vector value setter
+        Vector.values.fset(self, values)
+
+        # Set true values
+        self._model.params.values = self.trans2true(self.values)
+
+
+
+def fitfun(values, calib, transformed):
+    ''' Objective function wrapper to  be used by optimizer.
+        Can be run with transformed or untransformed parameter values.
+    '''
+    # Get objects
+    calparams = calib.calparams
+    model = calparams.model
+    ical = calib.ical
+    objfun = calib.objfun
+
+    # Set model parameters
+    # (note that parameters are passed to model within calparams object)
+    if transformed:
+        calparams.values = values
+    else:
+        calparams.truevalues = values
+
+    # Exit objectif function if parameters hit bounds
+    if model.params.hitbounds and calib.hitbounds:
+        return np.inf
+
+    # Initialise model
+    model.initialise()
+
+    # Run model with runtime assessment
+    if calib.timeit:
+        t0 = time.time()
+
+    model.run()
+    calib._nbeval += 1
+
+    if calib.timeit:
+        t1 = time.time()
+        calib._runtime = (t1-t0)*1000
+
+    # Compute objectif function during calibration period
+    ofun = objfun.compute(calib.obs[ical, :], \
+                                    model.outputs[ical, :])
+    if np.isnan(ofun):
+        ofun = np.inf
+
+    # Apply function orientation
+    # +1 = minimization
+    # -1 = maximization
+    ofun *= objfun.orientation
+
+    # Print output if needed
+    if calib.iprint>0 and calib.nbeval % calib.iprint == 0:
+        LOGGER.info('Fitfun [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
+            calib.nbeval, objfun.name, format_array(calib.calparams.truevalues), \
+            ofun, calib.runtime))
+
+    return ofun
+
+
+
 class Calibration(object):
 
-    def __init__(self, model, calparams, \
+    def __init__(self, calparams, \
             warmup=0, \
-            objfun=ObjFunSSE, \
-            minimize=True, \
-            optimizer=fmin_powell, \
-            initialise_model=True, \
+            objfun=ObjFunSSE(), \
+            paramslib=None, \
             timeit=False, \
-            nrepeat_fit=2):
+            hitbounds=True):
 
-        self._model = model
+        # Initialise calparams
+        calparams.truevalues = calparams.model.params.defaults
         self._calparams = calparams
-        self._warmup = warmup
-        self._minimize = minimize
-        self._timeit = timeit
-        self._ieval = 0
-        self._iprint = 0
-        self._runtime = np.nan
-        self._initialise_model = initialise_model
-        self._status = 'intialised'
-        self._nrepeat_fit = nrepeat_fit
-
-        self._obs = None
-        self._index_cal = None
-
         self._objfun = objfun
 
-        # Wrapper around optimizer to
-        # send the current calibration object
-        #def _optimizer(objfun, start, calib, disp, *args, **kwargs):
-        #    kwargs['disp'] = disp
-        #    final = optimizer(objfun, start, *args, **kwargs)
-        #    return final
+        self.warmup = warmup
+        self.timeit = timeit
+        self.hitbounds = hitbounds
+        self.iprint = 0
 
-        self._optimizer = optimizer
+        self._nbeval = 0
+        self._runtime = np.nan
+        self._obs = None
+        self._ical = None
+
+        # Check paramslib
+        if not paramslib is None:
+
+            # Check dimensions
+            paramslib = np.atleast_2d(paramslib).astype(np.float64)
+            nlib, nparams = paramslib.shape
+            if nparams != calparams.model.params.nval:
+                raise ValueError(('Expected {0} parameters in '+\
+                    'paramslib, got {1}').format(calparams.model.params.nval, \
+                        nparams))
+
+            if np.any(np.isnan(paramslib)):
+                raise ValueError('Expected no NaN in paramslib')
+
+            # Clip paramslib within model parameter boundaries
+            model = calparams.model
+            mins = model.params.mins
+            maxs = model.params.maxs
+
+            for ip, values in enumerate(paramslib):
+                clipped = np.clip(values, mins, maxs)
+
+                if not np.allclose(values, clipped):
+                    LOGGER.warning('Clipped parameter set '+\
+                        '#{0} from paramslib: {1} -> {2}'.format(ip,\
+                            values, clipped))
+
+                # Check values is valid with parameter transform
+                tclipped = calparams.true2trans(clipped)
+                if np.any(np.isnan(tclipped)):
+                    raise ValueError('Parameter set '+\
+                        '#{0} is invalid after transform: {1}'.format(ip, tclipped))
+
+                clipped2 = calparams.trans2true(tclipped)
+                if np.any(np.isnan(clipped2)):
+                    raise ValueError('Parameter set '+\
+                        '#{0} is invalid after back transform: {1}'.format(ip, \
+                        clipped2))
+
+
+                paramslib[ip, :] = clipped
+
+        self._paramslib = paramslib
 
 
     def __str__(self):
         str = ('Calibration instance ' +
-                'for model {0}\n').format(self._model.name)
+                'for model {0}\n').format(self.model.name)
+        str += '  ncalparams : {0}\n'.format(self.calparams.nval)
         str += '  objfun     : {0}\n'.format(self.objfun.name)
-        str += '  status     : {0}\n'.format(self._status)
-        str += '  warmup     : {0}\n'.format(self._warmup)
-        str += '  nrepeat_fit: {0}\n'.format(self._nrepeat_fit)
-        str += '  ncalparams : {0}\n'.format(self.alparams)
-        str += '  ieval      : {0}\n'.format(self._ieval)
+        str += '  warmup     : {0}\n'.format(self.warmup)
+        str += '  hitbounds  : {0}\n'.format(self.hitbounds)
+        str += '  nbeval     : {0}\n'.format(self.nbeval)
 
         return str
 
 
     @property
-    def ieval(self):
-        return self._ieval
-
-
-    @property
-    def warmup(self):
-        return self._warmup
-
-
-    @property
     def runtime(self):
         return self._runtime
+
+
+    @property
+    def nbeval(self):
+        return self._nbeval
+
+
+    @property
+    def objfun(self):
+        return self._objfun
+
+
+    @property
+    def paramslib(self):
+        if self._paramslib is None:
+            raise ValueError('Trying to get paramslib, but it is '+\
+                        'not allocated. '+\
+                        'Please supply data when creating Calibration'+\
+                        'object')
+
+        return self._paramslib
 
 
     @property
@@ -138,181 +405,81 @@ class Calibration(object):
 
     @property
     def model(self):
-        return self._model
+        return self._calparams.model
 
 
     @property
     def obs(self):
+        if self._obs is None:
+            raise ValueError('Trying to get obs, but it is '+\
+                        'not allocated. Please allocate')
+
         return self._obs
 
 
     @property
-    def index_cal(self):
-        return self._index_cal
+    def ical(self):
+        return self._ical
 
-    @index_cal.setter
-    def index_cal(self, value):
-
-        if self._obs is None:
-            raise ValueError('No obs data. Please allocate')
-
-        index = self._obs.index
+    @ical.setter
+    def ical(self, values):
+        nval = self.obs.shape[0]
 
         # Set to all indexes if None
-        if value is None:
-            value = index
-
-        if value.dtype == np.dtype('bool'):
-            if value.shape[0] != index.shape[0]:
-                raise ValueError('Trying to set index_cal, got {0} values,' +
-                        ' expected {1}'.format(value.shape[0], index.shape[0]))
-
-            _index_cal = index[np.where(value)[0]]
+        if values is None:
+            ical = np.arange(nval)
 
         else:
-            _index_cal = value
+            values = np.atleast_1d(values)
+
+            if values.dtype == np.dtype('bool'):
+                if values.shape[0] != nval:
+                    raise ValueError(('Expected boolean ical of length {0},'+\
+                            ' got {1}').format(nval, values.shape[0]))
+
+                # Convert boolean to index
+                ical = np.where(values)[0]
+
+            else:
+                ical = np.sort(values.astype(int))
 
         # check value is within obs indexes
-        if np.any(~np.in1d(_index_cal, index)):
-            raise ValueError(('Certain values in index_cal are not within '
-                'obs index'))
+        iout = (ical<0) | (ical>=nval)
+        if np.sum(iout)>0:
+            out = ical[iout]
+            raise ValueError('Expected all values in ical to be '+
+                'in [0, {0}], got {1} (first five only)'.format(nval-1,\
+                out[:5]))
 
         # Check value leaves enough data for warmup
-        istart = np.where(_index_cal[0] == index)[0]
-        if istart < self.warmup:
-            raise ValueError(('index_cal starts at {0}, which leaves {1} values '
-                'for warmup, whereas {2} are expected').format(_index_cal[0],
-                    istart, self.warmup))
+        if ical[0] < self.warmup:
+            raise ValueError('Expected ical[0]>{1}, got {0}'.format(\
+                    ical[0], self.warmup))
 
-        self._index_cal = _index_cal
-
-
-    def _fitfun(self, calparams_values):
-
-        model = self._model
-
-        # Set model parameters
-        calparams_values = np.atleast_1d(calparams_values)
-        params_values = self.cal2true(calparams_values)
-        model.params.values = params_values
-
-        # Exit objectif function if parameters hit bounds
-        if model._params.hitbounds and self._status:
-            return np.inf
-
-        # Set start/end of model
-        istart = self._index_cal[0] - self.warmup
-        if istart < 0:
-            raise ValueError('Tried to set model start index before '
-                'the first index')
-
-        index = self._obs.index
-        istart = np.where(index == istart)[0]
-        model.istart = index[istart]
-        model.iend = self._index_cal[-1]
-
-        # Initialise model if needed
-        if self._initialise_model:
-            model.initialise()
-
-        # Run model with runtime assessment
-        if self._timeit:
-            t0 = time.time()
-
-        model.run()
-        self._ieval += 1
-
-        if self._timeit:
-            t1 = time.time()
-            self._runtime = (t1-t0)*1000
-
-        # Locate indexes in the calibration period
-        kk = np.in1d(index, self._index_cal)
-
-        # Compute objectif function during calibration period
-        ofun = self._objfun.compute(self.obs[kk, :], \
-                    self._model.outputs[kk, :])
-
-        if not self._minimize:
-            ofun *= -1
-
-        if np.isnan(ofun):
-            raise ValueError('Objective function returns nan')
-
-        # Store data
-        self._calparams.data = calparams
-
-        # Print output if needed
-        if self._iprint>0:
-            if self._ieval % self._iprint == 0:
-                print('{4} {0:3d} : {1:3.3e} {2} ~ {3:.3f} ms'.format( \
-                    self._ieval, ofun, self._calparams.data, \
-                    self._runtime, self._status))
-
-        return ofun
-
-
-    def check(self):
-        ''' Performs check on calibrated model to ensure that all variables are
-        properly allocated '''
-        # Check index_cal is allocated
-        if self._index_cal is None:
-            raise ValueError('No index_cal data. Please allocate')
-
-        # Check obs are allocated
-        if self._obs is None:
-            raise ValueError('No obs data. Please allocate')
-
-        # Check inputs are allocated
-        if self.model._inputs is None:
-            raise ValueError(('No inputs data for model {0}.' + \
-                ' Please allocate').format(self._model.name))
-
-        # Check outputs are allocated
-        if self.model._outputs is None:
-            raise ValueError(('No outputs data for model {0}.' + \
-                ' Please allocate').format(self._model.name))
-
-        # Check inputs and obs have the right dimension
-        nval, nvar, _, _ = self.model.get_dims('outputs')
-        nval2 = self._obs.nval
-        if nval != nval2:
-            raise ValueError(('model inputs nval({0}) !=' + \
-                ' obs nval({1})').format(nval, nval2))
-
-        nvar2 = self._obs.nvar
-        if nvar != nvar2:
-            raise ValueError(('model outputs nvar({0}) !=' + \
-                ' obs nvar({1})').format(nvar, nvar2))
-
-        # Check params size
-        calparams = np.zeros(self.ncalparams)
-        params = self.cal2true(calparams)
-        try:
-            check = (params.ndim == 1)
-        except Exception:
-            check = False
-        if not check:
-            raise ValueError('cal2true does not return a 1D Numpy array')
-
-
-    def cal2true(self, calparams_values):
-        ''' Convert calibrated parameters to true values '''
-        return calparams_values
+        self._ical = ical
 
 
     def allocate(self, obs, inputs):
+        ''' Allocate model inputs and obs data '''
 
-        obs = np.atleast_2d(obs)
-        inputs = np.atleast_2d(inputs)
+        # Convert outputs to numpy 2d array
+        obs = np.atleast_2d(obs).astype(np.float64)
+        if obs.shape[0] == 1 and obs.shape[1]>1:
+            obs = obs.T
 
         nval, noutputs = obs.shape
+        inputs = np.atleast_2d(inputs).astype(np.float64)
 
         # Check inputs and outputs size
         if inputs.shape[0] != nval:
             raise ValueError(('Expected same number of timestep '+\
                 'in inputs({0}) and outputs({1})').format(\
                     inputs.shape[0], nval))
+
+        if noutputs>self.model.noutputsmax:
+            raise ValueError('Expected number of outputs to be '+\
+                'lower than {0}, got {1}'.format(self.model.noutputsmax,
+                    noutputs))
 
         # Allocate model
         self.model.allocate(inputs, noutputs)
@@ -321,140 +488,136 @@ class Calibration(object):
         self._obs = obs
 
         # By default calibrate on everything excluding warmup
-        index_cal = np.arange(nval) >= self._warmup
-        self._index_cal = index_cal
+        self.ical = np.arange(self.warmup, nval)
+
+        LOGGER.info('Calibration data allocated')
 
 
-    def explore(self, nsamples = None, iprint=0,
-            distribution = 'normal'):
+    def explore(self, iprint=0):
         ''' Systematic exploration of parameter space and
         identification of best parameter set
         '''
+        self.iprint = iprint
+        self._nbeval = 0
+        LOGGER.info('Parameter exploration started')
 
-        self.check()
-        self._iprint = iprint
-        self._ieval = 0
-        self._status = 'explore'
-        ncalparams = self.ncalparams
+        # Get data
+        paramslib = self.paramslib
+        nlib, _ = paramslib.shape
 
-        # Set the number of samples
-        if nsamples is None:
-            nsamples = int(200 * math.sqrt(ncalparams))
-
-        # Get random samples from parameter
-        calparams_explore = self._calparams.clone(nsamples)
-        calparams_explore.random(distribution=distribution)
-
-        # Setup objective function
-        ofun_explore = np.zeros(nsamples) * np.nan
+        # Initialise
+        ofuns = np.zeros(nlib) * np.nan
         ofun_min = np.inf
+        best = None
 
-        # Systematic exploration
-        calparams_best = None
+        # Systematic exploration of parameter library
+        for i, values in enumerate(paramslib):
+            # Run fitfun with untransformed parameters
+            ofun = fitfun(values, self, False)
+            ofuns[i] = ofun
 
-        for i in range(nsamples):
-            # Get parameter sample
-            calparams = calparams_explore._data[i, :]
-
-            ofun = self._objfun(calparams)
-            ofun_explore[i] = ofun
-
-            if self._iprint>0:
-                if self._ieval % self._iprint == 0:
-                    self.calparams = calparams
-
+            # Store minimum of objfun
             if ofun < ofun_min:
                 ofun_min = ofun
-                calparams_best = calparams
+                best = values
 
-        if calparams_best is None:
+        if best is None:
             raise ValueError('Could not identify a suitable' + \
-                '  parameter by exploration')
+                '  parameter set by exploration')
 
-        self.calparams = calparams_best
+        # Set model parameters
+        self.calparams.truevalues = best
 
-        return calparams_best, calparams_explore, ofun_explore
+        LOGGER.info('End of explore [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
+            self.nbeval, self.objfun.name, format_array(self.calparams.truevalues), \
+            ofun, self.runtime))
+
+        LOGGER.info('Parameter exploration completed')
+
+        return best, ofun_min, ofuns
 
 
-    def fit(self, calparams_ini, iprint=0, *args, **kwargs):
+    def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin_powell, \
+                *args, **kwargs):
+        ''' Fit model using the supplied optmizer '''
 
-        self.check()
-        self._iprint = iprint
-        self._status = 'fit'
-        nrepeat_fit = self._nrepeat_fit
+        LOGGER.info('Parameter fit started')
 
-        if np.any(np.isnan(calparams_ini)):
-            raise ValueError('calparams_ini contains NaN')
+        self.iprint = iprint
+        self._nbeval = 0
 
-        if self._iprint>0:
-            ofun_ini = self._objfun(calparams_ini)
+        # check inputs
+        if start is None:
+            start = self.calparams.values
 
-            self._calparams.data = calparams_ini
-            print('\n>> Fit start: {0:3.3e} {1} ~ {2:.2f} ms <<\n'.format( \
-                    ofun_ini, calparams_ini, self._runtime))
+        start = np.atleast_1d(start).astype(np.float64)
+        if np.any(np.isnan(start)):
+            raise ValueError('Expected no NaN in start, got {0}'.format(\
+                start))
+
+        if not 'disp' in kwargs:
+            kwargs['disp'] = 0
+
+        # First run of fitfun
+        fitfun_start = fitfun(start, self, True)
 
         # Apply the optimizer several times to ensure convergence
-        for k in range(nrepeat_fit):
-            final = self._optimizer(self._objfun, \
-                    calparams_ini, self, disp=self._iprint>0, \
-                    *args, **kwargs)
+        for k in range(nrepeat):
 
-            calparams_ini = final
+            # Run optimizer using fitfun with transformed parameters
+            tfinal = optimizer(fitfun, \
+                        start, (self, True, ), \
+                        *args, **kwargs)
 
-        ofun_final = self._objfun(final)
-        outputs_final = self.model.outputs
-        self.calparams = final
+            self.calparams.values = tfinal
+            final = self.calparams.truevalues
+            fitfun_final = fitfun(tfinal, self, True)
+            outputs_final = self.model.outputs
 
-        if self._iprint>0:
-            print('\n>> Fit final: {0:3.3e} {1} ~ {2:.2f} ms <<\n'.format( \
-                    ofun_final, self._calparams.data, self._runtime))
+            # Loop
+            start = tfinal
 
-        self._status = 'fit completed'
+        LOGGER.info('End of fit [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
+            self.nbeval, self.objfun.name, format_array(self.calparams.values), \
+            fitfun_final, self.runtime))
 
-        return final, outputs_final, ofun_final
+        LOGGER.info('Parameter fit completed')
+
+        return final, fitfun_final, outputs_final
 
 
-    def run(self, obs, inputs, \
-            index_cal=None, \
+    def workflow(self, obs, inputs, \
+            ical=None, \
             iprint=0, \
-            nsamples=None,
+            optimizer=fmin_powell, \
             *args, **kwargs):
 
-        self.setup(obs, inputs)
+        LOGGER.info('Calibration workflow started')
 
-        if index_cal is None:
-            index_cal = obs.index
-        self.index_cal = index_cal
+        # 1. allocate data
+        self.allocate(obs, inputs)
 
+        # 2. set ical if needed
+        if not ical is None:
+            self.ical = ical
+
+        # 3. Run exploration
         try:
-            start, explo, explo_ofun = self.explore(iprint=iprint, \
-                nsamples=nsamples)
+            start, _, _ = self.explore(iprint=iprint)
         except ValueError:
-            start = self.model._params.default
+            start = self.model.params.defaults
 
-        kwargs['iprint'] = iprint
-        final, out, out_ofun = self.fit(start, *args, **kwargs)
+        # 4. Run fit
+        self.calparams.truevalues = start
+        tstart = self.calparams.values
 
-        return final, out, out_ofun
+        final, fitfun_final, outputs_final = self.fit(tstart, \
+                                    iprint=iprint, nrepeat=1, \
+                                    optimizer=optimizer, \
+                                    *args, **kwargs)
 
+        LOGGER.info('Calibration workflow completed')
 
-    def sensitivity(self, calparams=None, dx=1e-3):
-
-        if calparams is None:
-            calparams = self._calparams.data
-
-        ncalparams = self._calparams.nval
-        sensitivity = np.zeros(ncalparams)
-
-        ofun0 = self._objfun(calparams)
-
-        for k in range(ncalparams):
-            cp = calparams.copy()
-            cp[k] += dx
-            ofun1 = self._objfun(cp)
-            sensitivity[k] = (ofun1-ofun0)/dx
-
-        return sensitivity
-
+        return final, fitfun_final, outputs_final
 
 

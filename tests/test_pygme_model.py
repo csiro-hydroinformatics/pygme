@@ -241,7 +241,7 @@ class ModelTestCases(unittest.TestCase):
 
 
     def test_set_params(self):
-        params = [0.5, 10., 0.1]
+        params = [0.5, 10.]
         dum = Dummy()
         dum.params.values = params
         self.assertTrue(np.allclose(dum.params.values, params))
@@ -249,7 +249,7 @@ class ModelTestCases(unittest.TestCase):
 
     def test_initialise_states(self):
         dum = Dummy()
-        states = [5, 6, 7]
+        states = [5, 6]
         dum.initialise(states)
         self.assertTrue(np.allclose(dum.states.values, states))
 
@@ -285,18 +285,18 @@ class ModelTestCases(unittest.TestCase):
     def test_run(self):
         nval = 100
         inputs = np.random.uniform(0, 1, (nval, 2))
-        params = [0.5, 10., 0.]
         dum = Dummy()
         dum.allocate(inputs, 2)
+
+        params = [0.5, 10.]
         dum.params.values = params
         dum.config['continuous'] = 1
 
-        states = np.array([10., 0., 0.])
+        states = np.array([10., 0.])
         dum.initialise(states=states)
         dum.run()
 
         expected = params[0] + params[1] * inputs
-        expected = np.cumsum(expected, 0)
         expected = expected + states[:2][None, :]
         ck = np.allclose(expected, dum.outputs[:, :2])
         self.assertTrue(ck)
@@ -304,12 +304,13 @@ class ModelTestCases(unittest.TestCase):
 
     def test_inputs(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
-        params = [0.5, 10., 0.5]
 
         dum = Dummy()
         dum.allocate(inputs)
+
+        params = [0.5, 10.]
         dum.params.values = params
-        dum.initialise(states=[10, 5, 0])
+        dum.initialise(states=[10, 5])
         dum.config.values = [10]
 
         dum2 = dum.clone()
@@ -330,7 +331,7 @@ class ModelTestCases(unittest.TestCase):
         inputs = np.random.uniform(0, 1, (10, 2))
         dum.allocate(inputs, 2)
 
-        dum.params.values = np.array([4, 0., 0.])
+        dum.params.values = np.array([4, 0.])
         nval = dum.params.uhs[0].ord.shape[0]
         o = np.array([0.25]*4 + [0.] * (nval-4))
         self.assertTrue(np.allclose(dum.params.uhs[0].ord, o))
@@ -356,8 +357,8 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(np.random.uniform(0, 1, (nval, ninputs)))
         nts = dum.ntimesteps
 
-        self.assertTrue(dum.params.nval == 3)
-        self.assertTrue(dum.states.nval == 3)
+        self.assertTrue(dum.params.nval == 2)
+        self.assertTrue(dum.states.nval == 2)
         self.assertTrue(dum.params.uhs[0].ord.shape[0] == NUHMAXLENGTH)
         self.assertTrue(dum.inputs.shape  == (nts, 2))
         self.assertTrue(dum.outputs.shape  == (nts, 1))
@@ -372,14 +373,14 @@ class ModelTestCases(unittest.TestCase):
         dum.params.value = [1., 2., 0.]
 
         dum.istart = 10
-        dum.run_checked()
+        dum.run()
         self.assertTrue(np.all(np.isnan(dum.outputs[:dum.istart, 0])))
 
         try:
             dum.iend = nval+1
         except Exception as err:
             self.assertTrue(\
-                str(err).startswith('Expected iend in [0, 999], got 1001'))
+                str(err).startswith('model dummy: Expected iend in [0, 999], got 1001'))
         else:
             raise Exception('Problem with error generation')
 
