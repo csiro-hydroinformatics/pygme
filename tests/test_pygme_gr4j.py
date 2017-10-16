@@ -7,7 +7,7 @@ import time
 import numpy as np
 
 #from pygme import calibration
-from pygme.models.gr4j import GR4J #, CalibrationGR4J
+from pygme.models.gr4j import GR4J, CalibrationGR4J
 
 
 import c_pygme_models_utils
@@ -66,7 +66,7 @@ class GR4JTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
 
-    def test_run1(self):
+    def test_run_dimensions(self):
         gr = GR4J()
         nval = 1000
 
@@ -83,7 +83,7 @@ class GR4JTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
 
-    def test_run2(self):
+    def test_run_against_data(self):
         warmup = 365 * 5
         gr = GR4J()
 
@@ -128,14 +128,11 @@ class GR4JTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
 
-    def test_calibrate(self):
-        return
+    def test_calibrate_against_itself(self):
 
         gr = GR4J()
         warmup = 365*6
-
         calib = CalibrationGR4J()
-
 
         fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
         params = np.loadtxt(fp, delimiter=',')
@@ -148,29 +145,31 @@ class GR4JTestCases(unittest.TestCase):
             inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
 
             # Run gr first
-            params_expected = params[i, [2, 0, 1, 3]]
+            expected = params[i, [2, 0, 1, 3]]
             gr = calib.model
             gr.allocate(inputs, 1)
-            gr.params.values = params_expected
+            gr.params.values = expected
             gr.initialise()
             gr.run()
-            obs = Matrix.from_data('obs', gr.outputs[:,0].copy())
 
             # Calibrate
-            calib.setup(obs, inputs)
+            err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
+            obs = gr.outputs[:,0].copy()+err
 
-            start, explo, explo_ofun = calib.explore()
-            ieval1 = calib.ieval
+            t0 = time.time()
+            final, ofun, _ = calib.workflow(obs, inputs, \
+                                        maxfun=100000, ftol=1e-8)
+            t1 = time.time()
 
-            final, _, _ = calib.fit(start, ftol=1e-8)
-            ieval2 = calib.ieval - ieval1
+            dt = (t1-t0)*1e-3/len(obs)*365.25
 
-            err = np.abs(calib.model.params - params_expected)
-            ck = np.max(err) < 1e-7
+            # Test error on parameters
+            err = np.abs(final-expected)
+            ck = np.max(err) < 1e-2
 
-            print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}' +
-                    ' neval= {2} + {3}').format( \
-                        i+1, np.max(err), ieval1, ieval2))
+            print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}'+\
+                    ' dt={2:3.3e} sec/yr').format(\
+                        i+1, np.max(err), dt))
 
             self.assertTrue(ck)
 

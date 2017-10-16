@@ -1,10 +1,10 @@
-
+import math
 import numpy as np
 import pandas as pd
 
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
-#from pygme.calibration import Calibration
+from pygme.calibration import Calibration, CalibParamsVector
 
 import c_pygme_models_hydromodels
 
@@ -54,35 +54,57 @@ class GR4J(Model):
                 ' returns {0}').format(ierr))
 
 
-#class CalibrationGR4J(Calibration):
-#
-#    def __init__(self, timeit=False):
-#
-#        gr = GR4J()
-#
-#        Calibration.__init__(self,
-#            model = gr,
-#            warmup = 365,
-#            timeit = timeit)
-#
-#        # Calibration on sse square root with bias constraint
-#        self._errfun.constants = [0.5, 2., 1.]
-#
-#        self._calparams.means =  [5.8, -0.78, 3.39, 0.86]
-#
-#        covar = [[1.16, 0.2, -0.15, -0.07],
-#                [0.2, 1.79, -0.24, -0.149],
-#                [-0.15, -0.24, 1.68, -0.16],
-#                [-0.07, -0.149, -0.16, 0.167]]
-#        self._calparams.covar = covar
-#
-#
-#    def cal2true(self, calparams):
-#        params = np.array([np.exp(calparams[0]),
-#                np.sinh(calparams[1]),
-#                np.exp(calparams[2]),
-#                0.49+np.exp(calparams[3])])
-#
-#        return params
-#
+class CalibrationGR4J(Calibration):
+
+    def __init__(self, warmup=5*365, timeit=False):
+
+        # Input objects for Calibration class
+        model = GR4J()
+        params = model.params
+
+
+        trans2true = lambda x: np.array([
+                        math.exp(x[0]), \
+                        math.sinh(x[1]), \
+                        math.exp(x[2]), \
+                        0.49+math.exp(x[3])
+                    ])
+
+        true2trans = lambda x: np.array([
+                        math.log(x[0]), \
+                        math.asinh(x[1]), \
+                        math.log(x[2]), \
+                        math.log(x[3]-0.49)
+                    ])
+
+        cp = Vector(['tX1', 'tX2', 'tX3', 'tX4'], \
+                mins=true2trans(params.mins),
+                maxs=true2trans(params.maxs),
+                defaults=true2trans(params.defaults))
+
+        calparams = CalibParamsVector(model, cp, \
+            trans2true=trans2true, \
+            true2trans=true2trans)
+
+        # Build parameter library from
+        # MVT norm in transform space
+        tplib = np.random.multivariate_normal(\
+                    mean=[5.8, -0.78, 3.39, 0.86],
+                    cov = [[1.16, 0.2, -0.15, -0.07],
+                            [0.2, 1.79, -0.24, -0.149],
+                            [-0.15, -0.24, 1.68, -0.16],
+                            [-0.07, -0.149, -0.16, 0.167]],
+                    size=2000)
+        tplib = np.clip(tplib, calparams.mins, calparams.maxs)
+        plib = tplib * 0.
+        plib[:, [0, 2, 3]] = np.exp(tplib[:, [0, 2, 3]])
+        plib[:, 3] += 0.49
+        plib[:, 1] = np.sinh(tplib[:, 1])
+
+        # Instanciate calibration
+        Calibration.__init__(self, calparams, \
+            warmup=warmup, \
+            timeit=timeit, \
+            paramslib=plib)
+
 
