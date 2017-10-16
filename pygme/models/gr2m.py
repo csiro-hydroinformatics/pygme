@@ -6,7 +6,7 @@ import pandas as pd
 from hydrodiy.data.containers import Vector
 
 from pygme.model import Model, ParamsVector
-from pygme.calibration import Calibration, CalibParamsVector
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
@@ -57,7 +57,7 @@ class GR2M(Model):
 
 class CalibrationGR2M(Calibration):
 
-    def __init__(self, warmup=36, timeit=False):
+    def __init__(self, objfun=ObjFunBCSSE(0.2), warmup=36, timeit=False):
 
         # Input objects for Calibration class
         model = GR2M()
@@ -76,6 +76,7 @@ class CalibrationGR2M(Calibration):
 
         # Instanciate calibration
         Calibration.__init__(self, calparams, \
+            objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
             paramslib=plib)

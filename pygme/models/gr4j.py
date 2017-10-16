@@ -4,7 +4,7 @@ import pandas as pd
 
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
-from pygme.calibration import Calibration, CalibParamsVector
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
@@ -56,7 +56,8 @@ class GR4J(Model):
 
 class CalibrationGR4J(Calibration):
 
-    def __init__(self, warmup=5*365, timeit=False):
+    def __init__(self, objfun=ObjFunBCSSE(0.2), \
+                    warmup=5*365, timeit=False):
 
         # Input objects for Calibration class
         model = GR4J()
@@ -103,6 +104,7 @@ class CalibrationGR4J(Calibration):
 
         # Instanciate calibration
         Calibration.__init__(self, calparams, \
+            objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
             paramslib=plib)

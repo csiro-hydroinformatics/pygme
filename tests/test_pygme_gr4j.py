@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-#from pygme import calibration
+from pygme.calibration import ObjFunSSE
 from pygme.models.gr4j import GR4J, CalibrationGR4J
 
 
@@ -132,7 +132,7 @@ class GR4JTestCases(unittest.TestCase):
 
         gr = GR4J()
         warmup = 365*6
-        calib = CalibrationGR4J()
+        calib = CalibrationGR4J(objfun=ObjFunSSE())
 
         fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
         params = np.loadtxt(fp, delimiter=',')

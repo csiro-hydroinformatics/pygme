@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 from pygme.models.gr2m import GR2M, CalibrationGR2M
+from pygme.calibration import ObjFunSSE
 
 class GR2MTestCases(unittest.TestCase):
 
@@ -84,7 +85,7 @@ class GR2MTestCases(unittest.TestCase):
         gr.allocate(inputs, 1)
 
         # Calibration object
-        calib = CalibrationGR2M()
+        calib = CalibrationGR2M(objfun=ObjFunSSE())
 
         # Sample parameters
         nsamples = 50
