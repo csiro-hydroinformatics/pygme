@@ -4,12 +4,11 @@ import numpy as np
 import pandas as pd
 
 from hydrodiy.data.containers import Vector
+
 from pygme.model import Model, ParamsVector
-#from pygme.calibration import Calibration
+from pygme.calibration import Calibration, CalibParamsVector
 
 import c_pygme_models_hydromodels
-import c_pygme_models_utils
-
 
 
 class GR2M(Model):
@@ -56,24 +55,29 @@ class GR2M(Model):
 
 
 
-#class CalibrationGR2M(Calibration):
-#
-#    def __init__(self, timeit=False):
-#
-#        gr = GR2M()
-#
-#        Calibration.__init__(self,
-#            model = gr,
-#            warmup = 12,
-#            timeit = timeit)
-#
-#        # Calibration on sse square root with bias constraint
-#        self._errfun.constants = [0.5, 2., 1.]
-#
-#        self._calparams.means =  [5.9, -0.28]
-#        self._calparams.covar = [[0.52, 0.015], [0.015, 0.067]]
-#
-#    def cal2true(self, calparams):
-#        return np.exp(calparams)
+class CalibrationGR2M(Calibration):
+
+    def __init__(self, warmup=36, timeit=False):
+
+        # Input objects for Calibration class
+        model = GR2M()
+        params = model.params
+
+        cp = Vector(['tX1', 'tX2'], \
+                mins=np.log(params.mins),
+                maxs=np.log(params.maxs),
+                defaults=np.log(params.defaults))
+        calparams = CalibParamsVector(model, cp, trans2true='exp')
+
+        plib = np.random.multivariate_normal(mean=params.defaults, \
+                    cov=np.diag((params.maxs-params.mins)/2), \
+                    size=500)
+        plib = np.clip(plib, params.mins, params.maxs)
+
+        # Instanciate calibration
+        Calibration.__init__(self, calparams, \
+            warmup=warmup, \
+            timeit=timeit, \
+            paramslib=plib)
 
 
