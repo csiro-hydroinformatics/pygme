@@ -6,9 +6,7 @@ from timeit import Timer
 import time
 
 import numpy as np
-from pygme.models.gr2m import GR2M #, CalibrationGR2M
-#from pygme import calibration
-#from pygme.data import Matrix
+from pygme.models.gr2m import GR2M, CalibrationGR2M
 
 class GR2MTestCases(unittest.TestCase):
 
@@ -75,7 +73,6 @@ class GR2MTestCases(unittest.TestCase):
 
 
     def test_gr2m_irstea_calib(self):
-        return
 
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
         data = np.loadtxt(fd, delimiter=',', skiprows=1)
@@ -83,7 +80,7 @@ class GR2MTestCases(unittest.TestCase):
         calparams_expected = [650.7, 0.8]
 
         gr = GR2M()
-        inputs = Matrix.from_data('inputs', np.ascontiguousarray(data[:, :2]))
+        inputs = np.ascontiguousarray(data[:, :2])
         gr.allocate(inputs, 1)
 
         # Calibration object
@@ -91,31 +88,26 @@ class GR2MTestCases(unittest.TestCase):
 
         # Sample parameters
         nsamples = 50
-        samples = calib._calparams.clone(nsamples)
-        samples.random()
+        samples = calib.paramslib[:50]
 
         # loop through parameters
-        for i in range(nsamples):
+        for i, expected in enumerate(samples):
 
             # Generate obs
-            samples.iens = i
-            gr.params = calib.cal2true(samples.data)
-            expected = gr.params.copy()
+            gr.params.values = expected
             gr.initialise()
             gr.run()
 
             # Produce theoretical observation
             # with error corruption
-            err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-2
-            obs = Matrix.from_data('obs', gr.outputs[:,0].copy()+err)
+            err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-3
+            obs = gr.outputs[:,0].copy()+err
 
             # Calibrate
-            calib.setup(obs, inputs)
+            final, ofun, _ = calib.workflow(obs, inputs, \
+                                        maxfun=100000, ftol=1e-8)
 
-            ini, explo, explo_ofun = calib.explore()
-            _, _, ofun = calib.fit(ini, iprint=0)
-            final = calib.model.params
-
+            # Test
             err = np.abs(final-expected)/np.abs(expected)
             ck = np.max(err) < 1e-3
 
@@ -124,6 +116,7 @@ class GR2MTestCases(unittest.TestCase):
                             np.max(err), ofun))
 
             self.assertTrue(ck)
+
 
 if __name__ == '__main__':
     unittest.main()
