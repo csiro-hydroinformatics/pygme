@@ -5,7 +5,7 @@ import pandas as pd
 
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector
-#from pygme.calibration import Calibration
+from pygme.calibration import Calibration, CalibParamsVector
 
 
 class TurcMezentsev(Model):
@@ -46,18 +46,23 @@ class TurcMezentsev(Model):
 
 
 
-#class CalibrationTurcMezentsev(Calibration):
-#
-#    def __init__(self, timeit=False):
-#
-#        tm = TurcMezentsev()
-#
-#        Calibration.__init__(self,
-#            model = tm, \
-#            timeit = timeit)
-#
-#        self._calparams.means =  [2.3]
-#        self._calparams.stdevs = [1.]
+class CalibrationTurcMezentsev(Calibration):
 
+    def __init__(self, timeit=False):
+
+        # Input objects for Calibration class
+        model = TurcMezentsev()
+        params = model.params
+
+        plib = np.random.multivariate_normal(mean=params.defaults, \
+                    cov=np.diag((params.maxs-params.mins)/3), \
+                    size=500)
+        plib = np.clip(plib, params.mins, params.maxs)
+
+        calparams = CalibParamsVector(model, params.clone())
+
+        # Instanciate calibration
+        Calibration.__init__(self, calparams, \
+            paramslib=plib)
 
 
