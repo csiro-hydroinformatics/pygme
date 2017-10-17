@@ -142,9 +142,10 @@ class ParamsVector(Vector):
     def __init__(self, params, uhs=None):
 
         # Initialise Vector object
-        Vector.__init__(self, params.names, \
-            params.defaults, params.mins, params.maxs, \
-            params.hitbounds)
+        # check_hitbounds is turned on
+        super(ParamsVector, self).__init__(params.names, \
+                    params.defaults, params.mins, params.maxs, \
+                    True)
 
         if not uhs is None:
             # Check param number set in uhs
@@ -163,17 +164,23 @@ class ParamsVector(Vector):
             self._nuh = 0
 
 
-    def __setitem__(self, key, value):
-        # Set item for the vector
-        Vector.__setitem__(self, key, value)
+    def __setattr__(self, name, value):
 
-        # Set UH parameter
-        ip = self.__findname__(key)
-        if self.nuh>0:
-            for uh in self.uhs:
-                if uh.imodelparam == ip:
-                    uh.param = value
-                    break
+        # Set attribute for vector object
+        super(ParamsVector, self).__setattr__(name, value)
+
+        # Set UH parameter if possible
+        if not hasattr(self, '_names_index'):
+            return
+
+        if name in self._names_index:
+            ip = self._names_index[name]
+            if self.nuh>0:
+                for uh in self.uhs:
+                    if uh.imodelparam == ip:
+                        uh.param = value
+                        break
+
 
     @property
     def nuh(self):
@@ -227,6 +234,46 @@ class Model(object):
         # Start/end index
         self._istart = None
         self._iend = None
+
+
+    def __getattribute__(self, name):
+        # Except certain names to avoid infinite recursion
+        if name in ['name', '_config', '_params', '_states', '_ninputs', \
+            '_noutputsmax', '_noutputs', '_inputs', '_outputs', '_istart', \
+            '_iend']:
+            return super(Model, self).__getattribute__(name)
+
+        if name in self._params.names:
+            return getattr(self._params, name)
+
+        if name in self._config.names:
+            return getattr(self._config, name)
+
+        if name in self._states.names:
+            return getattr(self._states, name)
+
+        return super(Model, self).__getattribute__(name)
+
+
+    def __setattr__(self, name, value):
+        # Except certain names to avoid infinite recursion
+        if name in ['name', '_config', '_params', '_states', '_ninputs', \
+            '_noutputsmax', '_noutputs', '_inputs', '_outputs', '_istart', \
+            '_iend']:
+            super(Model, self).__setattr__(name, value)
+            return
+
+        if name in self._params.names:
+            return setattr(self._params, name, value)
+
+        elif name in self._config.names:
+            return setattr(self._config, name, value)
+
+        elif name in self._states.names:
+            return setattr(self._states, name, value)
+
+        else:
+            super(Model, self).__setattr__(name, value)
 
 
     def __str__(self):
@@ -451,6 +498,16 @@ class Model(object):
 
     def clone(self):
         ''' Clone the current model instance'''
-        return copy.deepcopy(self)
+
+        model = Model(self.name, self.config, self.params, \
+            self.states, self.ninputs, self.noutputsmax)
+
+        # Allocate data
+        if not self._inputs is None:
+            model.allocate(self.inputs, self.noutputs)
+            model.istart = self.istart
+            model.iend = self.iend
+
+        return model
 
 

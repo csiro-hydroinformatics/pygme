@@ -194,12 +194,12 @@ class ParamsVectorTestCases(unittest.TestCase):
         pv = ParamsVector(vect, uhs)
 
         # Set params
-        pv['X3'] = 10
-        pv['X6'] = 2.5
-        pv['X8'] = 5
+        pv.X3 = 10
+        pv.X6 = 2.5
+        pv.X8 = 5
 
+        # Run comparison
         zero = np.zeros(uhs[0].nuhmax)
-
         o = zero.copy()
         o[10] = 1
         self.assertTrue(np.allclose(pv.uhs[0].ord, o))
@@ -244,6 +244,14 @@ class ModelTestCases(unittest.TestCase):
         params = [0.5, 10.]
         dum = Dummy()
         dum.params.values = params
+        self.assertTrue(np.allclose(dum.params.values, params))
+
+
+    def test_set_params_attributes(self):
+        params = [0.5, 10.]
+        dum = Dummy()
+        dum.X1 = params[0]
+        dum.X2 = params[1]
         self.assertTrue(np.allclose(dum.params.values, params))
 
 
