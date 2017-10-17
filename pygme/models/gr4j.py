@@ -29,7 +29,7 @@ class GR4J(Model):
         states = Vector(['S', 'R'])
 
         # Model
-        Model.__init__(self, 'GR4J',
+        super(GR4J, self).__init__('GR4J',
             config, params, states, \
             ninputs=2, \
             noutputsmax=9)
@@ -103,7 +103,7 @@ class CalibrationGR4J(Calibration):
         plib[:, 1] = np.sinh(tplib[:, 1])
 
         # Instanciate calibration
-        Calibration.__init__(self, calparams, \
+        super(CalibrationGR4J, self).__init__(calparams, \
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \

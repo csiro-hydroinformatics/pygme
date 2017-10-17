@@ -31,7 +31,8 @@ class GR2MTestCases(unittest.TestCase):
         inputs = np.concatenate([p[:,None], pe[:, None]], axis=1)
         gr.allocate(inputs, 9)
 
-        gr.params.values = [400, 0.9]
+        gr.X1 = 400
+        gr.X2 = 0.9
         gr.initialise()
 
         gr.run()
@@ -47,7 +48,8 @@ class GR2MTestCases(unittest.TestCase):
         gr = GR2M()
         inputs = np.ascontiguousarray(data[:, :2])
         gr.allocate(inputs, 9)
-        gr.params.values = params
+        gr.X1 = params[0]
+        gr.X2 = params[1]
         gr.inputs = inputs
         gr.initialise()
         gr.run()

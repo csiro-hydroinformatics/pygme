@@ -278,10 +278,10 @@ class Model(object):
 
     def __str__(self):
         str = ('\n{0} model implementation\n'+\
-                '\tConfig: {1}\n\tParams: {2}\b\tStates: {3}'+\
+                '\tConfig: {1}\n\tParams: {2}\n\tStates: {3}'+\
                 '\n\tNUH: {4}').format( \
-                    self.name, self.config.names, self.params.names, \
-                    self.states.names, self.params.nuh)
+                    self.name, self.config, self.params, \
+                    self.states, self.params.nuh)
         return str
 
 

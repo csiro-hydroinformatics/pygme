@@ -27,7 +27,7 @@ class GR2M(Model):
         states = Vector(['S', 'R'])
 
         # Model
-        Model.__init__(self, 'GR2M',
+        super(GR2M, self).__init__('GR2M',
             config, params, states, \
             ninputs=2, \
             noutputsmax=9)
@@ -75,7 +75,7 @@ class CalibrationGR2M(Calibration):
         plib = np.clip(plib, params.mins, params.maxs)
 
         # Instanciate calibration
-        Calibration.__init__(self, calparams, \
+        super(CalibrationGR2M, self).__init__(calparams, \
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \

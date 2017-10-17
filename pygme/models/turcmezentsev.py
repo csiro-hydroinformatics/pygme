@@ -25,7 +25,7 @@ class TurcMezentsev(Model):
         states = Vector(['S'])
 
         # Model
-        Model.__init__(self, 'TurcMezentsev',
+        super(TurcMezentsev, self).__init__('TurcMezentsev',
             config, params, states, \
             ninputs=2, \
             noutputsmax=2)
@@ -60,10 +60,10 @@ class CalibrationTurcMezentsev(Calibration):
                     size=500)
         plib = np.clip(plib, params.mins, params.maxs)
 
-        calparams = CalibParamsVector(model, params.clone())
+        calparams = CalibParamsVector(model)
 
         # Instanciate calibration
-        Calibration.__init__(self, calparams, \
+        super(CalibrationTurcMezentsev, self).__init__(calparams, \
             paramslib=plib)
 
 

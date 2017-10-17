@@ -78,10 +78,22 @@ class CalibParamsVectorTestCases(unittest.TestCase):
         print('\t=> CalibParamsVectorTestCase')
 
         config = Vector([])
-        params = Vector(['X{0}'.format(k) for k in range(1, 11)],
-                    defaults=np.ones(10))
+        nval = 10
+        params = Vector(['X{0}'.format(k) for k in range(1, nval+1)],
+                    defaults=np.ones(nval), mins=np.zeros(nval), \
+                    maxs=np.ones(nval)*5)
         states = Vector(['S{0}'.format(k) for k in range(1, 3)])
         self.model = Model('test', config, params, states, 2, 2)
+
+
+    def test_calibparamsvector_default(self):
+        calparams = CalibParamsVector(self.model)
+
+        self.assertTrue(np.all([s1==s2 for s1, s2 in zip(calparams.names, \
+                                    self.model.params.names)]))
+
+        self.assertTrue(np.allclose(calparams.defaults, \
+                                    self.model.params.defaults))
 
 
     def test_calibparamsvector_errors_infinite(self):

@@ -53,8 +53,13 @@ class GR4JTestCases(unittest.TestCase):
     def test_uh(self):
         gr = GR4J()
         gr.allocate(np.zeros((10, 2)))
+
         for x4 in np.linspace(0, 50, 100):
-            gr.params.values = [400, -1, 50, x4]
+            # Set parameters
+            gr.X1 = 400
+            gr.X2 = -1
+            gr.X3 = 50
+            gr.X4 = x4
 
             uh1 = gr.params.uhs[0].ord
             uh2 = gr.params.uhs[1].ord

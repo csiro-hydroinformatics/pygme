@@ -47,7 +47,7 @@ class ObjFunSSE(ObjFun):
     ''' Sum of squared error objective function '''
 
     def __init__(self):
-        ObjFun.__init__(self,'SSE')
+        super(ObjFunSSE, self).__init__('SSE')
 
 
     def compute(self, obs, sim):
@@ -60,7 +60,7 @@ class ObjFunBCSSE(ObjFun):
     ''' Sum of squared error objective function '''
 
     def __init__(self, lam=0.2):
-        ObjFun.__init__(self, 'BCSSE')
+        super(ObjFunBCSSE, self).__init__('BCSSE')
 
         # Set Transform
         BC['lambda'] = lam
@@ -78,7 +78,15 @@ class ObjFunBCSSE(ObjFun):
 # Overload Vector class to include parameter transform
 class CalibParamsVector(Vector):
 
-    def __init__(self, model, tparams, trans2true=None, true2trans=None):
+    def __init__(self, model, tparams=None, trans2true=None, true2trans=None):
+
+        if tparams is None:
+            tparams = model.params.clone()
+
+        # Initialise Vector object
+        super(CalibParamsVector, self).__init__(tparams.names, \
+            tparams.defaults, tparams.mins, tparams.maxs, \
+            tparams.hitbounds)
 
         # Check mins and maxs are set
         if np.any(np.isinf(tparams.mins)):
@@ -88,11 +96,6 @@ class CalibParamsVector(Vector):
         if np.any(np.isinf(tparams.maxs)):
             raise ValueError('Expected no infinite values in maxs, '+
                 'got {0}'.format(tparams.maxs))
-
-        # Initialise Vector object
-        Vector.__init__(self, tparams.names, \
-            tparams.defaults, tparams.mins, tparams.maxs, \
-            tparams.hitbounds)
 
         # Syntactic sugar for common transforms
         if trans2true == 'sinh':
