@@ -107,7 +107,7 @@ class MassiveDummy2(Model):
 
 class CalibrationDummy(Calibration):
 
-    def __init__(self, warmup):
+    def __init__(self, warmup, fixed=None):
 
         # Input objects for Calibration class
         model = Dummy()
@@ -119,7 +119,9 @@ class CalibrationDummy(Calibration):
 
         cp = Vector(['tX1', 'tX2'], mins=[-10]*2, maxs=[10]*2, \
                 defaults=[1, 0])
-        calparams = CalibParamsVector(Dummy(), cp, trans2true='exp')
+        calparams = CalibParamsVector(Dummy(), cp, \
+                            trans2true='exp', \
+                            fixed=fixed)
 
         # Instanciate calibration
         Calibration.__init__(self, calparams, \
