@@ -78,7 +78,8 @@ class ObjFunBCSSE(ObjFun):
 # Overload Vector class to include parameter transform
 class CalibParamsVector(Vector):
 
-    def __init__(self, model, tparams=None, trans2true=None, true2trans=None):
+    def __init__(self, model, tparams=None, trans2true=None,\
+            true2trans=None, fixed=None):
 
         if tparams is None:
             tparams = model.params.clone()
@@ -87,6 +88,16 @@ class CalibParamsVector(Vector):
         super(CalibParamsVector, self).__init__(tparams.names, \
             tparams.defaults, tparams.mins, tparams.maxs, \
             tparams.hitbounds)
+
+        # Check fixed
+        if not fixed is None:
+            names = model.params.names
+            check = [k in names for k in fixed]
+            if not np.all(check):
+                raise ValueError('Expected names of fixed parameters to be in '+\
+                    '{0}, got {1}'.format(names, list(fixed.keys())))
+
+        self._fixed = fixed
 
         # Check mins and maxs are set
         if np.any(np.isinf(tparams.mins)):
@@ -195,13 +206,26 @@ class CalibParamsVector(Vector):
         # Set item for the vector
         Vector.__setitem__(self, key, values)
 
-        # Set transform values
-        self._model.params.values = self.trans2true(self.values)
+        # transform values
+        truev = self.trans2true(self.values)
+        params = self._model.params
+        params.values = truev
+
+        # Set fixed
+        fixe = self.fixed
+        if not fixed is None:
+            for pname, pvalue in fixed.items():
+                params[pname] = pvalue
 
 
     @property
     def model(self):
         return self._model
+
+
+    @property
+    def fixed(self):
+        return self._fixed
 
 
     @property
@@ -221,7 +245,14 @@ class CalibParamsVector(Vector):
     @truevalues.setter
     def truevalues(self, values):
         # Set model params
-        self._model.params.values = values
+        params = self._model.params
+        params.values = values
+
+        # Set fixed
+        fixed = self.fixed
+        if not fixed is None:
+            for pname, pvalue in fixed.items():
+                params[pname] = pvalue
 
         # Run the vector value setter
         tvalues = self.true2trans(self.model.params.values)
@@ -234,7 +265,14 @@ class CalibParamsVector(Vector):
         Vector.values.fset(self, values)
 
         # Set true values
-        self._model.params.values = self.trans2true(self.values)
+        params = self._model.params
+        params.values = self.trans2true(self.values)
+
+        # Set fixed
+        fixed = self.fixed
+        if not fixed is None:
+            for pname, pvalue in fixed.items():
+                params[pname] = pvalue
 
 
 
@@ -244,7 +282,7 @@ def fitfun(values, calib, transformed):
     '''
     # Get objects
     calparams = calib.calparams
-    model = calparams.model
+    model = calib.model
     ical = calib.ical
     objfun = calib.objfun
 
@@ -306,6 +344,7 @@ class Calibration(object):
         # Initialise calparams
         calparams.truevalues = calparams.model.params.defaults
         self._calparams = calparams
+
         self._objfun = objfun
 
         self.warmup = warmup
@@ -388,6 +427,11 @@ class Calibration(object):
     @property
     def objfun(self):
         return self._objfun
+
+
+    @property
+    def fixed(self):
+        return self._calparams.fixed
 
 
     @property
@@ -516,13 +560,18 @@ class Calibration(object):
         # Systematic exploration of parameter library
         for i, values in enumerate(paramslib):
             # Run fitfun with untransformed parameters
-            ofun = fitfun(values, self, False)
+            ofun = fitfun(values, calib=self, transformed=False)
             ofuns[i] = ofun
 
             # Store minimum of objfun
             if ofun < ofun_min:
                 ofun_min = ofun
-                best = values
+
+                # We use self.model.params.values
+                # instead of values because
+                # some param values may be changed by objfun
+                # (e.g. fixed)
+                best = self.model.params.values
 
         if best is None:
             raise ValueError('Could not identify a suitable' + \
@@ -562,9 +611,11 @@ class Calibration(object):
             kwargs['disp'] = 0
 
         # First run of fitfun
-        fitfun_start = fitfun(start, self, True)
+        fitfun_start = fitfun(start, calib=self, transformed=True)
 
         # Apply the optimizer several times to ensure convergence
+        calparams = self.calparams
+
         for k in range(nrepeat):
 
             # Run optimizer using fitfun with transformed parameters
@@ -572,13 +623,16 @@ class Calibration(object):
                         start, (self, True, ), \
                         *args, **kwargs)
 
-            self.calparams.values = tfinal
-            final = self.calparams.truevalues
-            fitfun_final = fitfun(tfinal, self, True)
-            outputs_final = self.model.outputs
+            calparams.values = tfinal
+            fitfun_final = fitfun(tfinal, calib=self, transformed=True)
 
             # Loop
             start = tfinal
+
+        # Get final model parameters
+        # (certain parameters may be fixed)
+        final = self.model.params.values
+        outputs_final = self.model.outputs
 
         LOGGER.info('End of fit [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
             self.nbeval, self.objfun.name, format_array(self.calparams.values), \
