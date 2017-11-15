@@ -80,8 +80,6 @@ class GR2MTestCases(unittest.TestCase):
         fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
         data = np.loadtxt(fd, delimiter=',', skiprows=1)
 
-        calparams_expected = [650.7, 0.8]
-
         gr = GR2M()
         inputs = np.ascontiguousarray(data[:, :2])
         gr.allocate(inputs, 1)
@@ -91,7 +89,7 @@ class GR2MTestCases(unittest.TestCase):
 
         # Sample parameters
         nsamples = 50
-        samples = calib.paramslib[:50]
+        samples = calib.paramslib[:nsamples]
 
         # loop through parameters
         for i, expected in enumerate(samples):
@@ -119,6 +117,40 @@ class GR2MTestCases(unittest.TestCase):
                             np.max(err), ofun))
 
             self.assertTrue(ck)
+
+
+    def test_gr2m_calib_fixed(self):
+
+        fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
+        data = np.loadtxt(fd, delimiter=',', skiprows=1)
+
+        gr = GR2M()
+        inputs = np.ascontiguousarray(data[:, :2])
+        gr.allocate(inputs, 1)
+
+        # Calibration object
+        calib1 = CalibrationGR2M(objfun=ObjFunSSE())
+        calib2 = CalibrationGR2M(objfun=ObjFunSSE(), fixed={'X1':200})
+
+        # Generate obs
+        expected = [650.7, 0.8]
+        gr.params.values = expected
+        gr.initialise()
+        gr.run()
+
+        # Produce theoretical observation
+        # with error corruption
+        err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-3
+        obs = gr.outputs[:,0].copy()+err
+
+        # Calibrate
+        final1, ofun1, _ = calib1.workflow(obs, inputs, \
+                                    maxfun=100000, ftol=1e-8)
+        final2, ofun2, _ = calib2.workflow(obs, inputs, \
+                                    maxfun=100000, ftol=1e-8)
+
+        self.assertTrue(np.allclose(final1, expected))
+        self.assertTrue(np.allclose(final2[0], 200))
 
 
 if __name__ == '__main__':

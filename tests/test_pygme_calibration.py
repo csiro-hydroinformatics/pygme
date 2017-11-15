@@ -86,7 +86,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
         self.model = Model('test', config, params, states, 2, 2)
 
 
-    def test_calibparamsvector_default(self):
+    def test_default(self):
         calparams = CalibParamsVector(self.model)
 
         self.assertTrue(np.all([s1==s2 for s1, s2 in zip(calparams.names, \
@@ -96,7 +96,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
                                     self.model.params.defaults))
 
 
-    def test_calibparamsvector_errors_infinite(self):
+    def test_errors_infinite(self):
         nval = self.model.params.nval
         cp = Vector(['X{0}'.format(k) for k in range(1, nval+1)])
         try:
@@ -107,7 +107,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
-    def test_calibparamsvector_errors_funs(self):
+    def test_errors_funs(self):
         nval = self.model.params.nval
         cp = Vector(['X{0}'.format(k) for k in range(1, nval+1)])
         cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
@@ -131,7 +131,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
-    def test_calibparamsvector_identity(self):
+    def test_identity(self):
         nval = self.model.params.nval
         cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
                     defaults=[0]*nval, mins=[-1]*nval, maxs=[1]*nval)
@@ -148,7 +148,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
             self.assertTrue(np.allclose(calparams.values, val))
 
 
-    def test_calibparamsvector_common_transform(self):
+    def test_common_transform(self):
         nval = self.model.params.nval
         cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
                     defaults=[0]*nval, mins=[-1]*nval, maxs=[1]*nval)
@@ -174,6 +174,30 @@ class CalibParamsVectorTestCases(unittest.TestCase):
                 calparams.truevalues = val
                 self.assertTrue(np.allclose(calparams.values, \
                                                 true2trans(val)))
+
+    def test_fixed(self):
+        nval = self.model.params.nval
+        cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
+                    defaults=[0]*nval, mins=[-1]*nval, maxs=[1]*nval)
+
+        # Choose a fixed value below the max value
+        x1 = 4
+        fixed = {'X1':x1}
+
+        calparams = CalibParamsVector(self.model, cp, fixed=fixed)
+
+        for i in range(10):
+            val = np.random.uniform(0, 1, nval)
+            calparams.values = val
+            val2 = val.copy()
+            val2[0] = x1
+            self.assertTrue(np.allclose(self.model.params.values, val2))
+
+            val = np.random.uniform(0, 1, nval)
+            calparams.truevalues = val
+            val2 = val.copy()
+            val2[0] = x1
+            self.assertTrue(np.allclose(calparams.values, val2))
 
 
 
@@ -223,7 +247,7 @@ class CalibrationTestCases(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
-    def test_calibration_explore(self):
+    def test_explore(self):
         inputs = np.random.uniform(0, 1, (1000, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -242,7 +266,7 @@ class CalibrationTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(start, params))
 
 
-    def test_calibration_explore_fit(self):
+    def test_explore_fit(self):
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -265,7 +289,45 @@ class CalibrationTestCases(unittest.TestCase):
         self.assertTrue(ck)
 
 
-    def test_calibration_workflow(self):
+    def test_explore_fit_fixed(self):
+        inputs = np.random.exponential(1, (100, 2))
+        dum = Dummy()
+        dum.allocate(inputs, 2)
+        dum.initialise()
+
+        calib = CalibrationDummy(warmup=10)
+        params = calib.paramslib[0, :]+0.1
+        dum.params.values = params
+        dum.run()
+
+        obs = dum.outputs[:, 0]
+
+        # Test error
+        fixed = {'X10':params[0]+3}
+        try:
+            calib = CalibrationDummy(warmup=10, fixed=fixed)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Expected names '+\
+                                'of fixed parameters'))
+        else:
+            raise ValueError('Problem with error handling')
+
+        fixed = {'X1':params[0]+3}
+        calib = CalibrationDummy(warmup=10, fixed=fixed)
+        calib.allocate(obs, inputs)
+        calib.ical = np.arange(10, obs.shape[0])
+
+        start, _, _ = calib.explore()
+        final, _, _ = calib.fit(iprint=10,
+                                    maxfun=100000, ftol=1e-8)
+
+        self.assertEqual(fixed, calib.fixed)
+        self.assertTrue(np.allclose(fixed['X1'], start[0]))
+        self.assertTrue(np.allclose(fixed['X1'], final[0]))
+        self.assertTrue(np.allclose(fixed['X1'], calib.model.params.values[0]))
+
+
+    def test_workflow(self):
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
