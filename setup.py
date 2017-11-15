@@ -35,23 +35,6 @@ ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
     ],
     include_dirs=[numpy.get_include()])
 
-ext_knn=Extension(name='c_pygme_models_knndaily',
-    sources=[
-        'pygme/models/c_pygme_models_knndaily.pyx',
-        'pygme/models/c_utils.c',
-        'pygme/models/c_knndaily.c',
-    ],
-    include_dirs=[numpy.get_include()])
-
-ext_patterns=Extension(name='c_pygme_models_patterns',
-    sources=[
-        'pygme/models/c_pygme_models_patterns.pyx',
-        'pygme/models/c_utils.c',
-        'pygme/models/c_patterns.c',
-    ],
-    include_dirs=[numpy.get_include()])
-
-
 cmdclass = versioneer.get_cmdclass()
 cmdclass['build_ext'] = build_ext
 
@@ -74,9 +57,7 @@ setup(
     cmdclass=cmdclass,
     ext_modules=[
         ext_utils,
-        ext_hydromodels,
-        ext_knn,
-        ext_patterns
+        ext_hydromodels
     ],
     test_suite='nose.collector',
     tests_require=['nose', 'hydrodiy'],
