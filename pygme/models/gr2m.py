@@ -57,7 +57,10 @@ class GR2M(Model):
 
 class CalibrationGR2M(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.2), warmup=36, timeit=False):
+    def __init__(self, objfun=ObjFunBCSSE(0.2), \
+            warmup=36, \
+            timeit=False,\
+            fixed=None):
 
         # Input objects for Calibration class
         model = GR2M()
@@ -67,7 +70,8 @@ class CalibrationGR2M(Calibration):
                 mins=np.log(params.mins),
                 maxs=np.log(params.maxs),
                 defaults=np.log(params.defaults))
-        calparams = CalibParamsVector(model, cp, trans2true='exp')
+        calparams = CalibParamsVector(model, cp, \
+            trans2true='exp', fixed=fixed)
 
         plib = np.random.multivariate_normal(mean=params.defaults, \
                     cov=np.diag((params.maxs-params.mins)/2), \
