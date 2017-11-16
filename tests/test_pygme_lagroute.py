@@ -11,7 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from pygme.models.lagroute import LagRoute, CalibrationLagRoute
-from pygme import calibration
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 
 import c_pygme_models_utils
@@ -49,10 +49,10 @@ class LagRouteTestCases(unittest.TestCase):
         try:
             inputs = np.zeros((20, 1))
             lr.allocate(inputs, 30)
-        except ValueError as  e:
-            pass
-
-        self.assertTrue(str(e).startswith('With model lagroute, Number of outputs'))
+        except ValueError as  err:
+            self.assertTrue(str(err).startswith('model LagRoute: Expected noutputs in [1, 4]'))
+        else:
+            raise ValueError('Problem in error handling')
 
 
     def test_error2(self):
@@ -61,44 +61,50 @@ class LagRouteTestCases(unittest.TestCase):
             inputs = np.random.uniform(size=(20, 3))
             lr.allocate(inputs, 2)
             lr.initialise()
-
-        except ValueError as  e:
-            pass
-
-        self.assertTrue(str(e).startswith('With model lagroute, Number of inputs'))
+        except ValueError as  err:
+            self.assertTrue(str(err).startswith('model LagRoute: Expected 1 inputs'))
+        else:
+            raise ValueError('Problem in error handling')
 
 
     def test_uh1(self):
         lr = LagRoute()
         for u, a in itertools.product(np.linspace(0, 10, 20), \
                 np.linspace(0, 1, 20)):
-            lr.params = [u, a]
-            ck = abs(np.sum(lr.uh)-1) < UHEPS
+            lr.params.values = [u, a]
+            ord = lr.params.uhs[0][1].ord
+            ck = abs(np.sum(ord)-1) < UHEPS
             self.assertTrue(ck)
 
 
     def test_uh2(self):
         lr = LagRoute()
 
-        dt = 86400 # daily model
-        L = 86400 # 86.4 km reach
-        qstar = 1 # qstar = 1 m3/s
-        theta2 = 1 # linear model
-        lr.config.data = [dt, L, qstar, theta2]
+        # Set config
+        cfg = lr.config
+        cfg.timestep = 86400 # daily model
+        cfg.length = 86400 # 86.4 km reach
+        cfg.flowref = 1 # qstar = 1 m3/s
+        cfg.storage_expon = 1 # linear model
+
+        alpha = 1.
+        Umin = lr.params.mins[0]
+        Umax = lr.params.maxs[0]
 
         # Set uh
-        alpha = 1.
-        for U in np.linspace(0.1, 20, 100):
+        for U in np.linspace(Umin, Umax, 100):
 
-            lr.params = [U, alpha]
+            lr.params.U = U
+            lr.params.alpha = alpha
 
-            ck = abs(np.sum(lr.uh)-1) < 1e-5
+            ord = lr.params.uhs[0][1].ord
+            ck = abs(np.sum(ord)-1) < 1e-5
             self.assertTrue(ck)
 
-            tau = alpha * L * U
-            k = int(tau/dt)
-            w = tau/dt - k
-            ck = abs(lr.uh[k]-1+w) < 1e-5
+            tau = alpha * cfg.length * U
+            k = int(tau/cfg.timestep)
+            w = tau/cfg.timestep - k
+            ck = abs(ord[k]-1+w) < 1e-5
             self.assertTrue(ck)
 
 
@@ -110,17 +116,18 @@ class LagRouteTestCases(unittest.TestCase):
 
         lr = LagRoute()
 
-        # Set configuration
-        dt = 86400 # daily model
-        L = 86400 # 86.4 km reach
-        qstar = 50 # qstar = 50 m3/s
+        # Set config
+        cfg = lr.config
+        cfg.timestep = 86400 # daily model
+        cfg.length = 86400 # 86.4 km reach
+        cfg.flowref = 50 # qstar = 1 m3/s
 
         # Set outputs
         lr.allocate(inputs, 4)
 
         for theta2 in [1, 2]:
 
-            lr.config.data = [dt, L, qstar, theta2]
+            lr.config.storage_expon = theta2
 
             # Run
             UU = np.linspace(0.1, 20, 20)
@@ -132,7 +139,8 @@ class LagRouteTestCases(unittest.TestCase):
 
                 t0 = time.time()
 
-                lr.params = [U, alpha]
+                lr.params.U = U
+                lr.params.alpha = alpha
                 lr.initialise()
                 lr.run()
 
@@ -142,8 +150,8 @@ class LagRouteTestCases(unittest.TestCase):
                 v0 = 0
                 vr = lr.outputs[-1, 2]
                 v1 = lr.outputs[-1, 3]
-                si = np.sum(inputs) * dt
-                so = np.sum(lr.outputs[:,0]) * dt
+                si = np.sum(inputs) * cfg.timestep
+                so = np.sum(lr.outputs[:,0]) * cfg.timestep
 
                 B = si - so - v1 - vr + v0
                 ck = abs(B/so) < 1e-10
@@ -162,19 +170,18 @@ class LagRouteTestCases(unittest.TestCase):
         lr = LagRoute()
 
         # Set configuration
-        dt = 86400 # daily model
-        L = 86400 # 86.4 km reach
-        qstar = 50 # qstar = 50 m3/s
-        theta2 = 1
-
-        lr.config.data = [dt, L, qstar, theta2]
+        cfg = lr.config
+        cfg.timestep = 86400 # daily model
+        cfg.length = 86400 # 86.4 km reach
+        cfg.flowref = 50 # qstar = 1 m3/s
 
         # Set outputs
         lr.allocate(inputs)
 
         # Run
         for U in range(1, 11):
-            lr.params = [U, 1.]
+            lr.params.U = U
+            lr.params.alpha = 1
             lr.initialise()
             lr.run()
 

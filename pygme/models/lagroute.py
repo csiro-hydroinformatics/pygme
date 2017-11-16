@@ -2,14 +2,12 @@
 import numpy as np
 import pandas as pd
 
-from pygme.model import Model
-from pygme.calibration import Calibration
+from hydrodiy.data.containers import Vector
+from pygme.model import Model, ParamsVector
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 import c_pygme_models_utils
-
-# Dimensions
-NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 
 class LagRoute(Model):
@@ -19,17 +17,40 @@ class LagRoute(Model):
         # Config vector
         config = Vector(['timestep', 'length', \
                             'flowref', 'storage_expon'], \
-                    [86400, 1e5, 1, 1], \
-                    [0, 0, 0, 1e-6, 1e-2], \
-                    [np.inf, np.inf, np.inf, 2])
+                    defaults=[86400, 1e5, 1, 1], \
+                    mins=[1, 1, 1e-6, 1], \
+                    maxs=[np.inf, np.inf, np.inf, 2])
 
         # params vector
         vect = Vector(['U', 'alpha'], \
-                    [1., 0.5], \
-                    [0.01, 0.], \
-                    [1., 0.5])
-        uhs = [UH('lag', 3)]
-        params = ParamsVector(vect, uhs)
+                    defaults=[1., 0.5], \
+                    mins=[0.01, 0.], \
+                    maxs=[20., 1.])
+        params = ParamsVector(vect)
+
+        # Attach config to params to
+        # retrieve data during UH computation
+        params.config = config
+
+        # Uh calculation
+        def compute_delta(params):
+            # Get config data
+            config = params.config
+
+            # Compute Lag = alpha * U * L / dt
+            delta = config.length * params.U * params.alpha
+            delta /= config.timestep
+            delta = np.float64(delta)
+
+            if np.isnan(delta):
+                raise ValueError('Expected non nan value for delta. '+\
+                    'length={0}, timestep={1}, U={2}, alpha={3}'.format(\
+                        config.length, config.timestep, params.U, \
+                        params.alpha))
+
+            return delta
+
+        params.add_uh('lag', compute_delta)
 
         # State vector
         states = Vector(['S'])
@@ -41,49 +62,20 @@ class LagRoute(Model):
             noutputsmax=4)
 
 
-    #def post_params_setter(self):
+    def run(self):
 
-    #    # Lag = alpha * U * L / dt
-    #    config = self.config
-    #    params = self._params
+        # Get uh object (not set_timebase function, see ParamsVector class)
+        _, uh = self.params.uhs[0]
 
-    #    delta = config['length'] * params['U'] * params['alpha']
-    #    delta /= config['timestep']
-    #    delta = np.float64(delta)
-
-    #    if np.isnan(delta):
-    #        raise ValueError(('Problem with delta calculation. ' + \
-    #            'One of config[\'length\']{0}, config[\'timestep\']{1}, ' + \
-    #            'params[\'U\']{2} or params[\'alpha\']{3} is NaN').format( \
-    #            config['length'], config['timestep'], params['U'],
-    #            params['alpha']))
-
-    #    # First uh
-    #    nuh = np.zeros(1).astype(np.int32)
-    #    uh = np.zeros(NUHMAXLENGTH).astype(np.float64)
-    #    ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH,
-    #            5, delta, \
-    #            nuh, uh)
-
-    #    if ierr > 0:
-    #        raise ValueError(('Model LagRoute: c_pygme_models_utils.uh_getuh' + \
-    #            ' returns {0}').format(ierr))
-
-    #    self._uh.data = uh
-    #    self._nuhlength = nuh[0]
-
-
-    def run(self, istart, iend, seed=None):
-
-        ierr = c_pygme_models_hydromodels.lagroute_run(self._nuhlength, \
-            istart, iend,
-            self.config.data, \
-            self._params.data, \
-            self._uh.data, \
-            self._inputs.data, \
-            self._statesuh.data, \
-            self._states.data, \
-            self._outputs.data)
+        ierr = c_pygme_models_hydromodels.lagroute_run(uh.nord, \
+            self.istart, self.iend,
+            self.config.values, \
+            self.params.values, \
+            uh.ord, \
+            self.inputs, \
+            uh.states, \
+            self.states.values, \
+            self.outputs)
 
         if ierr > 0:
             raise ValueError(('c_pygme_models_hydromodels.' + \
