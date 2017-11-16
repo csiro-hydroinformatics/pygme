@@ -5,7 +5,7 @@ import numpy as np
 
 import c_pygme_models_utils
 
-NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
+NORDMAXMAX = c_pygme_models_utils.uh_getnuhmaxlength()
 
 from hydrodiy.data.containers import Vector
 
@@ -16,14 +16,25 @@ UHNAMES = ['gr4j_ss1_daily', 'gr4j_ss2_daily', \
 
 class UH(object):
 
-    def __init__(self, name, iparam=0, nuhmax=NUHMAXLENGTH):
+    def __init__(self, name, nordmax=NORDMAXMAX):
+        ''' Object handling unit hydrograph. The object does not run the
+        convolution, just stores the unit hydrograph ordinates
+
+        Parameters
+        -----------
+        name : str
+            Name of the UH
+        nordmax : int
+            Maximum number of ordinates
+
+        '''
 
         # Set max length of uh
-        if nuhmax > NUHMAXLENGTH or nuhmax<=0:
+        if nordmax > NORDMAXMAX or nordmax<=0:
             raise ValueError(('Expected nuhmax in [1, {0}], '+\
-                    'got {1}').format(NUHMAXLENGTH, nuhmax))
+                    'got {1}').format(NORDMAXMAX, nordmax))
 
-        self._nuhmax = nuhmax
+        self._nordmax = nordmax
 
         # Check name
         self._uhid = 0
@@ -39,24 +50,21 @@ class UH(object):
         self.name = name
 
         # Initialise ordinates and states
-        self._ord = np.zeros(nuhmax, dtype=np.float64)
+        self._ord = np.zeros(nordmax, dtype=np.float64)
         self._ord[0] = 1.
-        self._states = np.zeros(nuhmax, dtype=np.float64)
+        self._states = np.zeros(nordmax, dtype=np.float64)
 
-        # Index in the model parameter vector
-        self._imodelparam = np.int32(iparam)
-
-        # set param value
-        self._param = 0.
+        # set time base param value
+        self._timebase = 0.
 
         # Number of ordinates
         # nuh is stored as an array to be passed to the C routine
-        self._nuh = np.array([1], dtype=np.int32)
+        self._nord = np.array([1], dtype=np.int32)
 
 
     def __str__(self):
-        str = 'UH {0}: param={1} nuh={2}'.format(self.name, \
-                self.param, self.nuh)
+        str = 'UH {0}: timebase={1} nord={2}'.format(self.name, \
+                self.timebase, self.nord)
         return str
 
 
@@ -66,46 +74,43 @@ class UH(object):
 
 
     @property
-    def nuhmax(self):
-        return self._nuhmax
+    def nordmax(self):
+        return self._nordmax
 
 
     @property
-    def nuh(self):
+    def nord(self):
         # There is a trick here, we return an
         # integer but the internal state is an array
-        return self._nuh[0]
+        return self._nord[0]
 
 
     @property
-    def imodelparam(self):
-        return self._imodelparam
+    def timebase(self):
+        return self._timebase
 
-
-    @property
-    def param(self):
-        return self._param
-
-    @param.setter
-    def param(self, value):
+    @timebase.setter
+    def timebase(self, value):
         # Check value
         value = np.float64(value)
 
         # Populate the uh ordinates
-        ierr = c_pygme_models_utils.uh_getuh(self.nuhmax, self.uhid, \
-                                        value, self._nuh, self._ord)
+        ierr = c_pygme_models_utils.uh_getuh(self.nordmax, self.uhid, \
+                                        value, self._nord, self._ord)
         if ierr>0:
             raise ValueError(('When setting param to {0} for UH {1}, '+\
                 'c_pygme_models_utils.uh_getuh returns {2}').format(\
                         value, self.name, ierr))
 
         # Store parameter value
-        self._param = value
+        self._timebase = value
 
         # Reset uh states to a vector of zeros
-        # with length _nuh[0]
-        self._states[:self._nuh[0]] = 0
-        self._ord[self._nuh[0]:] = 0
+        # with length nord
+        self._states[:self.nord] = 0
+
+        # Set remaining ordinates to 0
+        self._ord[self.nord:] = 0
 
 
     @property
@@ -121,17 +126,25 @@ class UH(object):
     def states(self, values):
         values = np.atleast_1d(values).astype(np.float64)
 
-        nuh = self.nuh
-        if values.shape[0]<nuh:
+        nord = self.nord
+        if values.shape[0]<nord:
             raise ValueError('Expected state vector to be of length'+\
-                '>={0}, got {1}'.format(nuh, values.shape[0]))
+                '>={0}, got {1}'.format(nord, values.shape[0]))
 
         self.reset()
-        self._states[:nuh] = values[:nuh]
+        self._states[:nord] = values[:nord]
 
 
     def reset(self):
-        self._states = np.zeros(self.nuhmax)
+        self._states = np.zeros(self.nordmax)
+
+
+    def clone(self):
+        clone = UH(self.name, self.nordmax)
+        clone.timebase = self.timebase
+        clone._states = self.states.copy()
+
+        return clone
 
 
 
@@ -139,52 +152,57 @@ class UH(object):
 # when changing model parameters
 class ParamsVector(Vector):
 
-    def __init__(self, params, uhs=None):
+    def __init__(self, params):
+        ''' Object handling parameter vector. The object stores the unit
+        hydrographs and the functions used to set the uh time base
 
-        # Initialise Vector object
+        Parameters
+        -----------
+        params : hydrodiy.data.containers.Vector
+            Vector of parameters including names, default values, min and max.
+        uhs : list
+            list of tuples containing for each unit hydrograph a function to
+            setup the time base from parameter values and a UH object.
+
+        Example
+        -----------
+        This code produces a parameter vector with two uh attached.
+        The first uh is controled by the first parameter (X1),
+        the second uh is controled by the expression X2+X3/2
+
+        >>> params = Vector(['X1', 'X2', 'X3'])
+        >>> uhs =[(lambda params: params.X1, UH("lag")), (lambda params: params.X1+params.X1/2, UH("lag")]
+        >>> pv = ParamsVector(params, uhs)
+
+        '''
         # check_hitbounds is turned on
         super(ParamsVector, self).__init__(params.names, \
                     params.defaults, params.mins, params.maxs, \
                     True)
 
-        if not uhs is None:
-            # Check param number set in uhs
-            for iuh, uh in enumerate(uhs):
-                if uh.imodelparam>=self.nval or uh.imodelparam<0:
-                    raise ValueError(('Expected uhs[{0}].iparam in [0, {1}[,'+\
-                                    ' got {2}').format(iuh, self.nval, \
-                                    uh.imodelparam))
-
-            # Store unit hydrograhs objects
-            # (to be modified when parameter values change)
-            self._nuh = len(uhs)
-            self._uhs = uhs
-        else:
-            self._uhs = None
-            self._nuh = 0
+        self._uhs = None
 
 
     def __setattr__(self, name, value):
-
         # Set attribute for vector object
         super(ParamsVector, self).__setattr__(name, value)
 
-        # Set UH parameter if possible
-        if not hasattr(self, '_names_index'):
+        # Set UH parameter if needed
+        if not hasattr(self, 'names'):
             return
 
-        if name in self._names_index:
-            ip = self._names_index[name]
+        if name in self.names:
             if self.nuh>0:
-                for uh in self.uhs:
-                    if uh.imodelparam == ip:
-                        uh.param = value
-                        break
+                for iuh, (set_timebase, uh) in enumerate(self.uhs):
+                    uh.timebase = set_timebase(self)
 
 
     @property
     def nuh(self):
-        return self._nuh
+        if self.uhs is None:
+            return 0
+        else:
+            return len(self.uhs)
 
 
     @property
@@ -202,11 +220,43 @@ class ParamsVector(Vector):
         # Run the vector value setter
         Vector.values.fset(self, val)
 
-        # Set UH parameter
+        # Set UH parameter if needed
         if self.nuh>0:
-            for uh in self.uhs:
-                uh.param = self.values[uh.imodelparam]
+            for iuh, (set_timebase, uh) in enumerate(self.uhs):
+                uh.timebase = set_timebase(self)
 
+
+    def add_uh(self, uh_name, set_timebase, nuhmax=NORDMAXMAX):
+        ''' Add uh object '''
+
+        if self._uhs is None:
+            self._uhs = []
+
+        test = set_timebase(self)
+        if not isinstance(test, float):
+            raise ValueError(('Expected set_timebase function to '+\
+                'return a float, got {0}').format(test))
+
+        # Create UH
+        uh = UH(uh_name, nuhmax)
+
+        # Set timebase to check it does not trigger any error
+        uh.timebase = test
+
+        # All test ok, appending uh to list of uhs
+        self._uhs.append((set_timebase, uh))
+
+
+    def clone(self):
+        params = Vector(self.names, self.defaults, self.mins, \
+                    self.maxs, self.check_hitbounds)
+
+        clone = ParamsVector(params)
+        clone.values = self.values.copy()
+        if not self.uhs is None:
+            clone._uhs = [(uht[0], uht[1].clone()) for uht in self.uhs]
+
+        return clone
 
 
 class Model(object):
@@ -463,30 +513,36 @@ class Model(object):
             nuh = self.params.nuh
             if len(uhs) != nuh:
                 raise ValueError(('Expected a list of {0} unit'+\
-                    ' hydrograpgs object for'+\
+                    ' hydrographs object for'+\
                     ' initialisation, got {1}').format(\
                     nuh, len(uhs)))
 
             for iuh in range(nuh):
-                uh1 = self.params.uhs[iuh]
+                # We extract the UH object
+                # the set_timebase function is not needed here
+                _, uh1 = self.params.uhs[iuh]
+
+                # Compare with the uh supplied to initialise
                 uh2 = uhs[iuh]
 
-                if uh1.nuh != uh2.nuh:
-                    raise ValueError(('Expected nuh for UH[{0}] to be {1}.'+\
-                            'Got {2}.').format(uh1.nuh, uh2.nuh))
+                if uh1.nord != uh2.nord:
+                    raise ValueError(('Expected UH[{0}] nord to be {1}.'+\
+                            ' Got {2}.').format(uh1.nord, uh2.nord))
 
-                if abs(uh1.param-uh2.param)>1e-8:
-                    raise ValueError(('Expected param for UH[{0}] to be {1}.'+\
-                            'Got {2}.').format(uh1.param, uh2.param))
+                if abs(uh1.timebase-uh2.timebase)>1e-8:
+                    raise ValueError(('Expected UH[{0}] timebase to be {1}.'+\
+                            ' Got {2}.').format(iuh, uh1.timebase, uh2.timebase))
 
                 uh1.reset()
-                uh1.states[:uh1.nuh] = uh2.states[:uh2.nuh]
+                uh1.states[:uh1.nord] = uh2.states[:uh2.nord]
 
         else:
             # Reset uhs states values
             nuh = self.params.nuh
             for iuh in range(nuh):
-                uh1 = self.params.uhs[iuh]
+                # We extract the UH object
+                # the set_timebase function is not needed here
+                _, uh1 = self.params.uhs[iuh]
                 uh1.reset()
 
 
@@ -499,8 +555,12 @@ class Model(object):
     def clone(self):
         ''' Clone the current model instance'''
 
-        model = Model(self.name, self.config, self.params, \
-            self.states, self.ninputs, self.noutputsmax)
+        model = Model(self.name, \
+            self.config.clone(), \
+            self.params.clone(), \
+            self.states.clone(), \
+            self.ninputs, \
+            self.noutputsmax)
 
         # Allocate data
         if not self._inputs is None:

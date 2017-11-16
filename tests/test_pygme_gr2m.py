@@ -149,7 +149,7 @@ class GR2MTestCases(unittest.TestCase):
         final2, ofun2, _ = calib2.workflow(obs, inputs, \
                                     maxfun=100000, ftol=1e-8)
 
-        self.assertTrue(np.allclose(final1, expected))
+        self.assertTrue(np.allclose(final1, expected, atol=1e-2))
         self.assertTrue(np.allclose(final2[0], 200))
 
 

@@ -9,7 +9,7 @@ import numpy as np
 np.seterr(all='print')
 
 from hydrodiy.data.containers import Vector
-from pygme.model import Model, NUHMAXLENGTH, UH, UHNAMES, ParamsVector
+from pygme.model import Model, NORDMAXMAX, UH, UHNAMES, ParamsVector
 from dummy import Dummy, MassiveDummy
 
 
@@ -32,12 +32,12 @@ class UHTestCases(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
-    def test_set_param(self):
+    def test_set_timebase(self):
         for nm in UHNAMES:
             u = UH(nm)
             for p in np.linspace(0, 100, 500):
-                u.param = p
-                ck = np.allclose(np.sum(u.ord[:u.nuh]), 1., atol=1e-8)
+                u.timebase = p
+                ck = np.allclose(np.sum(u.ord[:u.nord]), 1., atol=1e-8)
                 self.assertTrue(ck)
                 self.assertTrue(np.allclose(u.states, 0.))
 
@@ -46,28 +46,28 @@ class UHTestCases(unittest.TestCase):
         for nm in UHNAMES:
             u = UH(nm)
             u.states[:10] = 10.
-            u.param = 20
-            self.assertTrue(np.allclose(u.states[:u.nuh], 0.))
+            u.timebase = 20
+            self.assertTrue(np.allclose(u.states[:u.nord], 0.))
 
 
     def test_reset(self):
         for nm in UHNAMES:
             u = UH(nm)
-            u.param = 5.5
-            u.states = np.random.uniform(size=u.nuh)
+            u.timebase = 5.5
+            u.states = np.random.uniform(size=u.nord)
             u.reset()
-            self.assertTrue(np.allclose(u.states, np.zeros(u.nuhmax)))
+            self.assertTrue(np.allclose(u.states, np.zeros(u.nordmax)))
 
 
     def test_initialise(self):
         for nm in UHNAMES:
             u = UH(nm)
-            u.param = 5.5
-            nuh = u.nuh
+            u.timebase = 5.5
+            nord = u.nord
 
-            states = np.random.uniform(size=nuh)
+            states = np.random.uniform(size=nord)
             u.states = states
-            self.assertTrue(np.allclose(u.states[:nuh], states[:nuh]))
+            self.assertTrue(np.allclose(u.states[:nord], states[:nord]))
 
             try:
                 u.states = [0., 10.]
@@ -77,10 +77,10 @@ class UHTestCases(unittest.TestCase):
                 raise ValueError('Problem in error handling')
 
 
-    def test_uh_nuhmax(self):
-        u = UH('lag', nuhmax=5)
+    def test_uh_nordmax(self):
+        u = UH('lag', nordmax=5)
         try:
-            u.param = 10
+            u.timebase = 10
         except ValueError as err:
             self.assertTrue(str(err).startswith('When setting param to'))
         else:
@@ -90,13 +90,13 @@ class UHTestCases(unittest.TestCase):
     def test_uh_lag(self):
         u = UH('lag')
 
-        u.param = 5.5
-        o = np.zeros(u.nuhmax)
+        u.timebase = 5.5
+        o = np.zeros(u.nordmax)
         o[5:7] = 0.5
         self.assertTrue(np.allclose(u.ord, o))
 
-        u.param = 5
-        o = np.zeros(u.nuhmax)
+        u.timebase = 5
+        o = np.zeros(u.nordmax)
         o[5] = 1
         self.assertTrue(np.allclose(u.ord, o))
 
@@ -104,11 +104,11 @@ class UHTestCases(unittest.TestCase):
     def test_uh_triangle(self):
         u = UH('triangle')
 
-        u.param = 2.5
+        u.timebase = 2.5
         o = [0.08, 0.24, 0.36, 0.24, 0.08, 0.]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
-        u.param = 9.2
+        u.timebase = 9.2
         o = [0.005907372, 0.017722117, 0.029536862, 0.041351607, 0.053166352, \
                 0.064981096, 0.076795841, 0.088610586, 0.100425331, \
                 0.104678639, 0.093336484, 0.081521739, 0.069706994, \
@@ -120,11 +120,11 @@ class UHTestCases(unittest.TestCase):
     def test_uh_flat(self):
         u = UH('flat')
 
-        u.param = 2.5
+        u.timebase = 2.5
         o = [0.4, 0.4, 0.2]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
-        u.param = 9.2
+        u.timebase = 9.2
         o = [0.108695652]*9+[0.021739130, 0.]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
@@ -132,26 +132,27 @@ class UHTestCases(unittest.TestCase):
     def test_uh_gr4j_ssh1_daily(self):
         u = UH('gr4j_ss1_daily')
 
-        u.param = 2.5
+        u.timebase = 2.5
         o = [0.10119288512539, 0.47124051711456, 0.42756659776005, 0.]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
-        u.param = 1.3
+        u.timebase = 1.3
         o = [0.51896924219351, 0.48103075780649, 0.]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
 
     def test_uh_gr4j_ssh2_daily(self):
         u = UH('gr4j_ss2_daily')
-        u.param = 2.5
+        u.timebase = 2.5
 
         o = [0.05059644256269, 0.23562025855728, 0.42756659776005, \
                             0.23562025855728, 0.05059644256269]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
 
-        u.param = 1.3
+        u.timebase = 1.3
         o = [0.25948462109675, 0.66815684654371, 0.07235853235954, 0.]
         self.assertTrue(np.allclose(u.ord[:len(o)], o))
+
 
 
 class ParamsVectorTestCases(unittest.TestCase):
@@ -162,36 +163,42 @@ class ParamsVectorTestCases(unittest.TestCase):
 
     def test_init(self):
         vect = Vector(['X{0}'.format(k) for k in range(10)])
-        uhs = [UH('lag', 3), UH('lag', 6), UH('triangle', 8)]
-        pv = ParamsVector(vect, uhs)
+        pv = ParamsVector(vect)
+        pv.add_uh('lag', lambda params: params.X3)
+        pv.add_uh('lag', lambda params: params.X6)
+        pv.add_uh('lag', lambda params: params.X8)
 
-        for k in range(len(uhs)):
-            self.assertTrue(np.allclose(pv.uhs[k].param, 0.))
-            self.assertTrue(np.allclose(pv.uhs[k].nuh, 1))
+        for k in range(len(pv.uhs)):
+            uh = pv.uhs[k][1]
+            self.assertTrue(np.allclose(uh.timebase, 0.))
+            self.assertTrue(np.allclose(uh.nord, 1))
 
-            ordi = np.zeros(pv.uhs[k].nuhmax)
+            ordi = np.zeros(uh.nordmax)
             ordi[0] = 1
-            self.assertTrue(np.allclose(pv.uhs[k].ord, ordi))
+            self.assertTrue(np.allclose(uh.ord, ordi))
 
-            states = np.zeros(pv.uhs[k].nuhmax)
-            self.assertTrue(np.allclose(pv.uhs[k].states, states))
+            states = np.zeros(uh.nordmax)
+            self.assertTrue(np.allclose(uh.states, states))
 
 
     def test_error_init(self):
         vect = Vector(['X{0}'.format(k) for k in range(10)])
-        uhs = [UH('lag', 3), UH('lag', 13), UH('triangle', 8)]
+        pv = ParamsVector(vect)
         try:
-            pv = ParamsVector(vect, uhs)
+            pv.add_uh('lag', lambda params: [params.X1]*3)
         except ValueError as err:
-            self.assertTrue(str(err).startswith('Expected uhs[1].iparam in '))
+            self.assertTrue(str(err).startswith('Expected set_timebase '+\
+                'function to return a float'))
         else:
             raise ValueError('Problem with error handling')
 
 
     def test_set_params(self):
         vect = Vector(['X{0}'.format(k) for k in range(10)])
-        uhs = [UH('lag', 3), UH('lag', 6), UH('triangle', 8)]
-        pv = ParamsVector(vect, uhs)
+        pv = ParamsVector(vect)
+        pv.add_uh('lag', lambda params: params.X3)
+        pv.add_uh('lag', lambda params: params.X6)
+        pv.add_uh('lag', lambda params: params.X8)
 
         # Set params
         pv.X3 = 10
@@ -199,14 +206,27 @@ class ParamsVectorTestCases(unittest.TestCase):
         pv.X8 = 5
 
         # Run comparison
-        zero = np.zeros(uhs[0].nuhmax)
+        zero = np.zeros(pv.uhs[0][1].nordmax)
         o = zero.copy()
         o[10] = 1
-        self.assertTrue(np.allclose(pv.uhs[0].ord, o))
+        self.assertTrue(np.allclose(pv.uhs[0][1].ord, o))
 
         o = zero.copy()
         o[2:4] = 0.5
-        self.assertTrue(np.allclose(pv.uhs[1].ord, o))
+        self.assertTrue(np.allclose(pv.uhs[1][1].ord, o))
+
+
+    def test_set_params_complex(self):
+        vect = Vector(['X{0}'.format(k) for k in range(10)])
+        pv = ParamsVector(vect)
+        pv.add_uh('lag', lambda params: params.X1+params.X3*10)
+
+        # Set params
+        pv.X1 = 10
+        pv.X3 = 2.5
+
+        # Run comparison
+        self.assertTrue(np.allclose(pv.uhs[0][1].timebase, 35))
 
 
 
@@ -264,10 +284,11 @@ class ModelTestCases(unittest.TestCase):
 
     def test_initialise_uh(self):
         dum = Dummy()
-        uhs = [UH(dum.params.uhs[0].name, 0)]
-        uhs[0].states += 4.
-        dum.initialise(uhs=uhs)
-        self.assertTrue(np.allclose(dum.params.uhs[0].states, uhs[0].states))
+        uh = UH(dum.params.uhs[0][1].name)
+        uh.timebase = dum.params.uhs[0][1].timebase
+        uh.states += 4.
+        dum.initialise(uhs=[uh])
+        self.assertTrue(np.allclose(dum.params.uhs[0][1].states, uh.states))
 
 
     def test_set_inputs(self):
@@ -340,13 +361,13 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(inputs, 2)
 
         dum.params.values = np.array([4, 0.])
-        nval = dum.params.uhs[0].ord.shape[0]
+        nval = dum.params.uhs[0][1].ord.shape[0]
         o = np.array([0.25]*4 + [0.] * (nval-4))
-        self.assertTrue(np.allclose(dum.params.uhs[0].ord, o))
+        self.assertTrue(np.allclose(dum.params.uhs[0][1].ord, o))
 
         dum.params['X1'] = 6
         o = np.array([1./6]*6 + [0.] * (nval-6))
-        self.assertTrue(np.allclose(dum.params.uhs[0].ord, o))
+        self.assertTrue(np.allclose(dum.params.uhs[0][1].ord, o))
 
 
     def test_run_default(self):
@@ -367,7 +388,7 @@ class ModelTestCases(unittest.TestCase):
 
         self.assertTrue(dum.params.nval == 2)
         self.assertTrue(dum.states.nval == 2)
-        self.assertTrue(dum.params.uhs[0].ord.shape[0] == NUHMAXLENGTH)
+        self.assertTrue(dum.params.uhs[0][1].ord.shape[0] == NORDMAXMAX)
         self.assertTrue(dum.inputs.shape  == (nts, 2))
         self.assertTrue(dum.outputs.shape  == (nts, 1))
 

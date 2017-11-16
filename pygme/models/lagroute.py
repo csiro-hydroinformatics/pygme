@@ -14,70 +14,66 @@ NUHMAXLENGTH = c_pygme_models_utils.uh_getnuhmaxlength()
 
 class LagRoute(Model):
 
-    def __init__(self,
-            nens_params=1,
-            nens_states=1,
-            nens_outputs=1):
+    def __init__(self):
 
-        Model.__init__(self, 'lagroute',
-            nconfig=4,
-            ninputs=1,
-            nparams=2,
-            nstates=1,
-            noutputs_max = 4,
-            nens_params=nens_params,
-            nens_states=nens_states,
-            nens_outputs=nens_outputs)
+        # Config vector
+        config = Vector(['timestep', 'length', \
+                            'flowref', 'storage_expon'], \
+                    [86400, 1e5, 1, 1], \
+                    [0, 0, 0, 1e-6, 1e-2], \
+                    [np.inf, np.inf, np.inf, 2])
 
-        self.config.names = ['timestep', 'length', \
-                'flowref', 'storage_expon']
+        # params vector
+        vect = Vector(['U', 'alpha'], \
+                    [1., 0.5], \
+                    [0.01, 0.], \
+                    [1., 0.5])
+        uhs = [UH('lag', 3)]
+        params = ParamsVector(vect, uhs)
 
-        self.config['timestep'] = 86400
-        self.config['length'] = 86400
-        self.config['flowref'] = 1
-        self.config['storage_expon'] = 1
+        # State vector
+        states = Vector(['S'])
 
-        self._params.names = ['U', 'alpha']
-        self._params.min = [0.01, 0.]
-        self._params.max = [20., 1.]
-        self._params.default = [1., 0.5]
-
-        self.reset()
+        # Model
+        super(LagRoute, self).__init__('LagRoute',
+            config, params, states, \
+            ninputs=1, \
+            noutputsmax=4)
 
 
-    def post_params_setter(self):
+    #def post_params_setter(self):
 
-        # Lag = alpha * U * L / dt
-        config = self.config
-        params = self._params
+    #    # Lag = alpha * U * L / dt
+    #    config = self.config
+    #    params = self._params
 
-        delta = config['length'] * params['U'] * params['alpha']
-        delta /= config['timestep']
-        delta = np.float64(delta)
+    #    delta = config['length'] * params['U'] * params['alpha']
+    #    delta /= config['timestep']
+    #    delta = np.float64(delta)
 
-        if np.isnan(delta):
-            raise ValueError(('Problem with delta calculation. ' + \
-                'One of config[\'length\']{0}, config[\'timestep\']{1}, ' + \
-                'params[\'U\']{2} or params[\'alpha\']{3} is NaN').format( \
-                config['length'], config['timestep'], params['U'],
-                params['alpha']))
+    #    if np.isnan(delta):
+    #        raise ValueError(('Problem with delta calculation. ' + \
+    #            'One of config[\'length\']{0}, config[\'timestep\']{1}, ' + \
+    #            'params[\'U\']{2} or params[\'alpha\']{3} is NaN').format( \
+    #            config['length'], config['timestep'], params['U'],
+    #            params['alpha']))
 
-        # First uh
-        nuh = np.zeros(1).astype(np.int32)
-        uh = np.zeros(NUHMAXLENGTH).astype(np.float64)
-        ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH,
-                5, delta, \
-                nuh, uh)
+    #    # First uh
+    #    nuh = np.zeros(1).astype(np.int32)
+    #    uh = np.zeros(NUHMAXLENGTH).astype(np.float64)
+    #    ierr = c_pygme_models_utils.uh_getuh(NUHMAXLENGTH,
+    #            5, delta, \
+    #            nuh, uh)
 
-        if ierr > 0:
-            raise ValueError(('Model LagRoute: c_pygme_models_utils.uh_getuh' + \
-                ' returns {0}').format(ierr))
+    #    if ierr > 0:
+    #        raise ValueError(('Model LagRoute: c_pygme_models_utils.uh_getuh' + \
+    #            ' returns {0}').format(ierr))
 
-        self._uh.data = uh
-        self._nuhlength = nuh[0]
+    #    self._uh.data = uh
+    #    self._nuhlength = nuh[0]
 
 
-    def runblock(self, istart, iend, seed=None):
+    def run(self, istart, iend, seed=None):
 
         ierr = c_pygme_models_hydromodels.lagroute_run(self._nuhlength, \
             istart, iend,
@@ -96,18 +92,37 @@ class LagRoute(Model):
 
 class CalibrationLagRoute(Calibration):
 
-    def __init__(self, timeit=False):
+    def __init__(self, objfun=ObjFunBCSSE(0.2), \
+                    warmup=5*365, \
+                    timeit=False, \
+                    fixed=None):
 
-        lm = LagRoute()
+        # Input objects for Calibration class
+        model = LagRoute()
+        params = model.params
 
-        Calibration.__init__(self,
-            model = lm, \
-            ncalparams = 2, \
-            timeit = timeit)
+        cp = Vector(['tU', 'talpha'], \
+                mins=params.mins,
+                maxs=params.maxs,
+                defaults=params.defaults)
 
-        self._calparams.means =  [1., 0.5]
+        # no parameter transformation
+        calparams = CalibParamsVector(model, cp, \
+            trans2true=trans2true,\
+            true2trans=true2trans,\
+            fixed=fixed)
 
-        covar = [[0.5, 0.], [0., 0.2]]
-        self._calparams.covar = covar
+        # Build parameter library from
+        # systematic exploration of parameter space
+        uu , aa = np.mesh_grid(np.linspace(0.1, 3, 20), \
+                        np.linspace(0, 1, 20))
+        plib = np.column_stack([uu.ravel(), aa.ravel()])
+
+        # Instanciate calibration
+        super(CalibrationLagRoute, self).__init__(calparams, \
+            objfun=objfun, \
+            warmup=warmup, \
+            timeit=timeit, \
+            paramslib=plib)
 
 

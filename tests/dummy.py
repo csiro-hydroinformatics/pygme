@@ -18,8 +18,8 @@ class Dummy(Model):
         eps = 1e-7
         vect = Vector(['X1', 'X2'], \
                     [eps, 1], [eps]*2, [10, 10])
-        uhs = [UH('flat', 0)]
-        params = ParamsVector(vect, uhs)
+        params = ParamsVector(vect)
+        params.add_uh('flat', lambda params: params.X1)
 
         # State vector
         states = Vector(['S1', 'S2'])

@@ -22,8 +22,11 @@ class GR4J(Model):
                     [400, -1, 50, 0.5], \
                     [10, -50, 1, 0.5], \
                     [2e4, 50, 5e3, 1e2])
-        uhs = [UH('gr4j_ss1_daily', 3), UH('gr4j_ss2_daily', 3)]
-        params = ParamsVector(vect, uhs)
+        params = ParamsVector(vect)
+
+        # UH
+        params.add_uh('gr4j_ss1_daily', lambda params: params.X4)
+        params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
 
         # State vector
         states = Vector(['S', 'R'])
@@ -35,11 +38,13 @@ class GR4J(Model):
             noutputsmax=9)
 
     def run(self):
-        uh1 = self.params.uhs[0]
-        uh2 = self.params.uhs[1]
+        # Get uh object (not set_timebase function, see ParamsVector class)
+        _, uh1 = self.params.uhs[0]
+        _, uh2 = self.params.uhs[1]
 
-        ierr = c_pygme_models_hydromodels.gr4j_run(uh1.nuh, \
-            uh2.nuh, self.istart, self.iend, \
+        # Run gr4j c code
+        ierr = c_pygme_models_hydromodels.gr4j_run(uh1.nord, \
+            uh2.nord, self.istart, self.iend, \
             self.params.values, \
             uh1.ord, \
             uh2.ord, \

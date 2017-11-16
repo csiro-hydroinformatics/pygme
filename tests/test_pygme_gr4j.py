@@ -62,13 +62,13 @@ class GR4JTestCases(unittest.TestCase):
             gr.X3 = 50
             gr.X4 = x4
 
-            uh1 = gr.params.uhs[0].ord
-            uh2 = gr.params.uhs[1].ord
+            ord1 = gr.params.uhs[0][1].ord
+            ord2 = gr.params.uhs[1][1].ord
 
-            ck = abs(np.sum(uh1)-1) < UHEPS * 2
+            ck = abs(np.sum(ord1)-1) < UHEPS * 2
             self.assertTrue(ck)
 
-            ck = abs(np.sum(uh2)-1) < UHEPS * 2
+            ck = abs(np.sum(ord2)-1) < UHEPS * 2
             self.assertTrue(ck)
 
 
