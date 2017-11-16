@@ -178,7 +178,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
     def test_fixed(self):
         nval = self.model.params.nval
         cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
-                    defaults=[0]*nval, mins=[-1]*nval, maxs=[1]*nval)
+                    defaults=[0]*nval, mins=[-5]*nval, maxs=[5]*nval)
 
         # Choose a fixed value below the max value
         x1 = 4
@@ -197,6 +197,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
             calparams.truevalues = val
             val2 = val.copy()
             val2[0] = x1
+            self.assertTrue(np.allclose(calparams.truevalues, val2))
             self.assertTrue(np.allclose(calparams.values, val2))
 
 

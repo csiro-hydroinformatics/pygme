@@ -57,7 +57,9 @@ class GR4J(Model):
 class CalibrationGR4J(Calibration):
 
     def __init__(self, objfun=ObjFunBCSSE(0.2), \
-                    warmup=5*365, timeit=False):
+                    warmup=5*365, \
+                    timeit=False, \
+                    fixed=None):
 
         # Input objects for Calibration class
         model = GR4J()
@@ -85,7 +87,8 @@ class CalibrationGR4J(Calibration):
 
         calparams = CalibParamsVector(model, cp, \
             trans2true=trans2true, \
-            true2trans=true2trans)
+            true2trans=true2trans,\
+            fixed=fixed)
 
         # Build parameter library from
         # MVT norm in transform space

@@ -51,6 +51,7 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_uh(self):
+        ''' Test GR4J UH '''
         gr = GR4J()
         gr.allocate(np.zeros((10, 2)))
 
@@ -72,6 +73,7 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_run_dimensions(self):
+        ''' Allocate GR4J '''
         gr = GR4J()
         nval = 1000
 
@@ -89,6 +91,7 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_run_against_data(self):
+        ''' Compare GR4J simulation with test data '''
         warmup = 365 * 5
         gr = GR4J()
 
@@ -134,7 +137,7 @@ class GR4JTestCases(unittest.TestCase):
 
 
     def test_calibrate_against_itself(self):
-
+        ''' Calibrate GR4J against a simulation with known parameters '''
         gr = GR4J()
         warmup = 365*6
         calib = CalibrationGR4J(objfun=ObjFunSSE())
@@ -177,4 +180,45 @@ class GR4JTestCases(unittest.TestCase):
                         i+1, np.max(err), dt))
 
             self.assertTrue(ck)
+
+    def test_calibrate_fixed(self):
+        ''' Calibrate GR4J with fixed parameter '''
+        gr = GR4J()
+        warmup = 365*6
+        calib1 = CalibrationGR4J(objfun=ObjFunSSE())
+        calib2 = CalibrationGR4J(objfun=ObjFunSSE(), \
+                        fixed={'X1':1000, 'X4':10})
+
+        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
+        params = np.loadtxt(fp, delimiter=',')
+
+        i = 0
+        fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+                self.FHERE, i+1)
+        data = np.loadtxt(fts, delimiter=',')
+        inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
+
+        # Run gr first
+        expected = params[i, [2, 0, 1, 3]]
+        gr = calib1.model
+        gr.allocate(inputs, 1)
+        gr.params.values = expected
+        gr.initialise()
+        gr.run()
+
+        # Calibrate
+        err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
+        obs = gr.outputs[:,0].copy()+err
+
+        final1, ofun1, _ = calib1.workflow(obs, inputs, \
+                                    maxfun=100000, ftol=1e-8)
+
+        final2, ofun2, _ = calib2.workflow(obs, inputs, \
+                                    maxfun=100000, ftol=1e-8)
+
+        # Check one calibration works as expected
+        self.assertTrue(np.allclose(final1, expected, atol=1e-1))
+
+        # Check the other one returns fixed parameters
+        self.assertTrue(np.allclose(final2[[0, 3]], [1000, 10]))
 
