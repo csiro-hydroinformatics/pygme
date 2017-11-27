@@ -49,7 +49,8 @@ class TurcMezentsev(Model):
 
 class CalibrationTurcMezentsev(Calibration):
 
-    def __init__(self, timeit=False):
+    def __init__(self, timeit=False,\
+                    objfun_kwargs={}):
 
         # Input objects for Calibration class
         model = TurcMezentsev()
@@ -64,6 +65,7 @@ class CalibrationTurcMezentsev(Calibration):
 
         # Instanciate calibration
         super(CalibrationTurcMezentsev, self).__init__(calparams, \
-            paramslib=plib)
+            paramslib=plib,\
+            objfun_kwargs={})
 
 

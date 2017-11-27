@@ -21,8 +21,7 @@ def format_array(x, fmt='3.3e'):
 class ObjFun(object):
     ''' Generic class to describe objective functions '''
 
-    def __init__(self, name, orientation=1, \
-                    constants=None):
+    def __init__(self, name, orientation=1):
 
         self.name = name
 
@@ -38,7 +37,7 @@ class ObjFun(object):
                     self.name, self.orientation)
 
 
-    def compute(self, obs, sim):
+    def compute(self, obs, sim, **kwargs):
         raise ValueError('Need to override this function')
 
 
@@ -50,7 +49,7 @@ class ObjFunSSE(ObjFun):
         super(ObjFunSSE, self).__init__('SSE')
 
 
-    def compute(self, obs, sim):
+    def compute(self, obs, sim, **kwargs):
         err = obs-sim
         return np.nansum(err*err)
 
@@ -63,11 +62,11 @@ class ObjFunBCSSE(ObjFun):
         super(ObjFunBCSSE, self).__init__('BCSSE')
 
         # Set Transform
-        BC['lambda'] = lam
+        BC.lam = lam
         self.trans = BC
 
 
-    def compute(self, obs, sim):
+    def compute(self, obs, sim, **kwargs):
         tobs = self.trans.forward(obs)
         tsim = self.trans.forward(sim)
         err = tobs-tsim
@@ -276,7 +275,7 @@ class CalibParamsVector(Vector):
 
 
 
-def fitfun(values, calib, transformed):
+def fitfun(values, calib, use_transformed_parameters):
     ''' Objective function wrapper to  be used by optimizer.
         Can be run with transformed or untransformed parameter values.
     '''
@@ -285,10 +284,11 @@ def fitfun(values, calib, transformed):
     model = calib.model
     ical = calib.ical
     objfun = calib.objfun
+    objfun_kwargs = calib.objfun_kwargs
 
     # Set model parameters
     # (note that parameters are passed to model within calparams object)
-    if transformed:
+    if use_transformed_parameters:
         calparams.values = values
     else:
         calparams.truevalues = values
@@ -312,8 +312,11 @@ def fitfun(values, calib, transformed):
         calib._runtime = (t1-t0)*1000
 
     # Compute objectif function during calibration period
+    # Pass additional argument to obj fun
     ofun = objfun.compute(calib.obs[ical, :], \
-                                    model.outputs[ical, :])
+                                    model.outputs[ical, :], \
+                                    **objfun_kwargs)
+
     if np.isnan(ofun):
         ofun = np.inf
 
@@ -339,13 +342,15 @@ class Calibration(object):
             objfun=ObjFunSSE(), \
             paramslib=None, \
             timeit=False, \
-            hitbounds=True):
+            hitbounds=True,
+            objfun_kwargs={}):
 
         # Initialise calparams
         calparams.truevalues = calparams.model.params.defaults
         self._calparams = calparams
 
         self._objfun = objfun
+        self._objfun_kwargs = objfun_kwargs
 
         self.warmup = warmup
         self.timeit = timeit
@@ -396,7 +401,6 @@ class Calibration(object):
                         '#{0} is invalid after back transform: {1}'.format(ip, \
                         clipped2))
 
-
                 paramslib[ip, :] = clipped
 
         self._paramslib = paramslib
@@ -427,6 +431,16 @@ class Calibration(object):
     @property
     def objfun(self):
         return self._objfun
+
+
+    @property
+    def objfun_args(self):
+        return self._objfun_args
+
+
+    @property
+    def objfun_kwargs(self):
+        return self._objfun_kwargs
 
 
     @property
@@ -560,7 +574,8 @@ class Calibration(object):
         # Systematic exploration of parameter library
         for i, values in enumerate(paramslib):
             # Run fitfun with untransformed parameters
-            ofun = fitfun(values, calib=self, transformed=False)
+            ofun = fitfun(values, calib=self, \
+                        use_transformed_parameters=False)
             ofuns[i] = ofun
 
             # Store minimum of objfun
@@ -611,7 +626,8 @@ class Calibration(object):
             kwargs['disp'] = 0
 
         # First run of fitfun
-        fitfun_start = fitfun(start, calib=self, transformed=True)
+        fitfun_start = fitfun(start, calib=self, \
+                            use_transformed_parameters=True)
 
         # Apply the optimizer several times to ensure convergence
         calparams = self.calparams
@@ -624,7 +640,8 @@ class Calibration(object):
                         *args, **kwargs)
 
             calparams.values = tfinal
-            fitfun_final = fitfun(tfinal, calib=self, transformed=True)
+            fitfun_final = fitfun(tfinal, calib=self, \
+                                use_transformed_parameters=True)
 
             # Loop
             start = tfinal

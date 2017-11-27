@@ -15,7 +15,7 @@ from pygme.model import Model
 from pygme.calibration import Calibration, CalibParamsVector
 from pygme.calibration import ObjFunSSE, ObjFunBCSSE
 
-from dummy import Dummy, CalibrationDummy
+from dummy import Dummy, CalibrationDummy, ObjFunSSEargs
 
 BC = BoxCox()
 
@@ -65,7 +65,7 @@ class ObjFunTestCases(unittest.TestCase):
         for lam in [0.1, 0.5, 1., 2]:
             of = ObjFunBCSSE(lam)
             value = of.compute(self.obs, self.sim)
-            BC['lambda'] = lam
+            BC.lam = lam
             err = BC.forward(self.obs)-BC.forward(self.sim)
             expected = np.nansum(err*err)
             self.assertTrue(np.isclose(value, expected))
@@ -282,6 +282,34 @@ class CalibrationTestCases(unittest.TestCase):
         calib = CalibrationDummy(warmup=10)
         calib.allocate(obs, inputs)
         calib.ical = np.arange(10, obs.shape[0])
+
+        start, _, _ = calib.explore()
+        final, _, _ = calib.fit(iprint=10,
+                                    maxfun=100000, ftol=1e-8)
+        ck = np.allclose(calib.model.params.values, params)
+        self.assertTrue(ck)
+
+
+    def test_explore_fit_args(self):
+        inputs = np.random.exponential(1, (100, 2))
+        dum = Dummy()
+        dum.allocate(inputs, 2)
+        dum.initialise()
+
+        calib = CalibrationDummy(warmup=10)
+        params = calib.paramslib[0, :]+0.1
+        dum.params.values = params
+        dum.run()
+
+        obs = dum.outputs[:, 0]
+
+        ical = np.arange(10, obs.shape[0])
+        kwargs = {'lam':1.0, 'idx':np.arange(len(ical))}
+        calib = CalibrationDummy(objfun=ObjFunSSEargs(), \
+                    warmup=10, \
+                    objfun_kwargs=kwargs)
+        calib.allocate(obs, inputs)
+        calib.ical = ical
 
         start, _, _ = calib.explore()
         final, _, _ = calib.fit(iprint=10,

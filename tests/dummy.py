@@ -1,9 +1,25 @@
 import numpy as np
 
+from hydrodiy.stat.transform import BoxCox
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 
-from pygme.calibration import Calibration, CalibParamsVector
+from pygme.calibration import Calibration, CalibParamsVector, ObjFun, ObjFunSSE
+
+
+class ObjFunSSEargs(ObjFun):
+
+    def __init__(self):
+        super(ObjFunSSEargs, self).__init__('SSE')
+        self.BC = BoxCox()
+
+    def compute(self, obs, sim, **kwargs):
+        idx = kwargs['idx']
+        self.BC.lam = kwargs['lam']
+        err = self.BC.forward(obs[idx])-self.BC.forward(sim[idx])
+        return np.nansum(err*err)
+
+
 
 
 class Dummy(Model):
@@ -107,7 +123,9 @@ class MassiveDummy2(Model):
 
 class CalibrationDummy(Calibration):
 
-    def __init__(self, warmup, fixed=None):
+    def __init__(self, warmup, fixed=None, \
+                objfun=ObjFunSSE(), \
+                objfun_kwargs={}):
 
         # Input objects for Calibration class
         model = Dummy()
@@ -125,8 +143,10 @@ class CalibrationDummy(Calibration):
 
         # Instanciate calibration
         Calibration.__init__(self, calparams, \
+            objfun=objfun, \
             warmup=warmup, \
             timeit=True, \
-            paramslib=plib)
+            paramslib=plib, \
+            objfun_kwargs=objfun_kwargs)
 
 

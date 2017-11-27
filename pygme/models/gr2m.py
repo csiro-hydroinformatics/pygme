@@ -60,7 +60,8 @@ class CalibrationGR2M(Calibration):
     def __init__(self, objfun=ObjFunBCSSE(0.2), \
             warmup=36, \
             timeit=False,\
-            fixed=None):
+            fixed=None, \
+            objfun_kwargs={}):
 
         # Input objects for Calibration class
         model = GR2M()
@@ -83,6 +84,8 @@ class CalibrationGR2M(Calibration):
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
-            paramslib=plib)
+            paramslib=plib, \
+            objfun_kwargs=objfun_kwargs)
+
 
 

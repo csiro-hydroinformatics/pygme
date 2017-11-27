@@ -64,7 +64,8 @@ class CalibrationGR4J(Calibration):
     def __init__(self, objfun=ObjFunBCSSE(0.2), \
                     warmup=5*365, \
                     timeit=False, \
-                    fixed=None):
+                    fixed=None, \
+                    objfun_kwargs={}):
 
         # Input objects for Calibration class
         model = GR4J()
@@ -115,6 +116,7 @@ class CalibrationGR4J(Calibration):
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
-            paramslib=plib)
+            paramslib=plib, \
+            objfun_kwargs=objfun_kwargs)
 
 
