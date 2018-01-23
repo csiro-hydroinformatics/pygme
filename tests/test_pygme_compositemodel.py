@@ -41,9 +41,10 @@ class CompositeNodeTestCases(unittest.TestCase):
 
         try:
             nd.add_mapping(4, 2)
-        except ValueError, e:
-            pass
-        self.assertTrue(str(e).startswith('With nd1'))
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('With nd1'))
+        else:
+            raise ValueError('Problem in error handling')
 
     def test_node2(self):
         m = NodeModel(3, 4)
@@ -86,9 +87,10 @@ class CompositeNetworkTestCases(unittest.TestCase):
 
         try:
             ntk.compute_runorder()
-        except ValueError, e:
-            str(e)
-        self.assertTrue(str(e).startswith('Node nd5 is a child'))
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Node nd5 is a child'))
+        else:
+            raise ValueError('Problem in error handling')
 
         ntk['nd5'] = CompositeNode(get_model(1, 2), x=3, y=0.5)
 
@@ -155,8 +157,9 @@ class CompositeModelTestCases(unittest.TestCase):
         cm.run()
 
         o1 = cm.outputs
-        o2 = np.dot(np.repeat(np.sum(inputs, axis=1).reshape((nval, 1)), 2, 1),
-                np.diag([0.5, 0.5]))
+        o2 = np.dot(np.repeat(np.sum(inputs, \
+                                axis=1).reshape((nval, 1)), 2, 1),
+                                    np.diag([0.5, 0.5]))
         ck = np.allclose(o1, o2)
 
 
