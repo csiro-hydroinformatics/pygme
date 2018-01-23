@@ -21,6 +21,7 @@ class UtilsTestCases(unittest.TestCase):
         self.FOUT = FTEST
 
     def test_dayinmonth(self):
+        ''' Test computation of day in month '''
         dt = pd.date_range('1800-01-01', '2200-12-31', freq='MS')
 
         for d in dt:
@@ -32,6 +33,7 @@ class UtilsTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
     def test_dayofyear(self):
+        ''' Test computation of day of year '''
         dt = pd.date_range('1800-01-01', '2200-12-31', freq='10D')
 
         for d in dt:
@@ -48,6 +50,7 @@ class UtilsTestCases(unittest.TestCase):
 
 
     def test_add1day(self):
+        ''' Test one day shift '''
         dt = pd.date_range('1800-01-01', '2200-12-31', freq='10D')
 
         for i, d in enumerate(dt):
@@ -64,6 +67,7 @@ class UtilsTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
     def test_add1month(self):
+        ''' Test one month shift '''
         dt = pd.date_range('1800-01-01', '2200-12-31', freq='10D')
 
         for i, d in enumerate(dt):
@@ -79,7 +83,7 @@ class UtilsTestCases(unittest.TestCase):
 
 
     def test_accumulate(self):
-
+        ''' Test accumulation '''
         nval = 365
         a = np.ones(nval)
         start = 20010101.
@@ -87,7 +91,8 @@ class UtilsTestCases(unittest.TestCase):
         b = np.zeros((nval, 3))
         utils.accumulate(start, mstart, a, b)
 
-        expected = np.array(range(1, 60) + range(1, 307)).astype(float)
+        expected = np.concatenate([np.arange(1, 60), \
+                                    np.arange(1, 307)]).astype(float)
         ck = np.allclose(b[:, 0], expected)
         self.assertTrue(ck)
 
@@ -95,12 +100,13 @@ class UtilsTestCases(unittest.TestCase):
         ck = np.allclose(b[:, 1], expected)
         self.assertTrue(ck)
 
-        expected = np.array([np.nan]*59 + range(1, 307)).astype(float)
+        expected = np.concatenate([[np.nan]*59, \
+                                np.arange(1, 307)]).astype(float)
         ck = np.allclose(b[59:, 2], expected[59:])
         self.assertTrue(ck)
 
 
-    def test_root_square_error(self):
+    def test_rootfind_error(self):
 
         niter = np.zeros((1,), np.int32)
         status = np.zeros((1,), np.int32)
@@ -111,13 +117,14 @@ class UtilsTestCases(unittest.TestCase):
         roots = np.array([0., b/2, b]).astype(np.float64)
         args = np.array([0., b, c]).astype(np.float64)
 
-        ierr = utils.root_square_test(1, eps, niter,
+        ierr = utils.rootfind_test(1, eps, niter,
                 status, roots, args)
 
         self.assertTrue(ierr>0)
 
 
-    def test_root_square(self):
+    def test_rootfind(self):
+        ''' Test root finder '''
 
         niter = np.zeros((1,), np.int32)
         status = np.zeros((1,), np.int32)
@@ -138,7 +145,7 @@ class UtilsTestCases(unittest.TestCase):
             roots = np.array([0., b/2, b]).astype(np.float64)
             args = np.array([a, b, c]).astype(np.float64)
 
-            ierr = utils.root_square_test(1, eps, niter,
+            ierr = utils.rootfind_test(1, eps, niter,
                 status, roots, args)
 
             ck1 = ierr == 0

@@ -21,41 +21,41 @@
 #define UTILS_PI 3.14159265358979
 
 /* utility functions */
-double c_utils_minmax(double min,double max,double input);
+double c_minmax(double min,double max,double input);
 
 
-double c_utils_tanh(double x);
+double c_tanh(double x);
 
 
-int c_utils_isleapyear(int year);
+int c_isleapyear(int year);
 
 
-int c_utils_daysinmonth(int year, int month);
+int c_daysinmonth(int year, int month);
 
 
-int c_utils_dayofyear(int month, int day);
+int c_dayofyear(int month, int day);
 
 
-int c_utils_add1month(int * date);
+int c_add1month(int * date);
 
 
-int c_utils_add1day(int * date);
+int c_add1day(int * date);
 
 
-int c_utils_getdate(double day, int * date);
+int c_getdate(double day, int * date);
 
 
-int c_utils_accumulate(int nval, double start,
+int c_accumulate(int nval, double start,
         int year_monthstart,
         double * inputs, double * outputs);
 
 
-int c_utils_root_square(double (*fun)(double, int, double *),
+int c_rootfind(double (*fun)(double, int, double *),
         int *niter, int * status, double eps,
         double * roots, int nargs, double * args);
 
 
-int c_utils_root_square_test(int ntest, int *niter, int *status,
+int c_rootfind_test(int ntest, int *niter, int *status,
         double eps, double * roots,
         int nargs, double * args);
 

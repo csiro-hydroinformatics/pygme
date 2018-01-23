@@ -1,13 +1,13 @@
 #include "c_utils.h"
 
 
-double c_utils_minmax(double min, double max, double input)
+double c_minmax(double min, double max, double input)
 {
     return input < min ? min :
             input > max ? max : input;
 }
 
-double c_utils_tanh(double x)
+double c_tanh(double x)
 {
     double a, b, xsq;
     x = x > 4.9 ? 4.9 : x;
@@ -18,12 +18,12 @@ double c_utils_tanh(double x)
 }
 
 
-int c_utils_isleapyear(int year)
+int c_isleapyear(int year)
 {
     return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
 }
 
-int c_utils_daysinmonth(int year, int month)
+int c_daysinmonth(int year, int month)
 {
     int n;
     int days_in_month[13] = {0, 31, 28, 31, 30, 31, 30,
@@ -34,11 +34,11 @@ int c_utils_daysinmonth(int year, int month)
 
 	n = days_in_month[month];
 
-    return c_utils_isleapyear(year) == 1 && month == 2 ? n+1 : n;
+    return c_isleapyear(year) == 1 && month == 2 ? n+1 : n;
 }
 
 
-int c_utils_dayofyear(int month, int day)
+int c_dayofyear(int month, int day)
 {
     int day_of_year[13] = {0, 0, 31, 59, 90, 120,
                         151, 181, 212, 243, 273, 304, 334};
@@ -55,7 +55,7 @@ int c_utils_dayofyear(int month, int day)
 }
 
 
-int c_utils_add1month(int * date)
+int c_add1month(int * date)
 {
     int nbday;
 
@@ -73,7 +73,7 @@ int c_utils_add1month(int * date)
 
     /* Check that day is not greater than
      * number of days in month */
-    nbday = c_utils_daysinmonth(date[0], date[1]);
+    nbday = c_daysinmonth(date[0], date[1]);
     if(nbday < 0)
         return UTILS_ERROR + __LINE__;
 
@@ -83,10 +83,10 @@ int c_utils_add1month(int * date)
    return 0;
 }
 
-int c_utils_add1day(int * date)
+int c_add1day(int * date)
 {
     int nbday;
-    nbday = c_utils_daysinmonth(date[0], date[1]);
+    nbday = c_daysinmonth(date[0], date[1]);
 
     if(nbday < 0)
         return UTILS_ERROR + __LINE__;
@@ -120,7 +120,7 @@ int c_utils_add1day(int * date)
     return 0;
 }
 
-int c_utils_getdate(double day, int * date)
+int c_getdate(double day, int * date)
 {
     int year, month, nday, nbday;
 
@@ -131,7 +131,7 @@ int c_utils_getdate(double day, int * date)
     if(month < 0 || month > 12)
         return UTILS_ERROR + __LINE__;
 
-    nbday = c_utils_daysinmonth(year, month);
+    nbday = c_daysinmonth(year, month);
     if(nday < 0 || nday > nbday)
         return UTILS_ERROR + __LINE__;
 
@@ -146,14 +146,14 @@ int c_utils_getdate(double day, int * date)
     of input vector with a reset at the beginning of
     each water year. The function also computes the water year
     and the day of the water year */
-int c_utils_accumulate(int nval, double start,
+int c_accumulate(int nval, double start,
         int year_monthstart,
         double * inputs, double * outputs)
 {
     int i, ierr, date[3];
     double CS, I1, I2, WY, DOY;
 
-    ierr = c_utils_getdate(start, date);
+    ierr = c_getdate(start, date);
     if(ierr < 0)
         return UTILS_ERROR + __LINE__;
 
@@ -169,7 +169,8 @@ int c_utils_accumulate(int nval, double start,
     {
         DOY += 1;
 
-        if(date[1] == year_monthstart && date[2] == 1){
+        if(date[1] == year_monthstart && date[2] == 1)
+        {
             CS = 0;
             WY += 1;
             DOY = 1;
@@ -177,11 +178,10 @@ int c_utils_accumulate(int nval, double start,
 
         /* Skip day of year for leap years so that all years have
             a max doy of 365 */
-        if(date[1] == 2 && date[2] == 29){
+        if(date[1] == 2 && date[2] == 29)
             DOY -= 1;
-        }
 
-        ierr = c_utils_add1day(date);
+        ierr = c_add1day(date);
 
         I1 = inputs[i];
         if(!isnan(I1))
@@ -197,11 +197,11 @@ int c_utils_accumulate(int nval, double start,
 }
 
 /* This is a simplistic root finder for function fun */
-int c_utils_root_square(double (*fun)(double, int, double *),
+int c_rootfind(double (*fun)(double, int, double *),
         int *niter, int *status, double eps,
-        double * roots,
-        int nargs, double * args){
-
+        double *roots,
+        int nargs, double * args)
+{
     int i, nitermax;
     double values[3];
     double a, b, c, D, E, F, G, H, I, J, x0;
@@ -218,7 +218,8 @@ int c_utils_root_square(double (*fun)(double, int, double *),
         return UTILS_ERROR + __LINE__;
 
     df0 = 1e30;
-    for(i=0; i<3; i++){
+    for(i=0; i<3; i++)
+    {
         values[i]= fun(roots[i], nargs, args);
 
         /* Computes reference for convergence test */
@@ -243,16 +244,18 @@ int c_utils_root_square(double (*fun)(double, int, double *),
     dx0 *= eps;
 
     /* Convergence loop */
-    while(*niter < nitermax){
-
+    while(*niter < nitermax)
+    {
         /* Check convergence */
-        if(df < df0 || df<eps){
+        if(df < df0 || df<eps)
+        {
             *status = 2;
             return 0;
         }
 
         dx = fabs(roots[0]-roots[2]);
-        if(dx < dx0 || dx<eps){
+        if(dx < dx0 || dx<eps)
+        {
             *status = 3;
             return 0;
         }
@@ -298,8 +301,8 @@ int c_utils_root_square(double (*fun)(double, int, double *),
         I = D+E+F;
 
         J = H*H-4*G*I;
-        if(J<0){
-
+        if(J<0)
+        {
             fprintf(stdout, "\n\nIter [%d]:\n", *niter);
             for(i=0; i<3; i++)
                 fprintf(stdout, "f(%f) = %0.10f\n", roots[i], values[i]);
@@ -319,7 +322,8 @@ int c_utils_root_square(double (*fun)(double, int, double *),
         *niter = *niter + 1;
 
         df = 1e30;
-        for(i=0; i<3; i++){
+        for(i=0; i<3; i++)
+        {
             values[i]= fun(roots[i], nargs, args);
 
             if(fabs(values[i]) < df)
@@ -333,7 +337,12 @@ int c_utils_root_square(double (*fun)(double, int, double *),
 }
 
 
-double funtest1(double x, int nargs, double * args){
+/*
+ * Root finding function to be used in the test
+ * y = -a+x/(1+(x/b)^c)^(1/c)
+ */
+double funtest1(double x, int nargs, double * args)
+{
     double a, b, c, y;
     a = args[0];
     b = args[1];
@@ -342,12 +351,15 @@ double funtest1(double x, int nargs, double * args){
     return y;
 }
 
-int c_utils_root_square_test(int ntest, int *niter, int *status,
+/*
+ * Testing root finding
+ */
+int c_rootfind_test(int ntest, int *niter, int *status,
         double eps,
-        double * roots, int nargs, double * args){
-
+        double * roots, int nargs, double * args)
+{
     if(ntest == 1)
-        return c_utils_root_square(funtest1, niter,
+        return c_rootfind(funtest1, niter,
             status, eps, roots, nargs, args);
     else
         return UTILS_ERROR + __LINE__;

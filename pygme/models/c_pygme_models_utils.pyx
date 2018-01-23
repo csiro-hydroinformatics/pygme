@@ -5,19 +5,19 @@ np.import_array()
 
 # -- HEADERS --
 cdef extern from 'c_utils.h':
-    int c_utils_daysinmonth(int year, int month)
+    int c_daysinmonth(int year, int month)
 
-    int c_utils_dayofyear(int month, int day)
+    int c_dayofyear(int month, int day)
 
-    int c_utils_add1day(int * date)
+    int c_add1day(int * date)
 
-    int c_utils_add1month(int * date)
+    int c_add1month(int * date)
 
-    int c_utils_accumulate(int nval, double start,
+    int c_accumulate(int nval, double start,
             int year_monthstart,
             double * inputs, double * outputs)
 
-    int c_utils_root_square_test(int ntest,
+    int c_rootfind_test(int ntest,
         int *niter, int *status, double eps,
         double * roots,
         int nargs, double * args)
@@ -63,18 +63,18 @@ def uh_getuh(int nuhlengthmax, int uhid, double lag,
 
 
 def daysinmonth(int year, int month):
-    return c_utils_daysinmonth(year, month)
+    return c_daysinmonth(year, month)
 
 
 def dayofyear(int month, int day):
-    return c_utils_dayofyear(month, day)
+    return c_dayofyear(month, day)
 
 
 def add1day(np.ndarray[int, ndim=1, mode='c'] date not None):
 
     cdef int ierr
 
-    ierr = c_utils_add1day(<int*> np.PyArray_DATA(date))
+    ierr = c_add1day(<int*> np.PyArray_DATA(date))
 
     return ierr
 
@@ -83,7 +83,7 @@ def add1month(np.ndarray[int, ndim=1, mode='c'] date not None):
 
     cdef int ierr
 
-    ierr = c_utils_add1month(<int*> np.PyArray_DATA(date))
+    ierr = c_add1month(<int*> np.PyArray_DATA(date))
 
     return ierr
 
@@ -100,7 +100,7 @@ def accumulate(double start, int year_monthstart,
     if outputs.shape[1] != 3:
         raise ValueError('outputs.shape[1] != 3')
 
-    ierr = c_utils_accumulate(inputs.shape[0], start,
+    ierr = c_accumulate(inputs.shape[0], start,
         year_monthstart,
         <double*> np.PyArray_DATA(inputs),
         <double*> np.PyArray_DATA(outputs))
@@ -108,7 +108,7 @@ def accumulate(double start, int year_monthstart,
     return ierr
 
 
-def root_square_test(int ntest, double eps,
+def rootfind_test(int ntest, double eps,
         np.ndarray[int, ndim=1, mode='c'] niter not None,
         np.ndarray[int, ndim=1, mode='c'] status not None,
         np.ndarray[double, ndim=1, mode='c'] roots not None,
@@ -125,7 +125,7 @@ def root_square_test(int ntest, double eps,
     if roots.shape[0] != 3:
         raise ValueError('roots.shape[0] != 3')
 
-    ierr = c_utils_root_square_test(ntest,
+    ierr = c_rootfind_test(ntest,
         <int*> np.PyArray_DATA(niter),
         <int*> np.PyArray_DATA(status),
         eps,

@@ -7,10 +7,10 @@ int gr4j_minmaxparams(int nparams, double * params)
     if(nparams<4)
         return GR4J_ERROR + __LINE__;
 
-	params[0] = c_utils_minmax(1,1e5,params[0]); 	// S
-	params[1] = c_utils_minmax(-50,50,params[1]);	// IGF
-	params[2] = c_utils_minmax(1,1e5,params[2]); 	// R
-	params[3] = c_utils_minmax(0.5,50,params[3]); // TB
+	params[0] = c_minmax(1, 1e5, params[0]); 	// S
+	params[1] = c_minmax(-50, 50, params[1]);	// IGF
+	params[2] = c_minmax(1, 1e5, params[2]); 	// R
+	params[3] = c_minmax(0.5, 50, params[3]); // TB
 
 	return 0;
 }
@@ -30,7 +30,7 @@ int gr4j_production(double P, double E,
     if(P>E)
     {
         WS =(P-E)/Scapacity;
-        TWS = c_utils_tanh(WS);
+        TWS = c_tanh(WS);
 
         ES = 0;
         PS = Scapacity*(1-SR*SR)*TWS;
@@ -41,7 +41,7 @@ int gr4j_production(double P, double E,
     else
     {
     	WS = (E-P)/Scapacity;
-        TWS = c_utils_tanh(WS);
+        TWS = c_tanh(WS);
 
     	ES = S*(2-SR)*TWS;
         ES /= (1+(1-SR)*TWS);
