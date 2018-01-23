@@ -11,7 +11,7 @@ from hydrodiy.data.containers import Vector
 LOGGER = logging.getLogger(__name__)
 
 # Setup box cox transform
-BC = transform.BoxCox()
+BC = transform.BoxCox1()
 
 
 def format_array(x, fmt='3.3e'):
@@ -56,7 +56,13 @@ class ObjFunSSE(ObjFun):
 
 
 class ObjFunBCSSE(ObjFun):
-    ''' Sum of squared error objective function '''
+    ''' Sum of squared error objective function
+        for BC transformed flows.
+
+        See transform class in package hydrodiy
+        hydrodiy.stat.transforms.BoxCox1
+
+    '''
 
     def __init__(self, lam=0.2):
         super(ObjFunBCSSE, self).__init__('BCSSE')
@@ -67,8 +73,14 @@ class ObjFunBCSSE(ObjFun):
 
 
     def compute(self, obs, sim, **kwargs):
+        # Set constants for BoxCox1 transform
+        self.trans.constants.x0 = np.nanmean(obs)*1e-3
+
+        # Transform data
         tobs = self.trans.forward(obs)
         tsim = self.trans.forward(sim)
+
+        # Compute errors
         err = tobs-tsim
         return np.nansum(err*err)
 

@@ -9,7 +9,7 @@ import logging
 
 import numpy as np
 
-from hydrodiy.stat.transform import BoxCox
+from hydrodiy.stat.transform import BoxCox1
 from hydrodiy.data.containers import Vector
 from pygme.model import Model
 from pygme.calibration import Calibration, CalibParamsVector
@@ -17,7 +17,7 @@ from pygme.calibration import ObjFunSSE, ObjFunBCSSE
 
 from dummy import Dummy, CalibrationDummy, ObjFunSSEargs
 
-BC = BoxCox()
+BC = BoxCox1()
 
 # Set logger
 LOGGER = logging.getLogger('pygme.Calibration')
@@ -66,6 +66,7 @@ class ObjFunTestCases(unittest.TestCase):
             of = ObjFunBCSSE(lam)
             value = of.compute(self.obs, self.sim)
             BC.lam = lam
+            BC.constants.x0 = np.nanmean(self.obs)*1e-3
             err = BC.forward(self.obs)-BC.forward(self.sim)
             expected = np.nansum(err*err)
             self.assertTrue(np.isclose(value, expected))
