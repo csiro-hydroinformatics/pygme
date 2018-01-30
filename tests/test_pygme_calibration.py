@@ -63,13 +63,14 @@ class ObjFunTestCases(unittest.TestCase):
 
     def test_BCSSE(self):
         for lam in [0.1, 0.5, 1., 2]:
-            of = ObjFunBCSSE(lam)
-            value = of.compute(self.obs, self.sim)
-            BC.lam = lam
-            BC.constants.x0 = np.nanmean(self.obs)*1e-3
-            err = BC.forward(self.obs)-BC.forward(self.sim)
-            expected = np.nansum(err*err)
-            self.assertTrue(np.isclose(value, expected))
+            for msf in [1e-4, 1e-2, 1]:
+                of = ObjFunBCSSE(lam, msf)
+                value = of.compute(self.obs, self.sim)
+                BC.lam = lam
+                BC.x0 = np.nanmean(self.obs)*msf
+                err = BC.forward(self.obs)-BC.forward(self.sim)
+                expected = np.nansum(err*err)
+                self.assertTrue(np.isclose(value, expected))
 
 
 
@@ -368,15 +369,53 @@ class CalibrationTestCases(unittest.TestCase):
         dum.run()
         obs = dum.outputs[:, 0]
 
+        # Instanciate a new calib obj
         calib = CalibrationDummy(warmup=10)
+
+        # Check parameter are not close at the beginning
+        ck = ~np.allclose(calib.model.params.values, params)
+        self.assertTrue(ck)
+
+        # Run calibration
         ical = np.arange(10, obs.shape[0])
         calib.workflow(obs, inputs, ical, iprint=0,
                 maxfun=100000, ftol=1e-8)
 
+        # Test parameters at the end
         ck = np.allclose(calib.model.params.values, params)
         self.assertTrue(ck)
 
 
+    def test_customised_objfun(self):
+        inputs = np.random.exponential(1, (100, 2))
+        dum = Dummy()
+        dum.allocate(inputs, 2)
+
+        # Run model
+        calib = CalibrationDummy(warmup=10)
+        params = calib.paramslib[0, :]+0.1
+        dum.params.values = params
+        dum.run()
+        obs = dum.outputs[:, 0]
+
+        # Define a customized objective function
+        objfun = ObjFunBCSSE(lam=0.8, meanshiftfactor=1e-1)
+
+        # Instanciate a new calib obj and applies objfun
+        calib = CalibrationDummy(warmup=10, objfun=objfun)
+
+        # Check parameter are not close at the beginning
+        ck = ~np.allclose(calib.model.params.values, params)
+        self.assertTrue(ck)
+
+        # Run calibration
+        ical = np.arange(10, obs.shape[0])
+        calib.workflow(obs, inputs, ical, iprint=0,
+                maxfun=100000, ftol=1e-8)
+
+        # Test parameters at the end
+        ck = np.allclose(calib.model.params.values, params, atol=1e-3)
+        self.assertTrue(ck)
 
 
 if __name__ == "__main__":

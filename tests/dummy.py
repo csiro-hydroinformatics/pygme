@@ -14,7 +14,7 @@ class ObjFunSSEargs(ObjFun):
         self.BC = BoxCox1()
 
     def compute(self, obs, sim, **kwargs):
-        self.BC.constants.x0 = np.nanmean(obs)*1e-3
+        self.BC.x0 = np.nanmean(obs)*1e-3
         idx = kwargs['idx']
         self.BC.lam = kwargs['lam']
         err = self.BC.forward(obs[idx])-self.BC.forward(sim[idx])

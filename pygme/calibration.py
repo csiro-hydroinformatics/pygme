@@ -46,7 +46,7 @@ class ObjFunSSE(ObjFun):
     ''' Sum of squared error objective function '''
 
     def __init__(self):
-        super(ObjFunSSE, self).__init__('SSE')
+        super(ObjFunSSE, self).__init__('SSE', 1)
 
 
     def compute(self, obs, sim, **kwargs):
@@ -64,17 +64,18 @@ class ObjFunBCSSE(ObjFun):
 
     '''
 
-    def __init__(self, lam=0.2):
-        super(ObjFunBCSSE, self).__init__('BCSSE')
+    def __init__(self, lam=0.5, meanshiftfactor=1e-3):
+        super(ObjFunBCSSE, self).__init__('BCSSE', 1)
 
         # Set Transform
         BC.lam = lam
+        self.meanshiftfactor = meanshiftfactor
         self.trans = BC
 
 
     def compute(self, obs, sim, **kwargs):
         # Set constants for BoxCox1 transform
-        self.trans.constants.x0 = np.nanmean(obs)*1e-3
+        self.trans.constants.x0 = np.nanmean(obs)*self.meanshiftfactor
 
         # Transform data
         tobs = self.trans.forward(obs)
