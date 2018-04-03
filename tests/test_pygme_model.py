@@ -241,6 +241,20 @@ class ModelTestCases(unittest.TestCase):
         str = '{0}'.format(dum)
 
 
+    def test_outputs_names(self):
+        dum = Dummy()
+        self.assertEqual(dum.outputs_names, ['a', 'b'])
+
+        dum.outputs_names = ['d', 'e']
+
+        try:
+            dum.outputs_names = ['a', 'b', 'c']
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('model dummy: Trying'))
+        else:
+            raise ValueError('Problem with error handling')
+
+
     def test_allocate(self):
         dum = Dummy()
         inputs = np.random.uniform(0, 1, (1000, 2))

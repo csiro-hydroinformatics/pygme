@@ -61,6 +61,9 @@ class LagRoute(Model):
             ninputs=1, \
             noutputsmax=4)
 
+        self.outputs_names = ['Q', 'Q1lag', \
+                    'VR', 'V1']
+
 
     def run(self):
 

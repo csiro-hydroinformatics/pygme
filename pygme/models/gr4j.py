@@ -37,6 +37,10 @@ class GR4J(Model):
             ninputs=2, \
             noutputsmax=9)
 
+        self.outputs_names = ['Q', 'ech1+ech2', 'ES+EN', \
+                    'PR', 'QD', 'QR', 'PERC', 'S', 'R']
+
+
     def run(self):
         # Get uh object (not set_timebase function, see ParamsVector class)
         _, uh1 = self.params.uhs[0]

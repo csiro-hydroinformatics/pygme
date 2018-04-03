@@ -32,6 +32,9 @@ class GR2M(Model):
             ninputs=2, \
             noutputsmax=9)
 
+        self.outputs_names = ['Q', 'F', 'P1', 'P2', 'P3', \
+                            'R1', 'R2', 'S', 'R']
+
 
     def initialise(self, states=None, uhs=None):
         ''' Initialise state vector and potentially all UH states vectors '''

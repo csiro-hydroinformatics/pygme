@@ -46,6 +46,8 @@ class Dummy(Model):
             ninputs=2, \
             noutputsmax=2)
 
+        self.outputs_names = ['a', 'b']
+
 
     def run(self):
         istart, iend = self.istart, self.iend

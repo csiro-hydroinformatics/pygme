@@ -280,6 +280,8 @@ class Model(object):
         # data
         self._inputs = None
         self._outputs = None
+        self._outputs_names = ['output{0:02d}'.format(i) \
+                                    for i in range(self._noutputsmax)]
 
         # Start/end index
         self._istart = None
@@ -290,7 +292,7 @@ class Model(object):
         # Except certain names to avoid infinite recursion
         if name in ['name', '_config', '_params', '_states', '_ninputs', \
             '_noutputsmax', '_noutputs', '_inputs', '_outputs', '_istart', \
-            '_iend']:
+            '_iend', '_outputs_names']:
             return super(Model, self).__getattribute__(name)
 
         if name in self._params.names:
@@ -309,7 +311,7 @@ class Model(object):
         # Except certain names to avoid infinite recursion
         if name in ['name', '_config', '_params', '_states', '_ninputs', \
             '_noutputsmax', '_noutputs', '_inputs', '_outputs', '_istart', \
-            '_iend']:
+            '_iend', '_outputs_names']:
             super(Model, self).__setattr__(name, value)
             return
 
@@ -449,6 +451,22 @@ class Model(object):
     @property
     def noutputsmax(self):
         return self._noutputsmax
+
+
+    @property
+    def outputs_names(self):
+        return self._outputs_names
+
+    @outputs_names.setter
+    def outputs_names(self, values):
+        ''' Set outputs names '''
+        if len(values) != self.noutputsmax:
+            raise ValueError(('model {0}: Trying to set outputs names, '+\
+                'a vector of length {0} is expected, got {1}').format(\
+                    self.name, self.noutputsmax, len(values)))
+
+        self._outputs_names = ['{0}'.format(nm) for nm in values]
+
 
 
     @property
