@@ -1,76 +1,26 @@
-#include "c_gr4j.h"
+#include "c_gr6j.h"
 #include "c_uh.h"
 
 
-int gr4j_minmaxparams(int nparams, double * params)
+int gr6j_minmaxparams(int nparams, double * params)
 {
     if(nparams<4)
-        return GR4J_ERROR + __LINE__;
+        return GR6J_ERROR + __LINE__;
 
 	params[0] = c_minmax(1, 1e5, params[0]); 	// S
 	params[1] = c_minmax(-50, 50, params[1]);	// IGF
 	params[2] = c_minmax(1, 1e5, params[2]); 	// R
 	params[3] = c_minmax(0.5, 50, params[3]); // TB
 
+    /* TODO */
+	params[4] = c_minmax(0.5, 50, params[3]); // TB
+	params[5] = c_minmax(0.5, 50, params[3]); // TB
+
 	return 0;
 }
 
 
-int gr4j_production(double P, double E,
-        double Scapacity,
-        double S,
-        double * prod)
-{
-    double SR, TWS, WS, PS, ES, EN=0, PR, PERC, S2;
-
-    /* production store */
-    SR = S/Scapacity;
-    SR = SR > 1. ? 1. : SR;
-
-    if(P>E)
-    {
-        WS =(P-E)/Scapacity;
-        TWS = c_tanh(WS);
-
-        ES = 0;
-        PS = Scapacity*(1-SR*SR)*TWS;
-        PS /= (1+SR*TWS);
-    	PR = P-E-PS;
-    	EN = 0;
-    }
-    else
-    {
-    	WS = (E-P)/Scapacity;
-        TWS = c_tanh(WS);
-
-    	ES = S*(2-SR)*TWS;
-        ES /= (1+(1-SR)*TWS);
-    	PS = 0;
-    	PR = 0;
-    	EN = E-P;
-    }
-    S += PS-ES;
-
-    /* percolation */
-    SR = S/Scapacity/2.25;
-    S2 = S/sqrt(sqrt(1.+SR*SR*SR*SR));
-
-    PERC = S-S2;
-    S = S2;
-    PR += PERC;
-
-    prod[0] = EN;
-    prod[1] = PS;
-    prod[2] = ES;
-    prod[3] = PERC;
-    prod[4] = PR;
-    prod[5] = S;
-
-    return 0;
-}
-
-
-int gr4j_runtimestep(int nparams,
+int gr6j_runtimestep(int nparams,
     int nuh1, int nuh2,
     int ninputs,
     int nstates,
@@ -86,7 +36,7 @@ int gr4j_runtimestep(int nparams,
 {
     int ierr=0;
 
-    double Q, P, E, Q1, Q9;
+    double Q, P, E, Q9, Q1;
     double prod[6];
     double ES, PS, PR;
     double PERC,ECH,TP,R2,QR,QD;
@@ -100,7 +50,7 @@ int gr4j_runtimestep(int nparams,
     E = inputs[1];
     E = E < 0 ? 0 : E;
 
-    /* Production */
+    /* GR4J Production */
     gr4j_production(P, E, params[0], states[0], prod);
 
     EN = prod[0];
@@ -117,10 +67,12 @@ int gr4j_runtimestep(int nparams,
     /* Potential Water exchange */
     RR = states[1]/params[2];
     ECH = params[1]*RR*RR*RR*sqrt(RR);
+	//double rdivx3 = R / x3 - x5;
+	//F = x2*pow(rdivx3, 1.0);
 
     /* Routing store calculation */
     Q9 = *uhoutput1 * 0.9;
-    TP = states[1] + Q9 + ECH;
+    TP = states[1] + Q9 * 0.6 + ECH;
 
     /* Case where Reservoir content is not sufficient */
     ech1 = ECH-TP;
@@ -141,7 +93,7 @@ int gr4j_runtimestep(int nparams,
     QD = 0;
 
     /* Case where the UH cannot provide enough water */
-    Q1 = *uhoutput2 * 0.1;
+    Q1 = *uhoutput2 * 0.1
     TP = Q1 + ECH;
     ech2 = ECH-TP;
     QD = 0;
@@ -151,6 +103,9 @@ int gr4j_runtimestep(int nparams,
         QD = TP;
         ech2 = ECH;
     }
+
+    /* Exponential reservoir */
+    states[2] =  states[2] + Q9 * 0.4;
 
     /* TOTAL STREAMFLOW */
     Q = QD + QR;
@@ -198,12 +153,17 @@ int gr4j_runtimestep(int nparams,
 	else
 		return ierr;
 
+    if(noutputs>9)
+	    outputs[9] = states[2];
+	else
+		return ierr;
+
 	return ierr;
 }
 
 
 /* --------- Model runner ----------*/
-int c_gr4j_run(int nval, int nparams,
+int c_gr6j_run(int nval, int nparams,
     int nuh1, int nuh2,
     int ninputs,
     int nstates,
@@ -221,32 +181,32 @@ int c_gr4j_run(int nval, int nparams,
     int ierr=0, i;
 
     /* Check dimensions */
-    if(noutputs > GR4J_NOUTPUTS)
-        return GR4J_ERROR + __LINE__;
+    if(noutputs > GR6J_NOUTPUTS)
+        return GR6J_ERROR + __LINE__;
 
-    if(nstates > GR4J_NSTATES)
-        return GR4J_ERROR + __LINE__;
+    if(nstates > GR6J_NSTATES)
+        return GR6J_ERROR + __LINE__;
 
     if(nuh1+nuh2 > NUHMAXLENGTH)
-        return GR4J_ERROR + __LINE__;
+        return GR6J_ERROR + __LINE__;
 
     if(nuh1 <= 0 || nuh2 <= 0)
-        return GR4J_ERROR + __LINE__;
+        return GR6J_ERROR + __LINE__;
 
     if(start < 0)
-        return GR4J_ERROR + __LINE__;
+        return GR6J_ERROR + __LINE__;
 
     if(end >= nval)
-        return GR4J_ERROR + __LINE__;
+        return GR6J_ERROR + __LINE__;
 
     /* Check parameters */
-    ierr = gr4j_minmaxparams(nparams, params);
+    ierr = gr6j_minmaxparams(nparams, params);
 
     /* Run timeseries */
     for(i = start; i <= end; i++)
     {
         /* Run timestep model and update states */
-    	ierr = gr4j_runtimestep(nparams,
+    	ierr = gr6j_runtimestep(nparams,
                 nuh1, nuh2,
                 ninputs,
                 nstates,
