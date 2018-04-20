@@ -40,8 +40,11 @@ int gr6j_runtimestep(int nparams,
     double prod[6];
     double ES, PS, PR;
     double PERC,ECH,TP,R2,QR,QD;
-    double EN, ech1,ech2, RR;
+    double EN, ech1,ech2, RR, AR, QRExp;
     double uhoutput1[1], uhoutput2[1];
+
+    double partition1 = 0.9;
+    double partition2 = 0.6;
 
     /* inputs */
     P = inputs[0];
@@ -66,13 +69,11 @@ int gr6j_runtimestep(int nparams,
 
     /* Potential Water exchange */
     RR = states[1]/params[2];
-    ECH = params[1]*RR*RR*RR*sqrt(RR);
-	//double rdivx3 = R / x3 - x5;
-	//F = x2*pow(rdivx3, 1.0);
+    ECH = params[1]*(RR-params[4]);
 
     /* Routing store calculation */
-    Q9 = *uhoutput1 * 0.9;
-    TP = states[1] + Q9 * 0.6 + ECH;
+    Q9 = *uhoutput1 * partition1;
+    TP = states[1] + Q9 * partition2 + ECH;
 
     /* Case where Reservoir content is not sufficient */
     ech1 = ECH-TP;
@@ -93,7 +94,7 @@ int gr6j_runtimestep(int nparams,
     QD = 0;
 
     /* Case where the UH cannot provide enough water */
-    Q1 = *uhoutput2 * 0.1
+    Q1 = *uhoutput2 * (1-partition1);
     TP = Q1 + ECH;
     ech2 = ECH-TP;
     QD = 0;
@@ -105,10 +106,20 @@ int gr6j_runtimestep(int nparams,
     }
 
     /* Exponential reservoir */
-    states[2] =  states[2] + Q9 * 0.4;
+    states[2] =  states[2] + Q9 * (1-partitions2);
+    AR = states[2]/params[5];
+    AR = AR > 33 ? 33 : AR < -33 ? -33 : AR;
+
+    if(AR > 7) QRExp = states[2]+params[5]/exp(AR);
+    else if (AR < -7) QRExp = params[5]*exp(AR);
+    else QRExp = params[5]*log(exp(AR)+1);
+
+    states[2] -= QRExp;
+
 
     /* TOTAL STREAMFLOW */
-    Q = QD + QR;
+    Q = QD + QR + QRexp;
+    Q = Q < 0 ? 0 : Q;
 
     /* RESULTS */
     outputs[0] = Q;
@@ -144,17 +155,22 @@ int gr6j_runtimestep(int nparams,
 	    return ierr;
 
     if(noutputs>7)
-	    outputs[7] = states[0];
-	else
-		return ierr;
+	outputs[7] = QRExp;
+    else
+	    return ierr;
 
     if(noutputs>8)
-	    outputs[8] = states[1];
+	    outputs[8] = states[0];
 	else
 		return ierr;
 
     if(noutputs>9)
-	    outputs[9] = states[2];
+	    outputs[9] = states[1];
+	else
+		return ierr;
+
+    if(noutputs>10)
+	    outputs[10] = states[2];
 	else
 		return ierr;
 

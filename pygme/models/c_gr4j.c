@@ -93,6 +93,8 @@ int gr4j_runtimestep(int nparams,
     double EN, ech1,ech2, RR;
     double uhoutput1[1], uhoutput2[1];
 
+    double partition1 = 0.9;
+
     /* inputs */
     P = inputs[0];
     P = P < 0 ? 0 : P;
@@ -119,7 +121,7 @@ int gr4j_runtimestep(int nparams,
     ECH = params[1]*RR*RR*RR*sqrt(RR);
 
     /* Routing store calculation */
-    Q9 = *uhoutput1 * 0.9;
+    Q9 = *uhoutput1 * partition1;
     TP = states[1] + Q9 + ECH;
 
     /* Case where Reservoir content is not sufficient */
@@ -141,7 +143,7 @@ int gr4j_runtimestep(int nparams,
     QD = 0;
 
     /* Case where the UH cannot provide enough water */
-    Q1 = *uhoutput2 * 0.1;
+    Q1 = *uhoutput2 * (1-partition1);
     TP = Q1 + ECH;
     ech2 = ECH-TP;
     QD = 0;

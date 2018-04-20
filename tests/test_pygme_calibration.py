@@ -13,7 +13,7 @@ from hydrodiy.stat.transform import BoxCox1
 from hydrodiy.data.containers import Vector
 from pygme.model import Model
 from pygme.calibration import Calibration, CalibParamsVector
-from pygme.calibration import ObjFunSSE, ObjFunBCSSE
+from pygme.calibration import ObjFunSSE, ObjFunBCSSE, ObjFunKGE
 
 from dummy import Dummy, CalibrationDummy, ObjFunSSEargs
 
@@ -58,6 +58,19 @@ class ObjFunTestCases(unittest.TestCase):
         value = of.compute(self.obs, self.sim)
         err = self.obs-self.sim
         expected = np.nansum(err*err)
+        self.assertTrue(np.allclose(value, expected))
+
+
+    def test_KGE(self):
+        of = ObjFunKGE()
+        obs, sim = self.obs, self.sim
+        value = of.compute(obs, sim)
+        idx = (~np.isnan(obs)) & (~np.isnan(sim))
+        obs, sim = obs[idx], sim[idx]
+        bias = np.mean(sim)/np.mean(obs)
+        rstd = np.std(sim)/np.std(obs)
+        corr = np.corrcoef(obs, sim)[0, 1]
+        expected = 1-math.sqrt((1-bias)**2+(1-rstd)**2+(1-corr)**2)
         self.assertTrue(np.allclose(value, expected))
 
 

@@ -4,7 +4,7 @@ import logging
 
 from scipy.optimize import fmin_powell
 
-from hydrodiy.stat import transform
+from hydrodiy.stat import transform, metrics
 from hydrodiy.data.containers import Vector
 
 # Setup login
@@ -52,6 +52,18 @@ class ObjFunSSE(ObjFun):
     def compute(self, obs, sim, **kwargs):
         err = obs-sim
         return np.nansum(err*err)
+
+
+
+class ObjFunKGE(ObjFun):
+    ''' KGE objective function '''
+
+    def __init__(self):
+        super(ObjFunKGE, self).__init__('KGE', 1)
+
+
+    def compute(self, obs, sim, **kwargs):
+        return metrics.kge(obs, sim)
 
 
 
