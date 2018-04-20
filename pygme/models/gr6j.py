@@ -18,10 +18,10 @@ class GR6J(Model):
                     [0], [0], [1])
 
         # params vector
-        vect = Vector(['X1', 'X2', 'X3', 'X4'], \
-                    [400, -1, 50, 0.5], \
-                    [10, -50, 1, 0.5], \
-                    [2e4, 50, 5e3, 1e2])
+        vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
+                    [400, -1, 50, 0.5, 0., 10.], \
+                    [10, -50, 1, 0.5, -50, 1.], \
+                    [2e4, 50, 5e3, 1e2, 50., 100.])
         params = ParamsVector(vect)
 
         # UH
@@ -29,16 +29,16 @@ class GR6J(Model):
         params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
 
         # State vector
-        states = Vector(['S', 'R'])
+        states = Vector(['S', 'R', 'AR'])
 
         # Model
         super(GR6J, self).__init__('GR6J',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=9)
+            noutputsmax=11)
 
         self.outputs_names = ['Q', 'ech1+ech2', 'ES+EN', \
-                    'PR', 'QD', 'QR', 'PERC', 'S', 'R']
+                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'AR']
 
 
     def run(self):
@@ -47,7 +47,7 @@ class GR6J(Model):
         _, uh2 = self.params.uhs[1]
 
         # Run gr4j c code
-        ierr = c_pygme_models_hydromodels.gr4j_run(uh1.nord, \
+        ierr = c_pygme_models_hydromodels.gr6j_run(uh1.nord, \
             uh2.nord, self.istart, self.iend, \
             self.params.values, \
             uh1.ord, \
@@ -59,7 +59,7 @@ class GR6J(Model):
             self.outputs)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_hydromodels.gr4j_run' +
+            raise ValueError(('c_pygme_models_hydromodels.gr6j_run' +
                 ' returns {0}').format(ierr))
 
 
@@ -80,17 +80,21 @@ class CalibrationGR6J(Calibration):
                         math.exp(x[0]), \
                         math.sinh(x[1]), \
                         math.exp(x[2]), \
-                        0.49+math.exp(x[3])
+                        0.49+math.exp(x[3]), \
+                        math.sinh(x[4]), \
+                        math.exp(x[5])
                     ])
 
         true2trans = lambda x: np.array([
                         math.log(x[0]), \
                         math.asinh(x[1]), \
                         math.log(x[2]), \
-                        math.log(x[3]-0.49)
+                        math.log(x[3]-0.49), \
+                        math.asinh(x[4]), \
+                        math.log(x[5])
                     ])
 
-        cp = Vector(['tX1', 'tX2', 'tX3', 'tX4'], \
+        cp = Vector(['tX1', 'tX2', 'tX3', 'tX4', 'tX5', 'tX6'], \
                 mins=true2trans(params.mins),
                 maxs=true2trans(params.maxs),
                 defaults=true2trans(params.defaults))
@@ -103,7 +107,7 @@ class CalibrationGR6J(Calibration):
         # Build parameter library from
         # MVT norm in transform space
         tplib = np.random.multivariate_normal(\
-                    mean=[5.8, -0.78, 3.39, 0.86],
+                    mean=[5.8, -0.78, 3.39, 0.86, 0., 1.],
                     cov = [[1.16, 0.2, -0.15, -0.07],
                             [0.2, 1.79, -0.24, -0.149],
                             [-0.15, -0.24, 1.68, -0.16],
@@ -111,9 +115,9 @@ class CalibrationGR6J(Calibration):
                     size=2000)
         tplib = np.clip(tplib, calparams.mins, calparams.maxs)
         plib = tplib * 0.
-        plib[:, [0, 2, 3]] = np.exp(tplib[:, [0, 2, 3]])
+        plib[:, [0, 2, 3, 5]] = np.exp(tplib[:, [0, 2, 3, 5]])
         plib[:, 3] += 0.49
-        plib[:, 1] = np.sinh(tplib[:, 1])
+        plib[:, [1, 4]] = np.sinh(tplib[:, [1, 4]])
 
         # Instanciate calibration
         super(CalibrationGR6J, self).__init__(calparams, \

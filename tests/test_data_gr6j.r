@@ -43,25 +43,24 @@ for(i in 1:20)
                             FUN_MOD = RunModel_GR6J, 
                             FUN_CRIT = ErrorCrit_KGE)
 
-    param <- outputscalib$ParamFinalR
+    gr6j_params <- outputscalib$ParamFinalR
 
     # Run model
     outputs <- RunModel_GR6J(InputsModel = inputs,
                                 RunOptions = runoptions, 
-                                Param = params)
-
+                                Param = gr6j_params)
 
     # Write data
-    nm = names(outputs)[1:21]
+    nm = names(outputs)[2:21]
     df = as.data.frame(outputs[nm])
     filename <- file.path('data_gr6j', 
                     sprintf('GR6J_timeseries_%0.2d.csv', i))
-    write.csv(df, filename)
+    write.csv(df, filename, row.names=FALSE)
 
-    df = as.data.frame(param)
+    df = as.data.frame(gr6j_params)
     filename <- file.path('data_gr6j', 
                     sprintf('GR6J_params_%0.2d.csv', i))
-    write.csv(df, filename)
+    write.csv(df, filename, row.names=FALSE)
 }
 
 

@@ -1,6 +1,7 @@
 *~
 *.pyc
 *.pyd
+*.csv
 *.so
 *.png
 *.swp

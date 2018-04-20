@@ -106,7 +106,7 @@ int gr6j_runtimestep(int nparams,
     }
 
     /* Exponential reservoir */
-    states[2] =  states[2] + Q9 * (1-partitions2);
+    states[2] =  states[2]  + ECH + Q9 * (1-partition2);
     AR = states[2]/params[5];
     AR = AR > 33 ? 33 : AR < -33 ? -33 : AR;
 
@@ -118,7 +118,7 @@ int gr6j_runtimestep(int nparams,
 
 
     /* TOTAL STREAMFLOW */
-    Q = QD + QR + QRexp;
+    Q = QD + QR + QRExp;
     Q = Q < 0 ? 0 : Q;
 
     /* RESULTS */

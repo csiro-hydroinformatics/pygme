@@ -31,7 +31,8 @@ ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
         'pygme/models/c_uh.c',
         'pygme/models/c_lagroute.c',
         'pygme/models/c_gr2m.c',
-        'pygme/models/c_gr4j.c'
+        'pygme/models/c_gr4j.c',
+        'pygme/models/c_gr6j.c'
     ],
     include_dirs=[numpy.get_include()])
 
