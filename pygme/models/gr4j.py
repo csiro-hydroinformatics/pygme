@@ -20,8 +20,8 @@ class GR4J(Model):
         # params vector
         vect = Vector(['X1', 'X2', 'X3', 'X4'], \
                     [400, -1, 50, 0.5], \
-                    [10, -50, 1, 0.5], \
-                    [2e4, 50, 5e3, 1e2])
+                    [1e-2, -100, 1e-2, 0.5], \
+                    [1e5, 100, 1e5, 1e2])
         params = ParamsVector(vect)
 
         # UH
@@ -37,7 +37,7 @@ class GR4J(Model):
             ninputs=2, \
             noutputsmax=9)
 
-        self.outputs_names = ['Q', 'ech1+ech2', 'ES+EN', \
+        self.outputs_names = ['Q', 'ECH', 'AE', \
                     'PR', 'QD', 'QR', 'PERC', 'S', 'R']
 
 

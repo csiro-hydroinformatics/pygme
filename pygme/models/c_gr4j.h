@@ -15,16 +15,16 @@
 
 
 /* Number of inputs required by GR4J run */
-#define GR4J_NINPUTS 5
+#define GR4J_NINPUTS 2
 
 /* Number of params required by GR4J run */
 #define GR4J_NPARAMS 4
 
 /* Number of states returned by GR4J run */
-#define GR4J_NSTATES 5
+#define GR4J_NSTATES 2
 
 /* Number of outputs returned by GR4J run */
-#define GR4J_NOUTPUTS 20
+#define GR4J_NOUTPUTS 9
 
 int gr4j_production(double P, double E,
         double S,

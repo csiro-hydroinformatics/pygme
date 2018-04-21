@@ -9,16 +9,16 @@
 #include "c_gr4j.h"
 
 /* Number of inputs required by GR6J run */
-#define GR6J_NINPUTS 5
+#define GR6J_NINPUTS 2
 
 /* Number of params required by GR6J run */
 #define GR6J_NPARAMS 6
 
 /* Number of states returned by GR6J run */
-#define GR6J_NSTATES 6
+#define GR6J_NSTATES 3
 
 /* Number of outputs returned by GR6J run */
-#define GR6J_NOUTPUTS 20
+#define GR6J_NOUTPUTS 11
 
 int gr6j_runtimestep(int nparams,
     int nuh1, int nuh2, int ninputs,

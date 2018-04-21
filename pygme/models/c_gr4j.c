@@ -7,9 +7,9 @@ int gr4j_minmaxparams(int nparams, double * params)
     if(nparams<4)
         return GR4J_ERROR + __LINE__;
 
-	params[0] = c_minmax(1, 1e5, params[0]); 	// S
-	params[1] = c_minmax(-50, 50, params[1]);	// IGF
-	params[2] = c_minmax(1, 1e5, params[2]); 	// R
+	params[0] = c_minmax(1e-2, 1e5, params[0]); 	// S
+	params[1] = c_minmax(-100, 100, params[1]);	// IGF
+	params[2] = c_minmax(1e-2, 1e5, params[2]); 	// R
 	params[3] = c_minmax(0.5, 50, params[3]); // TB
 
 	return 0;
@@ -22,6 +22,7 @@ int gr4j_production(double P, double E,
         double * prod)
 {
     double SR, TWS, WS, PS, ES, EN=0, PR, PERC, S2;
+    double AE;
 
     /* production store */
     SR = S/Scapacity;
@@ -37,6 +38,7 @@ int gr4j_production(double P, double E,
         PS /= (1+SR*TWS);
     	PR = P-E-PS;
     	EN = 0;
+        AE = E;
     }
     else
     {
@@ -48,6 +50,7 @@ int gr4j_production(double P, double E,
     	PS = 0;
     	PR = 0;
     	EN = E-P;
+        AE = ES+P;
     }
     S += PS-ES;
 
@@ -62,9 +65,10 @@ int gr4j_production(double P, double E,
     prod[0] = EN;
     prod[1] = PS;
     prod[2] = ES;
-    prod[3] = PERC;
-    prod[4] = PR;
-    prod[5] = S;
+    prod[3] = AE;
+    prod[4] = PERC;
+    prod[5] = PR;
+    prod[6] = S;
 
     return 0;
 }
@@ -87,10 +91,10 @@ int gr4j_runtimestep(int nparams,
     int ierr=0;
 
     double Q, P, E, Q1, Q9;
-    double prod[6];
-    double ES, PS, PR;
+    double prod[7];
+    double ES, PS, PR, AE;
     double PERC,ECH,TP,R2,QR,QD;
-    double EN, ech1,ech2, RR;
+    double EN, ech1,ech2, RR, RR4;
     double uhoutput1[1], uhoutput2[1];
 
     double partition1 = 0.9;
@@ -108,9 +112,10 @@ int gr4j_runtimestep(int nparams,
     EN = prod[0];
     PS = prod[1];
     ES = prod[2];
-    PERC = prod[3];
-    PR = prod[4];
-    states[0] = prod[5];
+    AE = prod[3];
+    PERC = prod[4];
+    PR = prod[5];
+    states[0] = prod[6];
 
     /* UH */
     uh_runtimestep(nuh1, PR, uh1, statesuh1, uhoutput1);
@@ -135,7 +140,9 @@ int gr4j_runtimestep(int nparams,
     }
 
     RR = states[1]/params[2];
-    R2 = states[1]/sqrt(sqrt(1.+RR*RR*RR*RR));
+    RR4 = RR*RR;
+    RR4 *= RR4;
+    R2 = states[1]/sqrt(sqrt(1.+RR4));
     QR = states[1]-R2;
     states[1] = R2;
 
@@ -166,7 +173,7 @@ int gr4j_runtimestep(int nparams,
 	return ierr;
 
     if(noutputs>2)
-	    outputs[2] = ES+EN;
+	    outputs[2] = AE;
     else
 	    return ierr;
 

@@ -9,7 +9,6 @@ import numpy as np
 from pygme.calibration import ObjFunSSE
 from pygme.models.gr6j import GR6J, CalibrationGR6J
 
-
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
@@ -95,13 +94,13 @@ class GR6JTestCases(unittest.TestCase):
         warmup = 365 * 5
         gr = GR6J()
 
-        for i in range(5):
+        for i in range(20):
 
             # Get inputs
             fts = os.path.join(self.FHERE, 'data_gr6j', \
                     'GR6J_timeseries_{0:02d}.csv'.format(i+1))
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [0, 1]], np.float64)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             # Get parameters
             fp = os.path.join(self.FHERE, 'data_gr6j', \
@@ -112,7 +111,10 @@ class GR6JTestCases(unittest.TestCase):
             gr.allocate(inputs, 11)
             t0 = time.time()
             gr.params.values = params
-            gr.initialise()
+
+            # .. initiase to same values than IRSTEA run ...
+            gr.initialise(states=data[0, [2, 10, 17]])
+
             gr.run()
             qsim1 = gr.outputs[:,0].copy()
             t1 = time.time()
@@ -123,25 +125,16 @@ class GR6JTestCases(unittest.TestCase):
             idx = np.arange(inputs.shape[0]) > warmup
             expected = data[idx, -1]
 
-            import matplotlib.pyplot as plt
-            from hydrodiy.plot import putils
-            fig, ax = putils.get_fig_axs()
-            ax.plot(expected)
-            ax.plot(qsim1)
-            plt.show()
-            import pdb; pdb.set_trace()
-
-
             err = np.abs(qsim1[idx] - expected)
             err_thresh = 5e-2
             ck = np.max(err) < err_thresh
 
             if not ck:
                 print(('\t\tTEST %2d : max abs err = '
-                    '%0.5f < %0.5f ? %s ~ %0.5fms/yr\n') % (i+1, \
-                    np.max(err), err_thresh, ck))
+                    '%0.5f > %0.5f, runtime = %0.5fms/yr\n') % (i+1, \
+                    np.max(err), err_thresh, dta))
             else:
-                print(('\t\tTEST %2d : max abs err = %0.5f\n\t\t\truntime :' +
+                print(('\t\tTEST %2d : max abs err = %0.5f\n\t\t\truntime =' +
                         ' %0.5fms/yr\n') % ( \
                     i+1, np.max(err), dta))
 

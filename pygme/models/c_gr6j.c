@@ -4,17 +4,15 @@
 
 int gr6j_minmaxparams(int nparams, double * params)
 {
-    if(nparams<4)
+    if(nparams<6)
         return GR6J_ERROR + __LINE__;
 
-	params[0] = c_minmax(1, 1e5, params[0]); 	// S
-	params[1] = c_minmax(-50, 50, params[1]);	// IGF
-	params[2] = c_minmax(1, 1e5, params[2]); 	// R
+	params[0] = c_minmax(1e-2, 1e5, params[0]); 	// S
+	params[1] = c_minmax(-100, 100, params[1]);	// IGF
+	params[2] = c_minmax(1e-2, 1e5, params[2]); 	// R
 	params[3] = c_minmax(0.5, 50, params[3]); // TB
-
-    /* TODO */
-	params[4] = c_minmax(0.5, 50, params[3]); // TB
-	params[5] = c_minmax(0.5, 50, params[3]); // TB
+	params[4] = c_minmax(-100, 100, params[4]); // IGF 2
+	params[5] = c_minmax(1e-2, 1e5, params[5]); // A
 
 	return 0;
 }
@@ -37,10 +35,10 @@ int gr6j_runtimestep(int nparams,
     int ierr=0;
 
     double Q, P, E, Q9, Q1;
-    double prod[6];
-    double ES, PS, PR;
+    double prod[7];
+    double ES, PS, PR, AE;
     double PERC,ECH,TP,R2,QR,QD;
-    double EN, ech1,ech2, RR, AR, QRExp;
+    double EN, ech1,ech2, RR, RR4, AR, QRExp;
     double uhoutput1[1], uhoutput2[1];
 
     double partition1 = 0.9;
@@ -59,9 +57,10 @@ int gr6j_runtimestep(int nparams,
     EN = prod[0];
     PS = prod[1];
     ES = prod[2];
-    PERC = prod[3];
-    PR = prod[4];
-    states[0] = prod[5];
+    AE = prod[3];
+    PERC = prod[4];
+    PR = prod[5];
+    states[0] = prod[6];
 
     /* UH */
     uh_runtimestep(nuh1, PR, uh1, statesuh1, uhoutput1);
@@ -73,7 +72,7 @@ int gr6j_runtimestep(int nparams,
 
     /* Routing store calculation */
     Q9 = *uhoutput1 * partition1;
-    TP = states[1] + Q9 * partition2 + ECH;
+    TP = states[1] + Q9*partition2 + ECH;
 
     /* Case where Reservoir content is not sufficient */
     ech1 = ECH-TP;
@@ -86,7 +85,9 @@ int gr6j_runtimestep(int nparams,
     }
 
     RR = states[1]/params[2];
-    R2 = states[1]/sqrt(sqrt(1.+RR*RR*RR*RR));
+    RR4 = RR*RR;
+    RR4 *= RR4;
+    R2 = states[1]/sqrt(sqrt(1.+RR4));
     QR = states[1]-R2;
     states[1] = R2;
 
@@ -106,16 +107,14 @@ int gr6j_runtimestep(int nparams,
     }
 
     /* Exponential reservoir */
-    states[2] =  states[2]  + ECH + Q9 * (1-partition2);
-    AR = states[2]/params[5];
-    AR = AR > 33 ? 33 : AR < -33 ? -33 : AR;
+    states[2] +=  ECH + Q9*(1-partition2);
+    AR = c_minmax(-33, 33, states[2]/params[5]);
 
     if(AR > 7) QRExp = states[2]+params[5]/exp(AR);
     else if (AR < -7) QRExp = params[5]*exp(AR);
     else QRExp = params[5]*log(exp(AR)+1);
 
     states[2] -= QRExp;
-
 
     /* TOTAL STREAMFLOW */
     Q = QD + QR + QRExp;
@@ -127,10 +126,10 @@ int gr6j_runtimestep(int nparams,
     if(noutputs>1)
         outputs[1] = ech1+ech2;
     else
-	return ierr;
+	    return ierr;
 
     if(noutputs>2)
-	    outputs[2] = ES+EN;
+	    outputs[2] = AE;
     else
 	    return ierr;
 
