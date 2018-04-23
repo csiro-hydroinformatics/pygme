@@ -1,6 +1,6 @@
 import numpy as np
 
-from hydrodiy.stat.transform import BoxCox1
+from hydrodiy.stat.transform import BoxCox2
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 
@@ -11,10 +11,10 @@ class ObjFunSSEargs(ObjFun):
 
     def __init__(self):
         super(ObjFunSSEargs, self).__init__('SSE')
-        self.BC = BoxCox1()
+        self.BC = BoxCox2()
 
     def compute(self, obs, sim, **kwargs):
-        self.BC.x0 = np.nanmean(obs)*1e-3
+        self.BC.nu = np.nanmean(obs)*1e-3
         idx = kwargs['idx']
         self.BC.lam = kwargs['lam']
         err = self.BC.forward(obs[idx])-self.BC.forward(sim[idx])

@@ -11,7 +11,7 @@ from hydrodiy.data.containers import Vector
 LOGGER = logging.getLogger(__name__)
 
 # Setup box cox transform
-BC = transform.BoxCox1()
+BC = transform.BoxCox2()
 
 
 def format_array(x, fmt='3.3e'):
@@ -76,18 +76,18 @@ class ObjFunBCSSE(ObjFun):
 
     '''
 
-    def __init__(self, lam=0.5, meanshiftfactor=1e-3):
+    def __init__(self, lam=0.5, eta=1e-3):
         super(ObjFunBCSSE, self).__init__('BCSSE', 1)
 
         # Set Transform
+        self.eta = eta
         BC.lam = lam
-        self.meanshiftfactor = meanshiftfactor
+        BC.nu = 0.
         self.trans = BC
 
-
     def compute(self, obs, sim, **kwargs):
-        # Set constants for BoxCox1 transform
-        self.trans.constants.x0 = np.nanmean(obs)*self.meanshiftfactor
+        # Mean shift factor
+        BC.nu = np.nanmean(obs)*self.eta
 
         # Transform data
         tobs = self.trans.forward(obs)
