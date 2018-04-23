@@ -30,7 +30,9 @@ int c_daysinmonth(int year, int month)
                     31, 31, 30, 31, 30, 31};
 
     if(month < 1 || month > 12)
+    {
         return -1;
+    }
 
 	n = days_in_month[month];
 

@@ -5,7 +5,9 @@
 int gr4j_minmaxparams(int nparams, double * params)
 {
     if(nparams<4)
+    {
         return GR4J_ERROR + __LINE__;
+    }
 
 	params[0] = c_minmax(1e-2, 1e5, params[0]); 	// S
 	params[1] = c_minmax(-100, 100, params[1]);	// IGF
