@@ -81,7 +81,7 @@ theta = (theta+math.pi/2)/twopi
 # Select catchments
 selected = []
 for th in np.linspace(0, 1, nsites):
-    siteid = np.argmin(np.abs(theta-th))
+    siteid = (np.abs(theta-th)).idxmin()
     selected.append(siteid)
     theta[siteid] = np.inf
 
