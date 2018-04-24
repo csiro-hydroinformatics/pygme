@@ -106,23 +106,26 @@ class GR4JTestCases(unittest.TestCase):
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             # Run gr4j
-            gr.allocate(inputs)
+            gr.allocate(inputs, 9)
             t0 = time.time()
             gr.params.values = params
             gr.initialise()
             gr.run()
-            qsim1 = gr.outputs[:,0].copy()
+            qsim = gr.outputs[:,0].copy()
+            states = gr.outputs[:, -2:].copy()
+
             t1 = time.time()
             dta = 1000 * (t1-t0)
-            dta /= len(qsim1)*365.25
+            dta /= len(qsim)*365.25
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[idx, 17]
+            expected = data[:, 17]
+            expected_states = data[:, [2, 10]]
 
-            err = np.abs(qsim1[idx] - expected)
-            err_thresh = 5e-2
-            ck = np.max(err) < err_thresh
+            err = np.abs(qsim[idx] - expected[idx])
+            ck = np.allclose(qsim[idx], expected[idx])
+            ck =  ck & np.allclose(states[idx, :], expected_states[idx, :])
 
             if not ck:
                 print(('\t\tTEST %2d : max abs err = '
