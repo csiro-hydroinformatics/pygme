@@ -20,6 +20,7 @@ for(i in 1:20)
     nval <- length(data$DatesR)
     indwarmup <- seq(1, 366*3)
     indrun <- seq(366*3+1, nval)
+    boolcrit <- data$Runoff[indrun] >= 0
 
     # ------ GR4J ------------------
     runoptions <- CreateRunOptions(FUN_MOD = RunModel_GR4J,
@@ -33,6 +34,7 @@ for(i in 1:20)
     crit <- CreateInputsCrit(FUN_CRIT = ErrorCrit_KGE, 
                                 InputsModel = inputs,
                                 RunOptions = runoptions,
+                                BoolCrit = boolcrit,
                                 Qobs = data$Runoff[indrun])
     
     calib <- CreateCalibOptions(FUN_MOD = RunModel_GR4J,
@@ -65,7 +67,6 @@ for(i in 1:20)
                     sprintf('GR4J_params_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 
-
     # ------ GR6J ------------------
     runoptions <- CreateRunOptions(FUN_MOD = RunModel_GR6J,
                                InputsModel = inputs,
@@ -78,6 +79,7 @@ for(i in 1:20)
     crit <- CreateInputsCrit(FUN_CRIT = ErrorCrit_KGE, 
                                 InputsModel = inputs,
                                 RunOptions = runoptions,
+                                BoolCrit = boolcrit,
                                 Qobs = data$Runoff[indrun])
     
     calib <- CreateCalibOptions(FUN_MOD = RunModel_GR6J,
