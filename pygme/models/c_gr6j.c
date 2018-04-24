@@ -9,12 +9,12 @@ int gr6j_minmaxparams(int nparams, double * params)
         return GR6J_ERROR + __LINE__;
     }
 
-	params[0] = c_minmax(1e-2, 1e5, params[0]); 	// S
-	params[1] = c_minmax(-100, 100, params[1]);	// IGF
-	params[2] = c_minmax(1e-2, 1e5, params[2]); 	// R
+	params[0] = c_minmax(1, 1e4, params[0]); 	// S
+	params[1] = c_minmax(-50, 50, params[1]);	// IGF
+	params[2] = c_minmax(1, 1e4, params[2]); 	// R
 	params[3] = c_minmax(0.5, 50, params[3]); // TB
-	params[4] = c_minmax(-100, 100, params[4]); // IGF 2
-	params[5] = c_minmax(1e-2, 1e5, params[5]); // A
+	params[4] = c_minmax(-50, 50, params[4]); // IGF 2
+	params[5] = c_minmax(1, 1e4, params[5]); // A
 
 	return 0;
 }

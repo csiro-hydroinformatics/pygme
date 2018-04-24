@@ -9,9 +9,9 @@ int gr4j_minmaxparams(int nparams, double * params)
         return GR4J_ERROR + __LINE__;
     }
 
-	params[0] = c_minmax(1e-2, 1e5, params[0]); 	// S
-	params[1] = c_minmax(-100, 100, params[1]);	// IGF
-	params[2] = c_minmax(1e-2, 1e5, params[2]); 	// R
+	params[0] = c_minmax(1, 1e4, params[0]); 	// S
+	params[1] = c_minmax(-50, 50, params[1]);	// IGF
+	params[2] = c_minmax(1, 1e4, params[2]); 	// R
 	params[3] = c_minmax(0.5, 50, params[3]); // TB
 
 	return 0;
@@ -26,7 +26,7 @@ int gr4j_production(double P, double E,
     double SR, TWS, WS, PS, ES, EN=0, PR, PERC, S2;
     double AE;
 
-    /* production store */
+    /* production store with maximum filling level of 100% */
     SR = S/Scapacity;
     SR = SR > 1. ? 1. : SR;
 
@@ -140,7 +140,6 @@ int gr4j_runtimestep(int nparams,
         states[1]=TP;
         ech1=ECH;
     }
-
     RR = states[1]/params[2];
     RR4 = RR*RR;
     RR4 *= RR4;
