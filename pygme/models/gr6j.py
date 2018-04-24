@@ -20,8 +20,8 @@ class GR6J(Model):
         # params vector
         vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
                     [400, -1, 50, 0.5, 0., 10.], \
-                    [10, -50, 1, 0.5, -50, 1.], \
-                    [2e4, 50, 5e3, 1e2, 50., 100.])
+                    [1e-2, -100, 1e-2, 0.5, -100, 1e-2], \
+                    [1e5, 100, 1e5, 1e2, 100., 1e5])
         params = ParamsVector(vect)
 
         # UH
@@ -29,7 +29,7 @@ class GR6J(Model):
         params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
 
         # State vector
-        states = Vector(['S', 'R', 'AR'])
+        states = Vector(['S', 'R', 'A'])
 
         # Model
         super(GR6J, self).__init__('GR6J',
@@ -37,8 +37,8 @@ class GR6J(Model):
             ninputs=2, \
             noutputsmax=11)
 
-        self.outputs_names = ['Q', 'ech1+ech2', 'ES+EN', \
-                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'AR']
+        self.outputs_names = ['Q', 'ECH', 'AE', \
+                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'A']
 
 
     def run(self):

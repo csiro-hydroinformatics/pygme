@@ -3,12 +3,13 @@ library(airGR)
 for(i in 1:20)
 {
     # Open data
-    filename <- file.path('data', sprintf('GR4J_timeseries_%0.2d.csv', i))
-    data <- read.csv(filename, stringsAsFactors=FALSE)
-    names(data) <- c('DatesR', 'Precip', 'PotEvap', 'Runoff', 'Sim')
+    filename <- file.path('input_data', 
+                    sprintf('input_data_%0.2d.csv', i))
+    data <- read.csv(filename, skip=17, stringsAsFactors=FALSE)
+    names(data) <- c('DatesR', 'Precip', 'PotEvap', 'Runoff')
 
     # date conversion
-    data$DatesR = as.POSIXlt(sprintf('%d', data$DatesR), format='%Y%m%d')
+    data$DatesR = as.POSIXlt(data$DatesR, format='%Y-%m-%d')
 
     # Model inputs
     inputs <- CreateInputsModel(FUN_MOD=RunModel_GR6J, 
@@ -49,17 +50,18 @@ for(i in 1:20)
     # Run model
     outputs <- RunModel_GR4J(InputsModel = inputs,
                                 RunOptions = runoptions, 
-                                Param = gr6j_params)
+                                Param = gr4j_params)
 
     # Write data
-    nm = names(outputs)[2:21]
+    nm = names(outputs)[2:19]
     df = as.data.frame(outputs[nm])
-    filename <- file.path('data_gr6j', 
+    df$Qobs <- data$Runoff[indrun]
+    filename <- file.path('output_data', 
                     sprintf('GR4J_timeseries_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 
-    df = as.data.frame(gr6j_params)
-    filename <- file.path('data_gr6j', 
+    df = as.data.frame(gr4j_params)
+    filename <- file.path('output_data', 
                     sprintf('GR4J_params_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 
@@ -98,12 +100,13 @@ for(i in 1:20)
     # Write data
     nm = names(outputs)[2:21]
     df = as.data.frame(outputs[nm])
-    filename <- file.path('data_gr6j', 
+    df$Qobs <- data$Runoff[indrun]
+    filename <- file.path('output_data', 
                     sprintf('GR6J_timeseries_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 
     df = as.data.frame(gr6j_params)
-    filename <- file.path('data_gr6j', 
+    filename <- file.path('output_data', 
                     sprintf('GR6J_params_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 }

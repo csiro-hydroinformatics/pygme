@@ -95,20 +95,20 @@ class GR4JTestCases(unittest.TestCase):
         warmup = 365 * 5
         gr = GR4J()
 
-        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
-        params = np.loadtxt(fp, delimiter=',')
-
-        for i in range(params.shape[0]):
-
-            fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+        for i in range(20):
+            fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
                     self.FHERE, i+1)
-            data = np.loadtxt(fts, delimiter=',')
-            inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
+            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+
+            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             # Run gr4j
             gr.allocate(inputs)
             t0 = time.time()
-            gr.params.values = params[i, [2, 0, 1, 3]]
+            gr.params.values = params
             gr.initialise()
             gr.run()
             qsim1 = gr.outputs[:,0].copy()
@@ -118,7 +118,7 @@ class GR4JTestCases(unittest.TestCase):
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[idx, 4]
+            expected = data[idx, 17]
 
             err = np.abs(qsim1[idx] - expected)
             err_thresh = 5e-2
@@ -142,21 +142,20 @@ class GR4JTestCases(unittest.TestCase):
         warmup = 365*6
         calib = CalibrationGR4J(objfun=ObjFunSSE())
 
-        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
-        params = np.loadtxt(fp, delimiter=',')
-
-        for i in range(params.shape[0]):
-
-            fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+        for i in range(20):
+            fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
                     self.FHERE, i+1)
-            data = np.loadtxt(fts, delimiter=',')
-            inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
+            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+
+            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             # Run gr first
-            expected = params[i, [2, 0, 1, 3]]
             gr = calib.model
             gr.allocate(inputs, 1)
-            gr.params.values = expected
+            gr.params.values = params
             gr.initialise()
             gr.run()
 
@@ -172,7 +171,7 @@ class GR4JTestCases(unittest.TestCase):
             dt = (t1-t0)*1e-3/len(obs)*365.25
 
             # Test error on parameters
-            err = np.abs(final-expected)
+            err = np.abs(final-params)
             ck = np.max(err) < 1e-2
 
             print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}'+\
