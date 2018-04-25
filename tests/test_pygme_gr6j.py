@@ -91,9 +91,10 @@ class GR6JTestCases(unittest.TestCase):
 
     def test_run_against_data(self):
         ''' Compare GR6J simulation with test data '''
-        warmup = 365 * 5
+        warmup = 365 * 10
         gr = GR6J()
 
+        #for i in range(13, 14):
         for i in range(20):
 
             # Get inputs
@@ -109,36 +110,51 @@ class GR6JTestCases(unittest.TestCase):
 
             # Run gr6j
             gr.allocate(inputs, 11)
-            t0 = time.time()
             gr.params.values = params
 
             # .. initiase to same values than IRSTEA run ...
-            gr.initialise(states=data[0, [2, 10, 17]])
+            # Estimate initial states based on first two state values
+            s0 = data[0, [2, 10, 17]]
+            s1 = data[1, [2, 10, 17]]
+            sini = 2*s0-s1
+            gr.initialise(states=sini)
 
             gr.run()
-            qsim = gr.outputs[:,0].copy()
-            states = gr.outputs[:, -3:]
-            t1 = time.time()
-            dta = 1000 * (t1-t0)
-            dta /= len(qsim)*365.25
+            sim = gr.outputs[:, [0, 4, 5, 7]].copy()
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[:, -1]
+            expected = data[:, [19, 18, 15, 16]]
 
-            err = np.abs(qsim[idx] - expected[idx])
-            ck = np.allclose(qsim[idx], expected[idx])
+            err = np.abs(sim[idx, :] - expected[idx, :])
+
+            # Special criteria
+            # 5 values with difference greater than 1e-5
+            # max diff lower than 5e-4
+            def fun(x):
+                return np.sum(x > 1e-5), np.max(x)
+
+            cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
+            ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
+
+            print('\t\tTEST {0} : crit={1} max abs err={2:3.3e}'.format(\
+                                        i+1, ck, np.max(err)))
 
             if not ck:
-                print(('\t\tTEST %2d : max abs err = '
-                    '%0.5f, runtime = %0.5fms/yr\n') % (i+1, \
-                    np.max(err), dta))
-            else:
-                print(('\t\tTEST %2d : max abs err = %0.5f\n\t\t\truntime =' +
-                        ' %0.5fms/yr\n') % ( \
-                    i+1, np.max(err), dta))
+                import matplotlib.pyplot as plt
+                from hydrodiy.plot import putils
+                fig, axs = putils.get_fig_axs(2, 2)
+                for i in range(4):
+                    ax = axs[i]
+                    ax.plot(expected[idx, i], label='airGR')
+                    ax.plot(sim[idx, i], label='pygme')
+                    ax.legend()
+                    tax = ax.twinx()
+                    tax.plot(expected[idx, i]-sim[idx, i], 'k-', lw=0.5)
+                plt.show()
+                import pdb; pdb.set_trace()
 
-            #self.assertTrue(ck)
+            self.assertTrue(ck)
 
 
     def test_calibrate_against_itself(self):

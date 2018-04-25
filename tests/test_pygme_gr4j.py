@@ -107,34 +107,35 @@ class GR4JTestCases(unittest.TestCase):
 
             # Run gr4j
             gr.allocate(inputs, 9)
-            t0 = time.time()
             gr.params.values = params
-            gr.initialise()
-            gr.run()
-            qsim = gr.outputs[:,0].copy()
-            states = gr.outputs[:, -2:].copy()
 
-            t1 = time.time()
-            dta = 1000 * (t1-t0)
-            dta /= len(qsim)*365.25
+            # .. initiase to same values than IRSTEA run ...
+            # Estimate initial states based on first two state values
+            s0 = data[0, [2, 10]]
+            s1 = data[1, [2, 10]]
+            sini = 2*s0-s1
+            gr.initialise(states=sini)
+
+            gr.run()
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[:, 17]
-            expected_states = data[:, [2, 10]]
+            sim = gr.outputs[:, [0, 4, 5]].copy()
+            expected = data[:, [17, 16, 15]]
 
-            err = np.abs(qsim[idx] - expected[idx])
-            ck = np.allclose(qsim[idx], expected[idx])
-            ck =  ck & np.allclose(states[idx, :], expected_states[idx, :])
+            err = np.abs(sim[idx, :] - expected[idx, :])
 
-            if not ck:
-                print(('\t\tTEST %2d : max abs err = '
-                    '%0.5f < %0.5f ? %s ~ %0.5fms/yr\n') % (i+1, \
-                    np.max(err), err_thresh, ck))
-            else:
-                print(('\t\tTEST %2d : max abs err = %0.5f\n\t\t\truntime :' +
-                        ' %0.5fms/yr\n') % ( \
-                    i+1, np.max(err), dta))
+            # Special criteria
+            # 5 values with difference greater than 1e-5
+            # max diff lower than 5e-4
+            def fun(x):
+                return np.sum(x > 1e-5), np.max(x)
+
+            cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
+            ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
+
+            print('\t\tTEST {0} : crit={1} max abs err={2:3.3e}'.format(\
+                                        i+1, ck, np.max(err)))
 
             self.assertTrue(ck)
 

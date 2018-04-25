@@ -48,6 +48,8 @@ for(i in 1:20)
                             FUN_CRIT = ErrorCrit_KGE)
 
     gr4j_params <- outputscalib$ParamFinalR
+    gr4j_params[1] = max(1, gr4j_params[1])
+    gr4j_params[3] = max(1, gr4j_params[3])
 
     # Run model
     outputs <- RunModel_GR4J(InputsModel = inputs,
@@ -93,6 +95,9 @@ for(i in 1:20)
                             FUN_CRIT = ErrorCrit_KGE)
 
     gr6j_params <- outputscalib$ParamFinalR
+    gr6j_params[1] = max(1, gr6j_params[1])
+    gr6j_params[3] = max(1, gr6j_params[3])
+    gr6j_params[6] = max(1, gr6j_params[6])
 
     # Run model
     outputs <- RunModel_GR6J(InputsModel = inputs,
