@@ -96,7 +96,6 @@ class GR6JTestCases(unittest.TestCase):
 
         #for i in range(13, 14):
         for i in range(20):
-
             # Get inputs
             fts = os.path.join(self.ftest, 'output_data', \
                     'GR6J_timeseries_{0:02d}.csv'.format(i+1))
@@ -137,69 +136,62 @@ class GR6JTestCases(unittest.TestCase):
             cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
             ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
 
-            print('\t\tTEST {0} : crit={1} max abs err={2:3.3e}'.format(\
+            print('\t\tTEST SIM {0} : crit={1} max abs err={2:3.3e}'.format(\
                                         i+1, ck, np.max(err)))
-
-            if not ck:
-                import matplotlib.pyplot as plt
-                from hydrodiy.plot import putils
-                fig, axs = putils.get_fig_axs(2, 2)
-                for i in range(4):
-                    ax = axs[i]
-                    ax.plot(expected[idx, i], label='airGR')
-                    ax.plot(sim[idx, i], label='pygme')
-                    ax.legend()
-                    tax = ax.twinx()
-                    tax.plot(expected[idx, i]-sim[idx, i], 'k-', lw=0.5)
-                plt.show()
-                import pdb; pdb.set_trace()
-
             self.assertTrue(ck)
 
 
     def test_calibrate_against_itself(self):
         ''' Calibrate GR6J against a simulation with known parameters '''
-        return
         gr = GR6J()
         warmup = 365*6
         calib = CalibrationGR6J(objfun=ObjFunSSE())
 
-        fp = '{0}/data/GR6J_params.csv'.format(self.ftest)
-        params = np.loadtxt(fp, delimiter=',')
+        for i in range(8, 9):
+            # Get inputs
+            fts = os.path.join(self.ftest, 'output_data', \
+                    'GR6J_timeseries_{0:02d}.csv'.format(i+1))
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
-        for i in range(params.shape[0]):
-
-            fts = '{0}/output_data/GR6J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',')
-            inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
+            # Get parameters
+            fp = os.path.join(self.ftest, 'output_data', \
+                    'GR6J_params_{0:02d}.csv'.format(i+1))
+            params = np.loadtxt(fp, delimiter=',', skiprows=1)
 
             # Run gr first
-            expected = params[i, [2, 0, 1, 3]]
             gr = calib.model
             gr.allocate(inputs, 1)
-            gr.params.values = expected
+            gr.params.values = params
             gr.initialise()
             gr.run()
 
             # Calibrate
             err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
-            obs = gr.outputs[:,0].copy()+err
+            sim0 = gr.outputs[:, 0].copy()
+            obs = sim0+err
 
             t0 = time.time()
             final, ofun, _ = calib.workflow(obs, inputs, \
                                         maxfun=100000, ftol=1e-8)
             t1 = time.time()
-
-            dt = (t1-t0)*1e-3/len(obs)*365.25
+            dt = (t1-t0)/len(obs)*365.25
 
             # Test error on parameters
-            err = np.abs(final-expected)
-            ck = np.max(err) < 1e-2
+            err = np.abs(final-params)
+            ck1 = np.max(err) < 1e-2
+
+            idx = np.arange(len(sim0)) > warmup
+            errs = np.abs(gr.outputs[idx, 0]-sim0[idx])
+            ck2 = np.max(errs) < 1e-3
 
             print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}'+\
                     ' dt={2:3.3e} sec/yr').format(\
                         i+1, np.max(err), dt))
 
+            if not (ck1 or ck2):
+                import pdb; pdb.set_trace()
+
             self.assertTrue(ck)
+
 

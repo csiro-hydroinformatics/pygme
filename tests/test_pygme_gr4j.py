@@ -134,7 +134,7 @@ class GR4JTestCases(unittest.TestCase):
             cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
             ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
 
-            print('\t\tTEST {0} : crit={1} max abs err={2:3.3e}'.format(\
+            print('\t\tTEST SIM {0} : crit={1} max abs err={2:3.3e}'.format(\
                                         i+1, ck, np.max(err)))
 
             self.assertTrue(ck)
@@ -172,7 +172,7 @@ class GR4JTestCases(unittest.TestCase):
                                         maxfun=100000, ftol=1e-8)
             t1 = time.time()
 
-            dt = (t1-t0)*1e-3/len(obs)*365.25
+            dt = (t1-t0)/len(obs)*365.25
 
             # Test error on parameters
             err = np.abs(final-params)
