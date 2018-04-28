@@ -428,5 +428,19 @@ class ModelTestCases(unittest.TestCase):
             raise Exception('Problem with error generation')
 
 
+    def test_inisens(self):
+        ''' Test sensitivity to initial conditions '''
+        dum = Dummy()
+        dum.config.continuous = 1
+        nval = 1000
+        ninputs = 2
+        inputs = np.random.uniform(0, 1, (nval, ninputs))
+        dum.allocate(inputs)
+        dum.params.value = [1., 2., 0.]
+
+        warmup = dum.inisens([0]*2, [1]*2)
+        self.assertTrue(warmup == 0)
+
+
 if __name__ == '__main__':
     unittest.main()

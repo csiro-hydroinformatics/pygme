@@ -570,6 +570,51 @@ class Model(object):
             'Method run not implemented').format(self.name))
 
 
+    def inisens(self, states0, states1, eps=1e-4, iout=0):
+        ''' Sensitivity on model initialisation
+
+        Parameters
+        -----------
+        states0 : numpy.ndarray
+            First set of states (ideally, empty storages for bucket models)
+        states1 : numpy.ndarray
+            Second set of states (ideally, full storages for bucket models)
+        eps : float
+            Tolerance
+        iout : int
+            Index of model output to use for sensitivity analysis
+
+        Returns
+        -----------
+        wamrup : int
+            Duration of warmup period
+        '''
+
+        # First simulation
+        self.states.values = states0
+        self.run()
+        sim1 = self.outputs[:, iout].copy()
+
+        # Second simulation
+        self.states.values = states1
+        self.run()
+        sim2 = self.outputs[:, iout].copy()
+
+        # Difference
+        idiff = np.abs(sim1-sim2) > eps
+        nval = len(idiff)
+        if np.sum(idiff) == 0:
+            warmup = 0
+        else:
+            warmup = np.max(np.where(idiff)[0])
+
+        if warmup == nval:
+            raise ValueError('Warmup period is longer'+\
+                    ' than simulation duration')
+
+        return warmup
+
+
     def clone(self):
         ''' Clone the current model instance'''
 
