@@ -61,6 +61,17 @@ cdef extern from 'c_lagroute.h':
     	    double * states,
             double * outputs)
 
+cdef extern from 'c_hbv.h':
+    int c_hbv_run(int nval, int nparams,
+        int ninputs,
+        int nstates,
+        int noutputs,
+        int start, int end,
+        double * params,
+        double * inputs,
+        double * states,
+        double * outputs)
+
 
 def __cinit__(self):
     pass
@@ -254,4 +265,41 @@ def lagroute_run(int nuh, int start, int end,
             <double*> np.PyArray_DATA(outputs))
 
     return ierr
+
+
+def hbv_run(int start, int end,
+        np.ndarray[double, ndim=1, mode='c'] params not None,
+        np.ndarray[double, ndim=2, mode='c'] inputs not None,
+        np.ndarray[double, ndim=1, mode='c'] states not None,
+        np.ndarray[double, ndim=2, mode='c'] outputs not None):
+
+    cdef int ierr
+
+    # check dimensions
+    if params.shape[0] != 10:
+        raise ValueError('params.shape[0] != 10')
+
+    if states.shape[0] < 3:
+        raise ValueError('states.shape[0] < 3')
+
+    if inputs.shape[0] != outputs.shape[0]:
+        raise ValueError('inputs.shape[0] != outputs.shape[0]')
+
+    if inputs.shape[1] != 2:
+        raise ValueError('inputs.shape[1] != 2')
+
+    # Run model
+    ierr = c_hbv_run(inputs.shape[0],
+            params.shape[0], \
+            inputs.shape[1], \
+            states.shape[0], \
+            outputs.shape[1], \
+            start, end,
+            <double*> np.PyArray_DATA(params), \
+            <double*> np.PyArray_DATA(inputs), \
+            <double*> np.PyArray_DATA(states), \
+            <double*> np.PyArray_DATA(outputs))
+
+    return ierr
+
 

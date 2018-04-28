@@ -14,7 +14,7 @@ class GR4J(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(['continuous'],\
+        config = Vector(['nothing'],\
                     [0], [0], [1])
 
         # params vector

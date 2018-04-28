@@ -9,7 +9,7 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 import c_pygme_models_hydromodels
 
 
-class GR6J(Model):
+class HBV(Model):
 
     def __init__(self):
 
@@ -18,52 +18,43 @@ class GR6J(Model):
                     [0], [0], [1])
 
         # params vector
-        vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
-                    [400, -1, 50, 0.5, 0., 10.], \
-                    [1, -50, 1, 0.5, -50., 1], \
-                    [1e4, 50, 1e4, 1e2, 50., 1e5])
+        vect = Vector(
+                    ['LPRAT', 'FC', 'BETA', 'K0', 'K1', 'K2', \
+                        'LSUZ', 'CPERC', 'BMAX', 'CROUTE'], \
+                    [100, 2.2, 0.5, 9, 105, 50, 2, 10, 26.5], \
+                    [0, 0, 0, 0, 2, 30, 1, 0, 0, 0], \
+                    [1, 600, 20, 2, 30 ,250, 100, 8, 30, 50])
+
         params = ParamsVector(vect)
 
-        # UH
-        params.add_uh('gr4j_ss1_daily', lambda params: params.X4)
-        params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
-
         # State vector
-        states = Vector(['S', 'R', 'A'])
+        states = Vector(['MOIST', 'SUZ', 'SLZ'])
 
         # Model
-        super(GR6J, self).__init__('GR6J',
+        super(HBV, self).__init__('HBV',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=11)
+            noutputsmax=10)
 
-        self.outputs_names = ['Q', 'ECH', 'AE', \
-                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'A']
+        self.outputs_names = ['Q', 'BRT', 'DQ', \
+                    'DMOIST', 'ETA', 'Q0', 'Q1', 'Q2', 'QG', 'SUM']
 
 
     def run(self):
-        # Get uh object (not set_timebase function, see ParamsVector class)
-        _, uh1 = self.params.uhs[0]
-        _, uh2 = self.params.uhs[1]
-
-        # Run gr4j c code
-        ierr = c_pygme_models_hydromodels.gr6j_run(uh1.nord, \
-            uh2.nord, self.istart, self.iend, \
+        # Run hbv c code
+        ierr = c_pygme_models_hydromodels.hbv_run(
+            self.istart, self.iend, \
             self.params.values, \
-            uh1.ord, \
-            uh2.ord, \
             self.inputs, \
-            uh1.states, \
-            uh2.states, \
             self.states.values, \
             self.outputs)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_hydromodels.gr6j_run' +
+            raise ValueError(('c_pygme_models_hydromodels.hbv_run' +
                 ' returns {0}').format(ierr))
 
 
-class CalibrationGR6J(Calibration):
+class CalibrationHBV(Calibration):
 
     def __init__(self, objfun=ObjFunBCSSE(0.2), \
                     warmup=5*365, \
@@ -72,7 +63,7 @@ class CalibrationGR6J(Calibration):
                     objfun_kwargs={}):
 
         # Input objects for Calibration class
-        model = GR6J()
+        model = HBV()
         params = model.params
 
 
@@ -94,7 +85,8 @@ class CalibrationGR6J(Calibration):
                         math.log(x[5])
                     ])
 
-        cp = Vector(['tX1', 'tX2', 'tX3', 'tX4', 'tX5', 'tX6'], \
+        cp = Vector(['tLPRAT', 'tFC', 'tBETA', 'tK0', 'tK1', 'tK2', \
+                        'tLSUZ', 'tCPERC', 'tBMAX', 'tCROUTE'], \
                 mins=true2trans(params.mins),
                 maxs=true2trans(params.maxs),
                 defaults=true2trans(params.defaults))
@@ -106,6 +98,7 @@ class CalibrationGR6J(Calibration):
 
         # Build parameter library from
         # MVT norm in transform space
+        # TODO !!!!!!!
         tplib = np.random.multivariate_normal(\
                     mean=[5.8, -0.78, 3.39, 0.86, 0., 3.],\
                     cov = [[1.16, 0.2, -0.15, -0.07, 0., 0.],\
@@ -122,7 +115,7 @@ class CalibrationGR6J(Calibration):
         plib[:, [1, 4]] = np.sinh(tplib[:, [1, 4]])
 
         # Instanciate calibration
-        super(CalibrationGR6J, self).__init__(calparams, \
+        super(CalibrationHBV, self).__init__(calparams, \
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \

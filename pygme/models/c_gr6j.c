@@ -1,10 +1,23 @@
 #include "c_gr6j.h"
 #include "c_uh.h"
 
+/*
+* The C code in this file is a translation of the fortran code
+* provided in the R-cran package airGR. See
+* https://cran.r-project.org/web/packages/airGR/index.html
+*
+* The code refers to the GR6J model publised by
+* Pushpalatha, R., C. Perrin, N. Le Moine, T. Mathevet,
+* and V. Andréassian (2011), A downward structural sensitivity analysis
+* of hydrological models to improve low-flow simulation, Journal of
+* Hydrology, 411(1-2), 66-76, doi:10.1016/j.jhydrol.2011.09.034.
+*
+* Julien Lerat, 2018
+*/
 
 int gr6j_minmaxparams(int nparams, double * params)
 {
-    if(nparams < 6)
+    if(nparams < GR6J_NPARAMS)
     {
         return GR6J_ERROR + __LINE__;
     }

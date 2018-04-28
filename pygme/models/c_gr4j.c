@@ -1,10 +1,20 @@
 #include "c_gr4j.h"
 #include "c_uh.h"
 
+/*
+* The code in this file is an implementation of the GR4J model published by
+* Perrin, C., C. Michel and V. Andréassian (2003), Improvement
+* of a parsimonious model for streamflow simulation,
+* Journal of Hydrology, 279(1-4), 275-289, doi:10.1016/S0022-1694(03)00225-7.
+*
+* Julien Lerat, 2018
+*/
+
+
 
 int gr4j_minmaxparams(int nparams, double * params)
 {
-    if(nparams<4)
+    if(nparams < GR4J_NPARAMS)
     {
         return GR4J_ERROR + __LINE__;
     }
