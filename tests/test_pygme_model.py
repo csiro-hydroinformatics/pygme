@@ -438,8 +438,12 @@ class ModelTestCases(unittest.TestCase):
         dum.allocate(inputs)
         dum.params.value = [1., 2., 0.]
 
-        warmup = dum.inisens([0]*2, [1]*2)
-        self.assertTrue(warmup == 0)
+        try:
+            warmup, sim0, sim1 = dum.inisens([0]*2, [1]*2)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Warmup period'))
+        else:
+            raise ValueError('Problem with error handling')
 
 
 if __name__ == '__main__':

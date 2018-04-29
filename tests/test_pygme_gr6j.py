@@ -130,7 +130,7 @@ class GR6JTestCases(unittest.TestCase):
             # Sensitivity to initial conditionos
             s1 = [0]*3
             s2 = [gr.params.X1, gr.params.X3, gr.params.X6]
-            warmup_ideal = gr.inisens(s1, s2)
+            warmup_ideal, sim0, sim1 = gr.inisens(s1, s2)
 
             # Special criteria
             # 5 values with difference greater than 1e-5

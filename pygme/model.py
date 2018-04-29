@@ -588,6 +588,10 @@ class Model(object):
         -----------
         wamrup : int
             Duration of warmup period
+        sim0 : numpy.ndarray
+            Simulation corresponding to first initialisation
+        sim1 : numpy.ndarray
+            Simulation corresponding to second initialisation
         '''
 
         # First simulation
@@ -608,11 +612,11 @@ class Model(object):
         else:
             warmup = np.max(np.where(idiff)[0])
 
-        if warmup == nval:
+        if warmup == nval-1:
             raise ValueError('Warmup period is longer'+\
                     ' than simulation duration')
 
-        return warmup
+        return warmup, sim1, sim2
 
 
     def clone(self):
