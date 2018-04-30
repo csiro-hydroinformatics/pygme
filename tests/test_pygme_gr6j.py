@@ -153,7 +153,7 @@ class GR6JTestCases(unittest.TestCase):
         warmup = 365*6
         calib = CalibrationGR6J(objfun=ObjFunSSE())
 
-        for i in range(8, 9):
+        for i in range(20):
             # Get inputs
             fts = os.path.join(self.ftest, 'output_data', \
                     'GR6J_timeseries_{0:02d}.csv'.format(i+1))
@@ -173,9 +173,9 @@ class GR6JTestCases(unittest.TestCase):
             gr.run()
 
             # Calibrate
-            err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
+            noise = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
             sim0 = gr.outputs[:, 0].copy()
-            obs = sim0+err
+            obs = sim0+noise
 
             t0 = time.time()
             final, ofun, _ = calib.workflow(obs, inputs, \
@@ -188,16 +188,24 @@ class GR6JTestCases(unittest.TestCase):
             ck1 = np.max(err) < 1e-2
 
             idx = np.arange(len(sim0)) > warmup
-            errs = np.abs(gr.outputs[idx, 0]-sim0[idx])
-            ck2 = np.max(errs) < 1e-3
+            sim = gr.outputs[idx, 0]
+            errs = np.abs(sim-sim0[idx])
+            ck2 = np.max(errs) < 5e-3
 
             print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}'+\
                     ' dt={2:3.3e} sec/yr').format(\
                         i+1, np.max(err), dt))
 
             if not (ck1 or ck2):
+                import matplotlib.pyplot as plt
+                from hydrodiy.plot import putils
+                fig, ax = putils.get_fig_axs()
+                ax.plot(sim0)
+                ax.plot(sim)
+                plt.show()
+
                 import pdb; pdb.set_trace()
 
-            self.assertTrue(ck)
+            self.assertTrue(ck1 or ck2)
 
 

@@ -5,6 +5,7 @@ import pandas as pd
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
+from pygme.models.gr4j import gr4j_X1_initial
 
 import c_pygme_models_hydromodels
 
@@ -69,13 +70,14 @@ class CalibrationGR6J(Calibration):
                     warmup=5*365, \
                     timeit=False, \
                     fixed=None, \
-                    objfun_kwargs={}):
+                    objfun_kwargs={},
+                    Pm=0., Em=0.):
 
         # Input objects for Calibration class
         model = GR6J()
         params = model.params
 
-
+        # Parameter transformation
         trans2true = lambda x: np.array([
                         math.exp(x[0]), \
                         math.sinh(x[1]), \
@@ -94,6 +96,16 @@ class CalibrationGR6J(Calibration):
                         math.log(x[5])
                     ])
 
+        # initialisation of states
+        if Pm < 0 or Em < 0 :
+            raise ValueError('Expected Pm and Em >0, '+\
+                'got Pm={0}, Em={1}'.format(Pm, Em))
+
+        initial = lambda x: np.array([\
+                        x[0]*gr4j_X1_initial(Pm, Em, x[0]), \
+                        x[2]*0.3, 0.])
+
+        # Build calib vector
         cp = Vector(['tX1', 'tX2', 'tX3', 'tX4', 'tX5', 'tX6'], \
                 mins=true2trans(params.mins),
                 maxs=true2trans(params.maxs),
@@ -102,18 +114,20 @@ class CalibrationGR6J(Calibration):
         calparams = CalibParamsVector(model, cp, \
             trans2true=trans2true, \
             true2trans=true2trans,\
-            fixed=fixed)
+            fixed=fixed, \
+            initial=initial)
 
         # Build parameter library from
         # MVT norm in transform space
         tplib = np.random.multivariate_normal(\
-                    mean=[5.8, -0.78, 3.39, 0.86, 0., 3.],\
-                    cov = [[1.16, 0.2, -0.15, -0.07, 0., 0.],\
-                            [0.2, 1.79, -0.24, -0.149, 0., 0.],\
-                            [-0.15, -0.24, 1.68, -0.16, 0., 0.],\
-                            [-0.07, -0.149, -0.16, 0.167, 0., 0.],\
-                            [0., 0., 0., 0., 1., 0.], \
-                            [0., 0., 0., 0., 0., 1.]], \
+                    mean=[5.3, -0.37, 2.5, 0.32, 0.11, 1.5],\
+                    cov = \
+                        [[2.85701,0.31298,-1.08943,-0.19579,0.11324,-0.60121],\
+                        [0.31298,0.40240,-0.51347,-0.13173,0.00879,-0.14192],\
+                        [-1.08943,-0.51347,1.99216,-0.03083,-0.03706,0.76333],\
+                        [-0.19579,-0.13173,-0.03083,0.55924,0.01843,-0.05714],\
+                        [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
+                        [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]], \
                     size=5000)
         tplib = np.clip(tplib, calparams.mins, calparams.maxs)
         plib = tplib * 0.

@@ -1,6 +1,7 @@
 import os
 import re
 import unittest
+from itertools import product as prod
 
 import time
 
@@ -8,14 +9,103 @@ import numpy as np
 
 from pygme.calibration import ObjFunSSE
 from pygme.models.gr4j import GR4J, CalibrationGR4J
+from pygme.models.gr4j import compute_PmEm, gr4j_X1_initial
 
+import c_pygme_models_hydromodels
 
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
+class InitialTestCases(unittest.TestCase):
+
+    def setUp(self):
+        print('\t=> PmEmTestCase')
+        filename = os.path.abspath(__file__)
+        self.FHERE = os.path.dirname(filename)
+
+    def test_PmEm(self):
+        ''' Test Pm and Em '''
+
+        for i in range(20):
+            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+
+            Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
+
+            ts = inputs[:, 0] - inputs[:, 1]
+            raine = np.maximum(ts, 0)
+            idx = inputs[:, 0] >= inputs[:, 1]
+            Pme = np.mean(raine[idx])
+            self.assertTrue(np.isclose(Pm, Pme))
+            evape = np.maximum(-ts, 0)
+            Eme = np.mean(evape[~idx])
+            self.assertTrue(np.isclose(Em, Eme))
+
+
+    def test_initial(self):
+        ''' Test initialisation of GR4J X1 '''
+
+        # Test the case where Pm=0, Em=0
+        for X1 in np.logspace(0, 5, 100):
+            ini = gr4j_X1_initial(0., 0., X1)
+            self.assertTrue(np.isclose(ini, 0.))
+
+        # Objective function for initial condition
+        def fun(ini, Pm, Em, X1):
+            ratio = ini/2.25
+            isq = 1./(1+ratio**4)**0.25
+            f = (1-ini**2)*Pm-ini*(2-ini)*Em-X1*ini*(1-isq);
+            return f
+
+        # Loop over test catchments
+        for i in range(20):
+            # Data
+            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
+
+            # Test of multiple X1 values
+            for X1 in np.logspace(0, 5, 100):
+                ini = gr4j_X1_initial(Pm, Em, X1)
+                f = fun(ini, Pm, Em, X1)
+                self.assertTrue(np.isclose(f, 0., rtol=0., atol=1e-3))
+
+
+    def test_initial_error(self):
+        ''' Test initialisation error '''
+
+        try:
+            ini = gr4j_X1_initial(-1, 1, 1)
+        except ValueError as  err:
+            self.assertTrue(str(err).startswith(\
+                'c_pygme_models_hydromodels.gr4j_X1_initial'))
+        else:
+            raise ValueError('Problem with error handling')
+
+        try:
+            ini = gr4j_X1_initial(1, -1, 1)
+        except ValueError as  err:
+            self.assertTrue(str(err).startswith(\
+                'c_pygme_models_hydromodels.gr4j_X1_initial'))
+        else:
+            raise ValueError('Problem with error handling')
+
+        try:
+            ini = gr4j_X1_initial(1, 1, -1)
+        except ValueError as  err:
+            self.assertTrue(str(err).startswith(\
+                'c_pygme_models_hydromodels.gr4j_X1_initial'))
+        else:
+            raise ValueError('Problem with error handling')
+
+
+
 
 class GR4JTestCases(unittest.TestCase):
-
 
     def setUp(self):
         print('\t=> GR4JTestCase')
@@ -143,6 +233,34 @@ class GR4JTestCases(unittest.TestCase):
                                         i+1, ck, np.max(err), warmup_ideal))
 
             self.assertTrue(ck)
+
+
+    def test_calibrate_initialisation(self):
+        ''' Calibrate GR4J against a simulation with known parameters '''
+        gr = GR4J()
+        warmup = 365*6
+
+        for i in range(20):
+            fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+
+            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+                    self.FHERE, i+1)
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+
+
+            Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
+            calib = CalibrationGR4J(objfun=ObjFunSSE(), Pm=Pm, Em=Em)
+
+            #calib.calparams.initial
+            X1 = 100.
+            for X1, X3 in prod(np.logspace(0, 10, 5), np.logspace(0, 10, 5)):
+                states0 = calib.calparams.initial([X1, -1, X3, 0.5])
+                ini = gr4j_X1_initial(Pm, Em, X1)
+                self.assertTrue(np.isclose(states0[0], ini*X1))
+                self.assertTrue(np.isclose(states0[1], 0.3*X3))
 
 
     def test_calibrate_against_itself(self):

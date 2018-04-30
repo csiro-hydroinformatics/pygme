@@ -8,14 +8,47 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
+def compute_PmEm(rain, evap):
+    ''' Compute rain and evap statistics needed for GR4J initialisation '''
+    # Check data
+    rain = np.array(rain).astype(np.float64)
+    evap = np.array(evap).astype(np.float64)
+    PmEm = np.zeros(2, dtype=np.float64)
+
+    # Run C code
+    ierr = c_pygme_models_hydromodels.compute_PmEm(rain, evap, PmEm)
+
+    if ierr > 0:
+        raise ValueError(('c_pygme_models_hydromodels.compute_PmEm' +
+            ' returns {0}').format(ierr))
+
+    return PmEm[0], PmEm[1]
+
+
+def gr4j_X1_initial(Pm, Em, X1):
+    ''' Compute optimised filling level for the production store of GR4J '''
+    # Check data
+    Pm = np.float64(Pm)
+    Em = np.float64(Em)
+    X1 = np.float64(X1)
+    solution = np.zeros(1, dtype=np.float64)
+
+    # Run C code
+    ierr = c_pygme_models_hydromodels.gr4j_X1_initial(Pm, Em, X1, solution)
+
+    if ierr > 0:
+        raise ValueError(('c_pygme_models_hydromodels.gr4j_X1_initial' +
+            ' returns {0}').format(ierr))
+
+    return solution[0]
+
 
 class GR4J(Model):
 
-    def __init__(self):
+    def __init__(self, Pm=0., Em=0.):
 
-        # Config vector
-        config = Vector(['nothing'],\
-                    [0], [0], [1])
+        # Config vector - used to initialise model
+        config = Vector(['nodata'], [0], [0], [1])
 
         # params vector
         vect = Vector(['X1', 'X2', 'X3', 'X4'], \
@@ -69,13 +102,14 @@ class CalibrationGR4J(Calibration):
                     warmup=5*365, \
                     timeit=False, \
                     fixed=None, \
-                    objfun_kwargs={}):
+                    objfun_kwargs={}, \
+                    Pm=0, Em=0):
 
         # Input objects for Calibration class
         model = GR4J()
         params = model.params
 
-
+        # Transformation functions for parameters
         trans2true = lambda x: np.array([
                         math.exp(x[0]), \
                         math.sinh(x[1]), \
@@ -90,6 +124,16 @@ class CalibrationGR4J(Calibration):
                         math.log(x[3]-0.49)
                     ])
 
+        # initialisation of states
+        if Pm < 0 or Em < 0 :
+            raise ValueError('Expected Pm and Em >0, '+\
+                'got Pm={0}, Em={1}'.format(Pm, Em))
+
+        initial = lambda x: np.array([\
+                        x[0]*gr4j_X1_initial(Pm, Em, x[0]), \
+                        x[2]*0.3])
+
+        # Calib param vector
         cp = Vector(['tX1', 'tX2', 'tX3', 'tX4'], \
                 mins=true2trans(params.mins),
                 maxs=true2trans(params.maxs),
@@ -98,16 +142,17 @@ class CalibrationGR4J(Calibration):
         calparams = CalibParamsVector(model, cp, \
             trans2true=trans2true, \
             true2trans=true2trans,\
-            fixed=fixed)
+            fixed=fixed,\
+            initial=initial)
 
         # Build parameter library from
         # MVT norm in transform space
         tplib = np.random.multivariate_normal(\
-                    mean=[5.8, -0.78, 3.39, 0.86],
-                    cov = [[1.16, 0.2, -0.15, -0.07],
-                            [0.2, 1.79, -0.24, -0.149],
-                            [-0.15, -0.24, 1.68, -0.16],
-                            [-0.07, -0.149, -0.16, 0.167]],
+                    mean=[6., -0.8, 3., 0.7],
+                    cov = [[1.16, 0.4, 0.15, -0.2],
+                            [0.4, 1.6, -0.3, -0.17],
+                            [0.15, -0.3, 1.68, -0.3],
+                            [-0.2, -0.17, -0.3, 0.6]],
                     size=2000)
         tplib = np.clip(tplib, calparams.mins, calparams.maxs)
         plib = tplib * 0.

@@ -11,6 +11,151 @@
 */
 
 
+/****** Subroutines to find the initial state of the production store *********/
+/* Compute statistics from GR4J inputs to initialise the S state */
+int c_compute_PmEm(int nval,double * rain, double * evap, double* PmEm)
+{
+	int i, nP, nE;
+	double P, E;
+
+    /* initialise */
+	PmEm[0] = 0;
+	PmEm[1] = 0;
+	nP=0;
+    nE=0;
+
+    /* Loop through rainfall and evap vectors */
+    for (i=0; i<nval; i++)
+    {
+		P = rain[i];
+        E = evap[i];
+
+        if(P>=0 && E>=0 && !isnan(P) && !isnan(E))
+        {
+		    if(P>=E)
+            {
+		    	PmEm[0] += P-E;
+		    	nP++;
+		    }
+		    else
+            {
+		    	PmEm[1] += E-P;
+		    	nE++;
+		    }
+        }
+	}
+    if(PmEm[0] < 0 || PmEm[1] < 0)
+        return GR4J_ERROR + __LINE__;
+
+    /* Compute mean value */
+    if(nP>0) PmEm[0] = PmEm[0]/(double)nP;
+	else PmEm[0] = 0;
+
+	if(nE>0) PmEm[1] = PmEm[1]/(double)nE;
+	else PmEm[1] = 0;
+
+    return 0;
+}
+
+
+/*
+*   Calculates the optimal storage level of the production store
+*	  Pm = mean {rainfall-PE} when rainfall>PE  x Probability of rainfall>PE
+
+*	  Em = mean {PE-rainfall} when PE>rainfall x Probability of PE > rainfall
+
+*	  X1 = SMA store capacity (mm)
+*	  Sini = initial filling level of the SMA store
+*	  PERCFACTOR = Percolation factor
+
+*/
+double c_gr4j_X1_initial_objfun(double Pm,double Em, double X1, double Sini)
+{
+    double f,ini, ini2, ratio, ratio4, isq;
+
+    /* Initialise */
+    ini = Sini > 1 ? 1 : Sini < 0 ? 0 : Sini;
+    ini2 = ini*ini;
+
+    /* .. Here we use the default GR4J percolation */
+    ratio = ini/GR4J_PERCFACTOR;
+
+    /* .. compute power 4 and 1/4 quickly */
+    ratio4 = ratio*ratio;
+    ratio4 *= ratio4;
+
+    isq = sqrt(1+ratio4);
+    isq = 1./sqrt(isq);
+
+    /* Equation provided by Le Moine (2008, page 212) */
+    f = (1-ini2)*Pm-ini*(2-ini)*Em-X1*ini*(1-isq);
+
+    return f;
+}
+
+/* Calculates the optimal storage level of the production store by the secant
+ * method
+ *	  Pm = mean {rainfall-PE} when rainfall>PE
+ *	  Em = mean {PE-rainfall} when PE>rainfall
+ *	  X1 = SMA store capacity (mm)
+ *
+ *    solution = optimised filling level
+ */
+int c_gr4j_X1_initial(double Pm, double Em, double X1, double * solution)
+{
+    int i, nmax=100;
+    double a, b, s, fa, fb, fs;
+    double feps=1e-5, veps=1e-5, eps=1e-10;
+
+    if(Pm < 0 || Em < 0 || X1 < 0)
+        return GR4J_ERROR + __LINE__;
+
+    /* Initialise */
+    a = 0; // 0% filling level
+    b = 1; // 100% filling level
+    i = 0;
+    fa = c_gr4j_X1_initial_objfun(Pm, Em, X1, a);
+    fb = c_gr4j_X1_initial_objfun(Pm, Em, X1, b);
+    fs = fa;
+
+    /* Check starting point */
+    if(fa*fb > 0)
+        return GR4J_ERROR + __LINE__;
+
+    /* Initialise */
+    s = a;
+    fs = fa;
+
+    /* Iteration to find the solution of the equation provided by Le Moine */
+    while(fabs(fs) > feps && fabs(b-a) > veps && i < nmax)
+    {
+        /* Secant method */
+        if(fabs(fa-fb) > eps)
+            s = b - fb*(b-a)/(fb-fa);
+
+        /* Loop */
+        fs = c_gr4j_X1_initial_objfun(Pm, Em, X1, s);
+
+        if(fabs(fa) > fabs(fb))
+        {
+            a = s;
+            fa = fs;
+        } else {
+            b = s;
+            fb = fs;
+        }
+
+        i++;
+    }
+
+    /* Store */
+    *solution = s;
+
+    return 0;
+}
+
+
+
 
 int gr4j_minmaxparams(int nparams, double * params)
 {

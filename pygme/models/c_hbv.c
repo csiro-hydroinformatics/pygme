@@ -316,7 +316,7 @@ int c_hbv_run(int nval, int nparams,
     double * states,
     double * outputs)
 {
-    int ierr=0, i, j, *bql;
+    int ierr=0, i, j, *bql=0;
     double dquh[HBV_MAXUH];
 
     /* Check dimensions */

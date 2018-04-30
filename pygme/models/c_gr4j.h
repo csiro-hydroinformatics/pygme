@@ -26,6 +26,12 @@
 /* Number of outputs returned by GR4J run */
 #define GR4J_NOUTPUTS 9
 
+int c_compute_PmEm(int nval,double * rain, double * evap, double* PmEm);
+
+double c_gr4j_X1_initial_objfun(double Pm,double Em, double X1, double Sini);
+
+int c_gr4j_X1_initial(double Pm, double Em, double X1, double * solution);
+
 int gr4j_production(double P, double E,
         double S,
         double state0,

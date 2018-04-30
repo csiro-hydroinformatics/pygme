@@ -15,6 +15,11 @@ cdef extern from 'c_gr2m.h':
             double * outputs)
 
 cdef extern from 'c_gr4j.h':
+
+    int c_compute_PmEm(int nval,double * rain, double * evap, double* PmEm)
+
+    int c_gr4j_X1_initial(double Pm, double Em, double X1, double * solution)
+
     int c_gr4j_run(int nval, int nparams,
             int nuh1, int nuh2,
             int ninputs,
@@ -112,9 +117,30 @@ def gr2m_run(int start, int end,
     return ierr
 
 
-def gr4j_run(int nuh1,
-        int nuh2,
-        int start, int end,
+def compute_PmEm(np.ndarray[double, ndim=1, mode='c'] rain not None,
+        np.ndarray[double, ndim=1, mode='c'] evap not None,
+        np.ndarray[double, ndim=1, mode='c'] PmEm not None):
+
+    if rain.shape[0] != evap.shape[0]:
+        raise ValueError('rain.shape[0] != evap.shape[0]')
+
+    if PmEm.shape[0] != 2:
+        raise ValueError('PmEm.shape[0] != 2')
+
+    return c_compute_PmEm(rain.shape[0],
+            <double*> np.PyArray_DATA(rain), \
+            <double*> np.PyArray_DATA(evap), \
+            <double*> np.PyArray_DATA(PmEm))
+
+
+def gr4j_X1_initial(double Pm, double Em, double X1,
+        np.ndarray[double, ndim=1, mode='c'] solution not None):
+
+    return c_gr4j_X1_initial(Pm, Em, X1,
+                <double*> np.PyArray_DATA(solution))
+
+
+def gr4j_run(int nuh1, int nuh2, int start, int end,
         np.ndarray[double, ndim=1, mode='c'] params not None,
         np.ndarray[double, ndim=1, mode='c'] uh1 not None,
         np.ndarray[double, ndim=1, mode='c'] uh2 not None,
