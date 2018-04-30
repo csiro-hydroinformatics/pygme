@@ -90,7 +90,7 @@ class ObjFunTestCases(unittest.TestCase):
 class CalibParamsVectorTestCases(unittest.TestCase):
 
     def setUp(self):
-        print('\t=> CalibParamsVectorTestCase')
+        print('\t=> CalibParamsVectorTestCases')
 
         config = Vector([])
         nval = 10
@@ -102,6 +102,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
 
 
     def test_default(self):
+        ''' Test setting default values '''
         calparams = CalibParamsVector(self.model)
 
         self.assertTrue(np.all([s1==s2 for s1, s2 in zip(calparams.names, \
@@ -112,6 +113,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
 
 
     def test_errors_infinite(self):
+        ''' Test errors for finite values in calibrated params '''
         nval = self.model.params.nval
         cp = Vector(['X{0}'.format(k) for k in range(1, nval+1)])
         try:
@@ -123,6 +125,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
 
 
     def test_errors_funs(self):
+        ''' Test errors related to trans2true and true2trans '''
         nval = self.model.params.nval
         cp = Vector(['X{0}'.format(k) for k in range(1, nval+1)])
         cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
@@ -133,7 +136,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
         try:
             calparams = CalibParamsVector(self.model, cp, fun1, fun2)
         except ValueError as err:
-            self.assertTrue(str(err).startswith('trans2true function does not'))
+            self.assertTrue(str(err).startswith('Problem with trans2true for'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -141,7 +144,7 @@ class CalibParamsVectorTestCases(unittest.TestCase):
         try:
             calparams = CalibParamsVector(self.model, cp, fun, fun)
         except ValueError as err:
-            self.assertTrue(str(err).startswith('trans2true function does not'))
+            self.assertTrue(str(err).startswith('Problem with trans2true for'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -214,6 +217,42 @@ class CalibParamsVectorTestCases(unittest.TestCase):
             val2[0] = x1
             self.assertTrue(np.allclose(calparams.truevalues, val2))
             self.assertTrue(np.allclose(calparams.values, val2))
+
+
+    def test_initial(self):
+        nval = self.model.params.nval
+        cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
+                    defaults=[0]*nval, mins=[-5]*nval, maxs=[5]*nval)
+
+        # Test initial returns proper values
+        initial = lambda x: np.array([10.]*self.model.states.nval)
+        calparams = CalibParamsVector(self.model, cp, initial=initial)
+        ini = calparams.initial(self.model.params.values)
+        self.assertTrue(np.allclose(ini, 10.))
+
+
+    def test_initial_errors(self):
+        nval = self.model.params.nval
+        cp = Vector(['tX{0}'.format(k) for k in range(1, nval+1)],\
+                    defaults=[0]*nval, mins=[-5]*nval, maxs=[5]*nval)
+
+        # Test initial returns proper values
+        initial = lambda x: np.array([10.]*(self.model.states.nval+1))
+        try:
+            calparams = CalibParamsVector(self.model, cp, initial=initial)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Problem with initial for'))
+        else:
+            raise ValueError('Problem with error handling')
+
+        initial = lambda x: [10]*self.model.states.nval
+        try:
+            calparams = CalibParamsVector(self.model, cp, initial=initial)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('Problem with initial for'))
+        else:
+            raise ValueError('Problem with error handling')
+
 
 
 

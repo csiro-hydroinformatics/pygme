@@ -98,15 +98,57 @@ class ObjFunBCSSE(ObjFun):
         return np.nansum(err*err)
 
 
+def check_vector(x, nval):
+    ''' Check vector value '''
+    if not isinstance(x, np.ndarray):
+        raise ValueError('data is a not numpy array')
+
+    if not x.ndim == 1:
+        raise ValueError('data is not a 1d numpy array')
+
+    if not len(x) == nval:
+        raise ValueError('Expected vector of '+\
+            'length {0}, got {1}'.format(nval, len(x)))
+
+    if np.any(np.isnan(x)):
+        raise ValueError('Expected no nan values in vector, '+\
+            'got {0}'.format(xd))
+
+
 
 # Overload Vector class to include parameter transform
 class CalibParamsVector(Vector):
 
     def __init__(self, model, tparams=None, trans2true=None,\
-            true2trans=None, fixed=None):
+            true2trans=None, fixed=None, initial=None):
+        ''' Object to handle calibrated parameters
 
+        Parameters
+        -----------
+        model : pygme.model.Model
+            Model to calibrate
+        tparams : hydrodiy.containers.Vector
+            Vector of calibrated model parameters
+        trans2true : function
+            Function to transform calibrated parameters into
+            model parameters
+        true2trans : function
+            Function to transform model parameters into
+            calibrated parameters
+        fixed : dict
+            Dictionary listing the fixed model parameters and
+            their values. Example {'X1':100.}
+        initial : function
+            Function to compute the initial states from model parameters
+        '''
+        # Default values
         if tparams is None:
             tparams = model.params.clone()
+
+        # ... initial sets the model states to their default values
+        # (which is often 0)
+        if initial is None:
+            initial = lambda x: model.states.defaults
 
         # Initialise Vector object
         super(CalibParamsVector, self).__init__(tparams.names, \
@@ -153,46 +195,30 @@ class CalibParamsVector(Vector):
 
         # Check transforms applied to default values
         xd = trans2true(self.defaults)
-
-        if not isinstance(xd, np.ndarray):
-            raise ValueError('trans2true function does not return a '+
-                'numpy array')
-
-        if not xd.ndim == 1:
-            raise ValueError('trans2true function does not return a '+
-                '1d numpy array')
-
-        if not len(xd) == model.params.nval:
-            raise ValueError('Expected model params vector of '+\
-                'length {0}, got {1}'.format(model.params.nval, len(xd)))
-
-        if np.any(np.isnan(xd)):
-            raise ValueError('Expected no nan values in transform of '+\
-                ' default values, got {0}'.format(xd))
+        try:
+            check_vector(xd, model.params.nval)
+        except ValueError as err:
+            raise ValueError('Problem with trans2true for default: {0}'.format(str(err)))
 
         # Check back transforms applied to default values
         xtd = true2trans(xd)
-
-        if not isinstance(xtd, np.ndarray):
-            raise ValueError('true2trans function does not return a '+
-                'numpy array')
-
-        if not xtd.ndim == 1:
-            raise ValueError('true2trans function does not return a '+
-                '1d numpy array')
-
-        if np.any(np.isnan(xtd)):
-            raise ValueError('Expected no nan values in transform of '+\
-                ' default values, got {0}'.format(xtd))
+        try:
+            check_vector(xtd, self.nval)
+        except ValueError as err:
+            raise ValueError('Problem with true2trans: {0}'.format(str(err)))
 
         # Check trans2true is one to one
         xmi = trans2true(self.mins)
-        xma = trans2true(self.maxs)
+        try:
+            check_vector(xmi, model.params.nval)
+        except ValueError as err:
+            raise ValueError('Problem with trans2true for min: {0}'.format(str(err)))
 
-        if np.any(np.isnan(xmi)) or np.any(np.isnan(xma)):
-            raise ValueError('Expected no nan values in transform of '+\
-                ' mins or maxs, got t(mins)={0} and t(maxs)={1}'.format(\
-                    xmi, xma))
+        xma = trans2true(self.maxs)
+        try:
+            check_vector(xmi, model.params.nval)
+        except ValueError as err:
+            raise ValueError('Problem with trans2true for max: {0}'.format(str(err)))
 
         if np.any((xd-xmi)<0):
             raise ValueError('Expected transform of defaults to be greater'+\
@@ -216,12 +242,32 @@ class CalibParamsVector(Vector):
         for v1, v2 in [[xd, xd2], [xmi, xmi2], [xma, xma2]]:
             if not np.allclose(v1, v2):
                 raise ValueError('Expected trans2true followed by true2trans '+\
-                    'to return the original vector, got {0} -> {1}'.format(xd, \
-                    xd2))
+                    'to return the original vector, got {0} -> {1}'.format(v1, \
+                    v2))
+
+        # Check initialisation function is ok
+        sd = initial(self.defaults)
+        try:
+            check_vector(sd, model.states.nval)
+        except ValueError as err:
+            raise ValueError('Problem with initial for default: {0}'.format(str(err)))
+
+        smi = initial(self.mins)
+        try:
+            check_vector(smi, model.states.nval)
+        except ValueError as err:
+            raise ValueError('Problem with initial for min: {0}'.format(str(err)))
+
+        sma = initial(self.maxs)
+        try:
+            check_vector(sma, model.states.nval)
+        except ValueError as err:
+            raise ValueError('Problem with initial for max: {0}'.format(str(err)))
 
         # Store data
         self._trans2true = trans2true
         self._true2trans = true2trans
+        self._initial = initial
         self._model = model
         model.params.values = trans2true(self.defaults).copy()
 
@@ -260,6 +306,11 @@ class CalibParamsVector(Vector):
     @property
     def true2trans(self):
         return self._true2trans
+
+
+    @property
+    def initial(self):
+        return self._initial
 
 
     @property
@@ -323,7 +374,8 @@ def fitfun(values, calib, use_transformed_parameters):
         return np.inf
 
     # Initialise model
-    model.initialise()
+    states = calparams.initial(model.params.values)
+    model.initialise(states=states)
 
     # Run model with runtime assessment
     if calib.timeit:
