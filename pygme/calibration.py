@@ -120,7 +120,7 @@ def check_vector(x, nval):
 class CalibParamsVector(Vector):
 
     def __init__(self, model, tparams=None, trans2true=None,\
-            true2trans=None, fixed=None, initial=None):
+            true2trans=None, fixed=None):
         ''' Object to handle calibrated parameters
 
         Parameters
@@ -138,17 +138,10 @@ class CalibParamsVector(Vector):
         fixed : dict
             Dictionary listing the fixed model parameters and
             their values. Example {'X1':100.}
-        initial : function
-            Function to compute the initial states from model parameters
         '''
         # Default values
         if tparams is None:
             tparams = model.params.clone()
-
-        # ... initial sets the model states to their default values
-        # (which is often 0)
-        if initial is None:
-            initial = lambda x: model.states.defaults
 
         # Initialise Vector object
         super(CalibParamsVector, self).__init__(tparams.names, \
@@ -245,29 +238,9 @@ class CalibParamsVector(Vector):
                     'to return the original vector, got {0} -> {1}'.format(v1, \
                     v2))
 
-        # Check initialisation function is ok
-        sd = initial(self.defaults)
-        try:
-            check_vector(sd, model.states.nval)
-        except ValueError as err:
-            raise ValueError('Problem with initial for default: {0}'.format(str(err)))
-
-        smi = initial(self.mins)
-        try:
-            check_vector(smi, model.states.nval)
-        except ValueError as err:
-            raise ValueError('Problem with initial for min: {0}'.format(str(err)))
-
-        sma = initial(self.maxs)
-        try:
-            check_vector(sma, model.states.nval)
-        except ValueError as err:
-            raise ValueError('Problem with initial for max: {0}'.format(str(err)))
-
         # Store data
         self._trans2true = trans2true
         self._true2trans = true2trans
-        self._initial = initial
         self._model = model
         model.params.values = trans2true(self.defaults).copy()
 
@@ -306,11 +279,6 @@ class CalibParamsVector(Vector):
     @property
     def true2trans(self):
         return self._true2trans
-
-
-    @property
-    def initial(self):
-        return self._initial
 
 
     @property
@@ -361,6 +329,7 @@ def fitfun(values, calib, use_transformed_parameters):
     ical = calib.ical
     objfun = calib.objfun
     objfun_kwargs = calib.objfun_kwargs
+    initial_kwargs = calib.initial_kwargs
 
     # Set model parameters
     # (note that parameters are passed to model within calparams object)
@@ -374,8 +343,7 @@ def fitfun(values, calib, use_transformed_parameters):
         return np.inf
 
     # Initialise model
-    states = calparams.initial(model.params.values)
-    model.initialise(states=states)
+    model.initialise_fromdata(**initial_kwargs)
 
     # Run model with runtime assessment
     if calib.timeit:
@@ -420,7 +388,8 @@ class Calibration(object):
             paramslib=None, \
             timeit=False, \
             hitbounds=True,
-            objfun_kwargs={}):
+            objfun_kwargs={},\
+            initial_kwargs={}):
 
         # Initialise calparams
         calparams.truevalues = calparams.model.params.defaults
@@ -428,6 +397,7 @@ class Calibration(object):
 
         self._objfun = objfun
         self._objfun_kwargs = objfun_kwargs
+        self._initial_kwargs = initial_kwargs
 
         self.warmup = warmup
         self.timeit = timeit
@@ -518,6 +488,11 @@ class Calibration(object):
     @property
     def objfun_kwargs(self):
         return self._objfun_kwargs
+
+
+    @property
+    def initial_kwargs(self):
+        return self._initial_kwargs
 
 
     @property

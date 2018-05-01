@@ -40,6 +40,24 @@ class HBV(Model):
                     'DMOIST', 'ETA', 'Q0', 'Q1', 'Q2', 'QG', 'SUM']
 
 
+    def initialise_fromdata(self):
+        ''' Initialisation of HBV using
+            * Production store:
+            * Routing store:
+        '''
+        LSUZ = self.params.LSUZ
+        K1 = self.params.K1
+        K2 = self.params.K2
+        K3 = self.params.K3
+
+        MOIST0 = 0.
+        SUZ0 = 0.
+        SLZ0 = 0.
+
+        self.initialise([MOIST0, SUZ0, SLZ0])
+
+
+
     def run(self):
         # Run hbv c code
         ierr = c_pygme_models_hydromodels.hbv_run(
@@ -114,12 +132,16 @@ class CalibrationHBV(Calibration):
         plib[:, 3] += 0.49
         plib[:, [1, 4]] = np.sinh(tplib[:, [1, 4]])
 
+        # Initialisation arguments
+        initial_kwargs = {}
+
         # Instanciate calibration
         super(CalibrationHBV, self).__init__(calparams, \
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
             paramslib=plib, \
-            objfun_kwargs=objfun_kwargs)
+            objfun_kwargs=objfun_kwargs,\
+            initial_kwargs=initial_kwargs())
 
 

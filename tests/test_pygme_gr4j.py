@@ -235,39 +235,36 @@ class GR4JTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
 
-    def test_calibrate_initialisation(self):
-        ''' Calibrate GR4J against a simulation with known parameters '''
+    def test_initialisation(self):
+        ''' Test GR4J initialisation '''
         gr = GR4J()
         warmup = 365*6
 
         for i in range(20):
-            fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
-
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
                     self.FHERE, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
-
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
-            calib = CalibrationGR4J(objfun=ObjFunSSE(), Pm=Pm, Em=Em)
 
-            #calib.calparams.initial
-            X1 = 100.
-            for X1, X3 in prod(np.logspace(0, 10, 5), np.logspace(0, 10, 5)):
-                states0 = calib.calparams.initial([X1, -1, X3, 0.5])
+            for X1, X3 in prod(np.logspace(0, 4, 5), np.logspace(0, 4, 5)):
+                gr.params.X1 = X1
+                gr.params.X3 = X3
+                gr.initialise_fromdata(Pm, Em)
                 ini = gr4j_X1_initial(Pm, Em, X1)
-                self.assertTrue(np.isclose(states0[0], ini*X1))
-                self.assertTrue(np.isclose(states0[1], 0.3*X3))
+                self.assertTrue(np.isclose(gr.states.values[0], ini*X1))
+                self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
+
+                gr.initialise_fromdata()
+                self.assertTrue(np.isclose(gr.states.values[0], 0.5*X1))
+                self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
 
 
     def test_calibrate_against_itself(self):
         ''' Calibrate GR4J against a simulation with known parameters '''
         gr = GR4J()
         warmup = 365*6
-        calib = CalibrationGR4J(objfun=ObjFunSSE())
 
         for i in range(20):
             fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
@@ -278,15 +275,16 @@ class GR4JTestCases(unittest.TestCase):
                     self.FHERE, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
             # Run gr first
-            gr = calib.model
             gr.allocate(inputs, 1)
             gr.params.values = params
-            gr.initialise()
+            gr.initialise_fromdata(Pm, Em)
             gr.run()
 
             # Calibrate
+            calib = CalibrationGR4J(objfun=ObjFunSSE(), Pm=Pm, Em=Em)
             err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
             obs = gr.outputs[:,0].copy()+err
 

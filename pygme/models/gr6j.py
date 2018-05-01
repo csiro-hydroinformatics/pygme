@@ -42,6 +42,35 @@ class GR6J(Model):
                     'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'A']
 
 
+    def initialise_fromdata(self, Pm=0., Em=0.):
+        ''' Initialisation of GR6J using
+            * Production store: steady state solution from Le Moine
+              (2008, Page 212)
+            * Routing store: 30% filling level
+            * Exponential store: 0% filling level
+
+            Reference:
+            Le Moine, Nicolas. "Le bassin versant de surface vu par le souterrain: une voie
+            d'amélioration des performances et du réalisme des modèles pluie-débit?." PhD diss., Paris 6, 2008.
+        '''
+        X1 = self.params.X1
+        X3 = self.params.X3
+
+        # Production store
+        if Pm > 1e-10 or Em > 1e-10:
+            # Using the routine from Le Moine
+            S0 = X1 * gr4j_X1_initial(Pm, Em, X1)
+        else:
+            S0 = 0.5 * X1
+
+        # Routing store
+        R0 = 0.3 * X3
+
+        # Model initialisation
+        self.initialise(states=[S0, R0, 0.])
+
+
+
     def run(self):
         # Get uh object (not set_timebase function, see ParamsVector class)
         _, uh1 = self.params.uhs[0]
@@ -101,9 +130,7 @@ class CalibrationGR6J(Calibration):
             raise ValueError('Expected Pm and Em >0, '+\
                 'got Pm={0}, Em={1}'.format(Pm, Em))
 
-        initial = lambda x: np.array([\
-                        x[0]*gr4j_X1_initial(Pm, Em, x[0]), \
-                        x[2]*0.3, 0.])
+        initial_kwargs = {'Pm':Pm, 'Em':Em}
 
         # Build calib vector
         cp = Vector(['tX1', 'tX2', 'tX3', 'tX4', 'tX5', 'tX6'], \
@@ -114,8 +141,7 @@ class CalibrationGR6J(Calibration):
         calparams = CalibParamsVector(model, cp, \
             trans2true=trans2true, \
             true2trans=true2trans,\
-            fixed=fixed, \
-            initial=initial)
+            fixed=fixed)
 
         # Build parameter library from
         # MVT norm in transform space
@@ -141,6 +167,7 @@ class CalibrationGR6J(Calibration):
             warmup=warmup, \
             timeit=timeit, \
             paramslib=plib, \
-            objfun_kwargs=objfun_kwargs)
+            objfun_kwargs=objfun_kwargs, \
+            initial_kwargs=initial_kwargs)
 
 

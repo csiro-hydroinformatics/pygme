@@ -74,6 +74,34 @@ class GR4J(Model):
                     'PR', 'QD', 'QR', 'PERC', 'S', 'R']
 
 
+    def initialise_fromdata(self, Pm=0., Em=0.):
+        ''' Initialisation of GR4J using
+            * Production store: steady state solution from Le Moine
+              (2008, Page 212)
+            * Routing store: 30% filling level
+
+            Reference:
+            Le Moine, Nicolas. "Le bassin versant de surface vu par le souterrain: une voie
+            d'amélioration des performances et du réalisme des modèles pluie-débit?." PhD diss., Paris 6, 2008.
+        '''
+        X1 = self.params.X1
+        X3 = self.params.X3
+
+         # Production store
+        if (Pm > 1e-10 or Em > 1e-10):
+            # Using the routine from Le Moine
+            S0 = X1 * gr4j_X1_initial(Pm, Em, X1)
+        else:
+            # Default GR4J initialisation
+            S0 = 0.5 * X1
+
+        # Routing store
+        R0 = X3 * 0.3
+
+        # Model initialisation
+        self.initialise(states=[S0, R0])
+
+
     def run(self):
         # Get uh object (not set_timebase function, see ParamsVector class)
         _, uh1 = self.params.uhs[0]
@@ -129,10 +157,6 @@ class CalibrationGR4J(Calibration):
             raise ValueError('Expected Pm and Em >0, '+\
                 'got Pm={0}, Em={1}'.format(Pm, Em))
 
-        initial = lambda x: np.array([\
-                        x[0]*gr4j_X1_initial(Pm, Em, x[0]), \
-                        x[2]*0.3])
-
         # Calib param vector
         cp = Vector(['tX1', 'tX2', 'tX3', 'tX4'], \
                 mins=true2trans(params.mins),
@@ -142,8 +166,7 @@ class CalibrationGR4J(Calibration):
         calparams = CalibParamsVector(model, cp, \
             trans2true=trans2true, \
             true2trans=true2trans,\
-            fixed=fixed,\
-            initial=initial)
+            fixed=fixed)
 
         # Build parameter library from
         # MVT norm in transform space
@@ -166,6 +189,7 @@ class CalibrationGR4J(Calibration):
             warmup=warmup, \
             timeit=timeit, \
             paramslib=plib, \
-            objfun_kwargs=objfun_kwargs)
+            objfun_kwargs=objfun_kwargs,
+            initial_kwargs={'Pm':Pm, 'Em':Em})
 
 

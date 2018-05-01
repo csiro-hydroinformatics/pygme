@@ -93,8 +93,11 @@ double c_gr4j_X1_initial_objfun(double Pm,double Em, double X1, double Sini)
     return f;
 }
 
-/* Calculates the optimal storage level of the production store by the secant
- * method
+/* Calculates the storage level at steady state for the production store by the secant
+ * method. The solution is provided by
+ * Le Moine, Nicolas. "Le bassin versant de surface vu par le souterrain: une voie
+ * d'amélioration des performances et du réalisme des modèles pluie-débit?." PhD diss., Paris 6, 2008.
+ *
  *	  Pm = mean {rainfall-PE} when rainfall>PE
  *	  Em = mean {PE-rainfall} when PE>rainfall
  *	  X1 = SMA store capacity (mm)

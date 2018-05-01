@@ -564,6 +564,16 @@ class Model(object):
                 uh1.reset()
 
 
+    def initialise_fromdata(self):
+        ''' Initialise model from external data
+            (e.g. steady state from parameter values)
+
+            By default, the function run the initialise command without
+            parameters.
+        '''
+        self.initialise()
+
+
     def run(self):
         ''' Run the model '''
         raise NotImplementedError(('model {0}: '+\

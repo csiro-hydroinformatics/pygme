@@ -36,13 +36,21 @@ class GR2M(Model):
                             'R1', 'R2', 'S', 'R']
 
 
-    def initialise(self, states=None, uhs=None):
-        ''' Initialise state vector and potentially all UH states vectors '''
-        if states is None:
-            X1, _ = self.params.values
-            self.states.values = [X1/2, 30]
-        else:
-            self.states.values = states
+    def initialise_fromdata(self):
+        ''' Initialisation of GR2M using
+            * Production store: 50% filling level
+            * Routing store: 30% filling level
+        '''
+        X1 = self.params.X1
+
+        # Production store
+        S0 = 0.5 * X1
+
+        # Routing store 60x30% = 18 mm
+        R0 = 18
+
+        # Model initialisation
+        self.initialise(states=[S0, R0])
 
 
     def run(self):
@@ -82,13 +90,17 @@ class CalibrationGR2M(Calibration):
                     size=500)
         plib = np.clip(plib, params.mins, params.maxs)
 
+        # Initialisation arguments
+        initial_kwargs = {}
+
         # Instanciate calibration
         super(CalibrationGR2M, self).__init__(calparams, \
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
             paramslib=plib, \
-            objfun_kwargs=objfun_kwargs)
+            objfun_kwargs=objfun_kwargs, \
+            initial_kwargs=initial_kwargs)
 
 
 

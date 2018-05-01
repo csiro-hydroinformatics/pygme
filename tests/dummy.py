@@ -48,6 +48,9 @@ class Dummy(Model):
 
         self.outputs_names = ['a', 'b']
 
+    def initial_fromdata(self, S0=0.):
+        self.initialise(states=[S0]*self.states.nval)
+
 
     def run(self):
         istart, iend = self.istart, self.iend
@@ -56,7 +59,7 @@ class Dummy(Model):
         kk = range(istart, iend+1)
         outputs = par1+par2*self.inputs[kk, :]
 
-        if np.allclose(self.config['continuous'], 1):
+        if np.isclose(self.config['continuous'], 1):
             outputs = outputs + self.states.values[None, :outputs.shape[1]]
 
         # Write data to selected output indexes
