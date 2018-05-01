@@ -52,6 +52,9 @@ class ObjFunTestCases(unittest.TestCase):
         of = ObjFunSSE()
         print(of)
 
+        of = ObjFunKGE()
+        print(of)
+
 
     def test_SSE(self):
         of = ObjFunSSE()

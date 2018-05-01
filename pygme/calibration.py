@@ -59,7 +59,7 @@ class ObjFunKGE(ObjFun):
     ''' KGE objective function '''
 
     def __init__(self):
-        super(ObjFunKGE, self).__init__('KGE', 1)
+        super(ObjFunKGE, self).__init__('KGE', -1)
 
 
     def compute(self, obs, sim, **kwargs):
