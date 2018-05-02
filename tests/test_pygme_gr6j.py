@@ -1,6 +1,7 @@
 import os
 import re
 import unittest
+from itertools import product as prod
 
 import time
 
@@ -8,7 +9,7 @@ import numpy as np
 
 from pygme.calibration import ObjFunSSE
 from pygme.models.gr6j import GR6J, CalibrationGR6J
-from pygme.models.gr4j import compute_PmEm
+from pygme.models.gr4j import compute_PmEm, gr4j_X1_initial
 
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
@@ -97,17 +98,18 @@ class GR6JTestCases(unittest.TestCase):
 
         for i in range(20):
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
-            for X1, X3 in prod(np.logspace(0, 10, 5), np.logspace(0, 10, 5)):
+            for X1, X3 in prod(np.logspace(0, 4, 5), np.logspace(0, 4, 5)):
                 gr.params.X1 = X1
                 gr.params.X3 = X3
                 gr.initialise_fromdata(Pm, Em)
                 ini = gr4j_X1_initial(Pm, Em, X1)
+
                 self.assertTrue(np.isclose(gr.states.values[0], ini*X1))
                 self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
                 self.assertTrue(np.isclose(gr.states.values[2], 0.))

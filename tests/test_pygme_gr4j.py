@@ -21,14 +21,14 @@ class InitialTestCases(unittest.TestCase):
     def setUp(self):
         print('\t=> PmEmTestCase')
         filename = os.path.abspath(__file__)
-        self.FHERE = os.path.dirname(filename)
+        self.ftest = os.path.dirname(filename)
 
     def test_PmEm(self):
         ''' Test Pm and Em '''
 
         for i in range(20):
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
@@ -63,7 +63,7 @@ class InitialTestCases(unittest.TestCase):
         for i in range(20):
             # Data
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
@@ -110,7 +110,7 @@ class GR4JTestCases(unittest.TestCase):
     def setUp(self):
         print('\t=> GR4JTestCase')
         filename = os.path.abspath(__file__)
-        self.FHERE = os.path.dirname(filename)
+        self.ftest = os.path.dirname(filename)
 
 
     def test_print(self):
@@ -187,11 +187,11 @@ class GR4JTestCases(unittest.TestCase):
 
         for i in range(20):
             fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             params = np.loadtxt(fp, delimiter=',', skiprows=1)
 
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
@@ -242,7 +242,7 @@ class GR4JTestCases(unittest.TestCase):
 
         for i in range(20):
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
@@ -268,11 +268,11 @@ class GR4JTestCases(unittest.TestCase):
 
         for i in range(20):
             fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             params = np.loadtxt(fp, delimiter=',', skiprows=1)
 
             fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.FHERE, i+1)
+                    self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
@@ -313,12 +313,12 @@ class GR4JTestCases(unittest.TestCase):
         calib2 = CalibrationGR4J(objfun=ObjFunSSE(), \
                         fixed={'X1':1000, 'X4':10})
 
-        fp = '{0}/data/GR4J_params.csv'.format(self.FHERE)
+        fp = '{0}/data/GR4J_params.csv'.format(self.ftest)
         params = np.loadtxt(fp, delimiter=',')
 
         i = 0
         fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
-                self.FHERE, i+1)
+                self.ftest, i+1)
         data = np.loadtxt(fts, delimiter=',')
         inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
 
