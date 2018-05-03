@@ -21,7 +21,7 @@ class GR6J(Model):
         vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
                     [400, -1, 50, 0.5, 0., 10.], \
                     [1, -50, 1, 0.5, -50., 1], \
-                    [1e4, 50, 1e4, 1e2, 50., 1e5])
+                    [1e4, 50, 1e4, 1e2, 50., 1e3])
         params = ParamsVector(vect)
 
         # UH
@@ -42,16 +42,19 @@ class GR6J(Model):
                     'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'A']
 
 
-    def initialise_fromdata(self, Pm=0., Em=0.):
+    def initialise_fromdata(self, Pm=0., Em=0., Q0=1e-3):
         ''' Initialisation of GR6J using
             * Production store: steady state solution from Le Moine
               (2008, Page 212)
             * Routing store: 30% filling level
-            * Exponential store: 0% filling level
+            * Exponential store: using Equation 8 in Michel et al. (2003)
 
             Reference:
             Le Moine, Nicolas. "Le bassin versant de surface vu par le souterrain: une voie
             d'amélioration des performances et du réalisme des modèles pluie-débit?." PhD diss., Paris 6, 2008.
+
+            Michel, Claude, Charles Perrin, and Vazken Andréassian. "The exponential store: a correct formulation
+            for rainfall—runoff modelling." Hydrological Sciences Journal 48.1 (2003): 109-124.
         '''
         X1 = self.params.X1
         X3 = self.params.X3
@@ -68,7 +71,7 @@ class GR6J(Model):
         R0 = 0.3 * X3
 
         # Exponential store
-        A0 = -2*X6
+        A0 = X6*math.log(math.exp(Q0/X6)-1)
 
         # Model initialisation
         self.initialise(states=[S0, R0, A0])

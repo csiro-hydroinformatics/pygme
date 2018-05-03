@@ -1,6 +1,7 @@
 import os
 import re
 import unittest
+import math
 from itertools import product as prod
 
 import time
@@ -116,12 +117,13 @@ class GR6JTestCases(unittest.TestCase):
         warmup = 365*6
 
         for i in range(20):
-            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+            fts = '{0}/output_data/GR6J_timeseries_{1:02d}.csv'.format( \
                     self.ftest, i+1)
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
+            Q0 = np.nanmean(inputs[:, -1])
 
             for X1, X3, X6 in prod(np.logspace(0, 4, 5), \
                         np.logspace(0, 4, 5), np.logspace(0, 2, 5)):
@@ -129,17 +131,19 @@ class GR6JTestCases(unittest.TestCase):
                 gr.params.X3 = X3
                 gr.params.X6 = X6
 
-                gr.initialise_fromdata(Pm, Em)
+                gr.initialise_fromdata(Pm, Em, Q0)
                 ini = gr4j_X1_initial(Pm, Em, X1)
 
                 self.assertTrue(np.isclose(gr.states.values[0], ini*X1))
                 self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
-                self.assertTrue(np.isclose(gr.states.values[2], -2*X6))
+                self.assertTrue(np.isclose(gr.states.values[2], \
+                                        X6*math.log(math.exp(Q0/X6)-1)))
 
                 gr.initialise_fromdata()
                 self.assertTrue(np.isclose(gr.states.values[0], 0.5*X1))
                 self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
-                self.assertTrue(np.isclose(gr.states.values[2], -2*X6))
+                self.assertTrue(np.isclose(gr.states.values[2], \
+                                        X6*math.log(math.exp(1e-3/X6)-1)))
 
 
     def test_run_against_data(self):
