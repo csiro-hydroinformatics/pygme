@@ -33,7 +33,8 @@ int gr6j_minmaxparams(int nparams, double * params)
 }
 
 
-int gr6j_runtimestep(int nparams,
+int gr6j_runtimestep(int version,
+    int nparams,
     int nuh1, int nuh2,
     int ninputs,
     int nstates,
@@ -193,7 +194,7 @@ int gr6j_runtimestep(int nparams,
 
 
 /* --------- Model runner ----------*/
-int c_gr6j_run(int nval, int nparams,
+int c_gr6j_run(int version, int nval, int nparams,
     int nuh1, int nuh2,
     int ninputs,
     int nstates,
@@ -209,6 +210,10 @@ int c_gr6j_run(int nval, int nparams,
     double * outputs)
 {
     int ierr=0, i;
+
+    /* Check version */
+    if(version < 0 || version > 1)
+        return GR6J_ERROR + __LINE__;
 
     /* Check dimensions */
     if(noutputs > GR6J_NOUTPUTS)
@@ -236,7 +241,7 @@ int c_gr6j_run(int nval, int nparams,
     for(i = start; i <= end; i++)
     {
         /* Run timestep model and update states */
-    	ierr = gr6j_runtimestep(nparams,
+    	ierr = gr6j_runtimestep(version, nparams,
                 nuh1, nuh2,
                 ninputs,
                 nstates,

@@ -15,8 +15,7 @@ class GR6J(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(['nothing'],\
-                    [0], [0], [1])
+        config = Vector(['version'], [0])
 
         # params vector
         vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
@@ -30,7 +29,8 @@ class GR6J(Model):
         params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
 
         # State vector
-        states = Vector(['S', 'R', 'A'])
+        # Set default state vector to -100 for exponential reservoir
+        states = Vector(['S', 'R', 'A'], [0., 0., -100])
 
         # Model
         super(GR6J, self).__init__('GR6J',
@@ -55,6 +55,7 @@ class GR6J(Model):
         '''
         X1 = self.params.X1
         X3 = self.params.X3
+        X6 = self.params.X6
 
         # Production store
         if Pm > 1e-10 or Em > 1e-10:
@@ -66,18 +67,26 @@ class GR6J(Model):
         # Routing store
         R0 = 0.3 * X3
 
+        # Exponential store
+        A0 = -2*X6
+
         # Model initialisation
-        self.initialise(states=[S0, R0, 0.])
+        self.initialise(states=[S0, R0, A0])
 
 
 
     def run(self):
+        # Get version
+        version = np.int32(self.config.version)
+
         # Get uh object (not set_timebase function, see ParamsVector class)
         _, uh1 = self.params.uhs[0]
         _, uh2 = self.params.uhs[1]
 
         # Run gr4j c code
-        ierr = c_pygme_models_hydromodels.gr6j_run(uh1.nord, \
+        ierr = c_pygme_models_hydromodels.gr6j_run(\
+            version, \
+            uh1.nord, \
             uh2.nord, self.istart, self.iend, \
             self.params.values, \
             uh1.ord, \

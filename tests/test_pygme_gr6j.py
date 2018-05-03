@@ -51,6 +51,25 @@ class GR6JTestCases(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
+    def test_version(self):
+        ''' Test GR6J version '''
+        gr = GR6J()
+        gr.allocate(np.zeros((10, 2)))
+
+        for version in  [0, 1]:
+            gr.config.version = version
+            gr.run()
+
+        gr.config.version = 2
+        try:
+            gr.run()
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('c_pygme_models_hydromodels.gr6j_run '+\
+                        'returns'))
+        else:
+            raise ValueError('Problem with error handling')
+
+
     def test_uh(self):
         ''' Test GR6J UH '''
         gr = GR6J()
@@ -104,20 +123,23 @@ class GR6JTestCases(unittest.TestCase):
 
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
-            for X1, X3 in prod(np.logspace(0, 4, 5), np.logspace(0, 4, 5)):
+            for X1, X3, X6 in prod(np.logspace(0, 4, 5), \
+                        np.logspace(0, 4, 5), np.logspace(0, 2, 5)):
                 gr.params.X1 = X1
                 gr.params.X3 = X3
+                gr.params.X6 = X6
+
                 gr.initialise_fromdata(Pm, Em)
                 ini = gr4j_X1_initial(Pm, Em, X1)
 
                 self.assertTrue(np.isclose(gr.states.values[0], ini*X1))
                 self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
-                self.assertTrue(np.isclose(gr.states.values[2], 0.))
+                self.assertTrue(np.isclose(gr.states.values[2], -2*X6))
 
                 gr.initialise_fromdata()
                 self.assertTrue(np.isclose(gr.states.values[0], 0.5*X1))
                 self.assertTrue(np.isclose(gr.states.values[1], 0.3*X3))
-                self.assertTrue(np.isclose(gr.states.values[2], 0.))
+                self.assertTrue(np.isclose(gr.states.values[2], -2*X6))
 
 
     def test_run_against_data(self):
@@ -125,7 +147,6 @@ class GR6JTestCases(unittest.TestCase):
         warmup = 365 * 10
         gr = GR6J()
 
-        #for i in range(13, 14):
         for i in range(20):
             # Get inputs
             fts = os.path.join(self.ftest, 'output_data', \
@@ -149,8 +170,11 @@ class GR6JTestCases(unittest.TestCase):
             sini = 2*s0-s1
             gr.initialise(states=sini)
 
+            gr.config.version = 1
+
             gr.run()
             sim = gr.outputs[:, [0, 4, 5, 7]].copy()
+            expstore = gr.outputs[:, -1]
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
@@ -159,9 +183,13 @@ class GR6JTestCases(unittest.TestCase):
             err = np.abs(sim[idx, :] - expected[idx, :])
 
             # Sensitivity to initial conditionos
-            s1 = [0]*3
-            s2 = [gr.params.X1, gr.params.X3, gr.params.X6]
-            warmup_ideal, sim0, sim1 = gr.inisens(s1, s2)
+            s1 = [0, 0, -100-gr.params.X6]
+            s2 = [gr.params.X1, gr.params.X3, -gr.params.X6]
+            try:
+                warmup_ideal, sim0, sim1 = gr.inisens(s1, s2)
+            except:
+                warmup_ideal = 'too long'
+                pass
 
             # Special criteria
             # 5 values with difference greater than 1e-5

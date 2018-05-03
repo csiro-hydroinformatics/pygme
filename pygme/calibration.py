@@ -153,8 +153,9 @@ class CalibParamsVector(Vector):
             names = model.params.names
             check = [k in names for k in fixed]
             if not np.all(check):
-                raise ValueError('Expected names of fixed parameters to be in '+\
-                    '{0}, got {1}'.format(names, list(fixed.keys())))
+                raise ValueError('Expected names of fixed parameters '+\
+                    'to be in {0}, got {1}'.format(names, \
+                        list(fixed.keys())))
 
         self._fixed = fixed
 
@@ -191,7 +192,8 @@ class CalibParamsVector(Vector):
         try:
             check_vector(xd, model.params.nval)
         except ValueError as err:
-            raise ValueError('Problem with trans2true for default: {0}'.format(str(err)))
+            raise ValueError(\
+                'Problem with trans2true for default: {0}'.format(str(err)))
 
         # Check back transforms applied to default values
         xtd = true2trans(xd)
@@ -205,23 +207,25 @@ class CalibParamsVector(Vector):
         try:
             check_vector(xmi, model.params.nval)
         except ValueError as err:
-            raise ValueError('Problem with trans2true for min: {0}'.format(str(err)))
+            raise ValueError(\
+                'Problem with trans2true for min: {0}'.format(str(err)))
 
         xma = trans2true(self.maxs)
         try:
             check_vector(xmi, model.params.nval)
         except ValueError as err:
-            raise ValueError('Problem with trans2true for max: {0}'.format(str(err)))
+            raise ValueError(\
+                'Problem with trans2true for max: {0}'.format(str(err)))
 
         if np.any((xd-xmi)<0):
             raise ValueError('Expected transform of defaults to be greater'+\
-                ' than transform of mins, got t(defaults)={0} and t(mins)={1}'.format(\
-                    xd, xmi))
+                ' than transform of mins, got '+\
+                't(defaults)={0} and t(mins)={1}'.format(xd, xmi))
 
         if np.any((xma-xd)<0):
             raise ValueError('Expected transform of maximum to be greater'+\
-                ' than transform of defaults, got t(maxs)={0} and t(defaults)={1}'.format(\
-                    xmax, xd))
+                ' than transform of defaults, got '+ \
+                't(maxs)={0} and t(defaults)={1}'.format(xmax, xd))
 
         # Check transform followed by backtransform are neutral
         xd2 = trans2true(xtd)
@@ -234,9 +238,9 @@ class CalibParamsVector(Vector):
 
         for v1, v2 in [[xd, xd2], [xmi, xmi2], [xma, xma2]]:
             if not np.allclose(v1, v2):
-                raise ValueError('Expected trans2true followed by true2trans '+\
-                    'to return the original vector, got {0} -> {1}'.format(v1, \
-                    v2))
+                raise ValueError('Expected trans2true followed by '+\
+                    'true2trans to return the original vector, '+\
+                    'got {0} -> {1}'.format(v1, v2))
 
         # Store data
         self._trans2true = trans2true
@@ -352,6 +356,16 @@ def fitfun(values, calib, use_transformed_parameters):
     model.run()
     calib._nbeval += 1
 
+    #import matplotlib.pyplot as plt
+    #from hydrodiy.plot import putils
+    #fig, ax = putils.get_fig_axs()
+    #ax.plot(calib.obs)
+    #ax.plot(model.outputs[:, 0])
+    #plt.show()
+
+    #import pdb; pdb.set_trace()
+
+
     if calib.timeit:
         t1 = time.time()
         calib._runtime = (t1-t0)*1000
@@ -370,10 +384,16 @@ def fitfun(values, calib, use_transformed_parameters):
     # -1 = maximization
     ofun *= objfun.orientation
 
+    # Check obj fun is not nan
+    if np.isnan(ofun) or ofun == -np.inf:
+        raise ValueError('Objective function is NaN or -inf for '+\
+                'params={0}'.format(values))
+
     # Print output if needed
     if calib.iprint>0 and calib.nbeval % calib.iprint == 0:
         LOGGER.info('Fitfun [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
-            calib.nbeval, objfun.name, format_array(calib.calparams.truevalues), \
+            calib.nbeval, objfun.name, format_array(\
+                    calib.calparams.truevalues), \
             ofun, calib.runtime))
 
     return ofun
@@ -417,7 +437,8 @@ class Calibration(object):
             nlib, nparams = paramslib.shape
             if nparams != calparams.model.params.nval:
                 raise ValueError(('Expected {0} parameters in '+\
-                    'paramslib, got {1}').format(calparams.model.params.nval, \
+                    'paramslib, got {1}').format(\
+                        calparams.model.params.nval, \
                         nparams))
 
             if np.any(np.isnan(paramslib)):
@@ -440,13 +461,14 @@ class Calibration(object):
                 tclipped = calparams.true2trans(clipped)
                 if np.any(np.isnan(tclipped)):
                     raise ValueError('Parameter set '+\
-                        '#{0} is invalid after transform: {1}'.format(ip, tclipped))
+                        '#{0} is invalid after transform: {1}'.format(ip, \
+                            tclipped))
 
                 clipped2 = calparams.trans2true(tclipped)
                 if np.any(np.isnan(clipped2)):
                     raise ValueError('Parameter set '+\
-                        '#{0} is invalid after back transform: {1}'.format(ip, \
-                        clipped2))
+                        '#{0} is invalid after back transform: {1}'.format(\
+                            ip,  clipped2))
 
                 paramslib[ip, :] = clipped
 
@@ -703,8 +725,10 @@ class Calibration(object):
         final = self.model.params.values
         outputs_final = self.model.outputs
 
-        LOGGER.info('End of fit [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
-            self.nbeval, self.objfun.name, format_array(self.calparams.values), \
+        LOGGER.info(('End of fit [{0}]: {1}({2}) = '+\
+            '{3:3.3e} ~ {4:.3f} ms').format( \
+                self.nbeval, self.objfun.name, \
+                    format_array(self.calparams.values), \
             fitfun_final, self.runtime))
 
         LOGGER.info('Parameter fit completed')

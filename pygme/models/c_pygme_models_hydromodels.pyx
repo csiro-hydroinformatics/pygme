@@ -35,7 +35,7 @@ cdef extern from 'c_gr4j.h':
             double * outputs)
 
 cdef extern from 'c_gr6j.h':
-    int c_gr6j_run(int nval, int nparams,
+    int c_gr6j_run(int version, int nval, int nparams,
             int nuh1, int nuh2,
             int ninputs,
             int nstates, int noutputs,
@@ -192,7 +192,7 @@ def gr4j_run(int nuh1, int nuh2, int start, int end,
     return ierr
 
 
-def gr6j_run(int nuh1,
+def gr6j_run(int version, int nuh1,
         int nuh2,
         int start, int end,
         np.ndarray[double, ndim=1, mode='c'] params not None,
@@ -226,7 +226,7 @@ def gr6j_run(int nuh1,
         raise ValueError('uh2.shape[0] < nuh2')
 
     # Run model
-    ierr = c_gr6j_run(inputs.shape[0],
+    ierr = c_gr6j_run(version, inputs.shape[0],
             params.shape[0], \
             nuh1,
             nuh2, \

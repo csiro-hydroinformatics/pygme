@@ -20,7 +20,8 @@
 /* Number of outputs returned by GR6J run */
 #define GR6J_NOUTPUTS 11
 
-int gr6j_runtimestep(int nparams,
+int gr6j_runtimestep(int version,
+    int nparams,
     int nuh1, int nuh2, int ninputs,
     int nstates, int noutputs,
 	double * params,
@@ -32,7 +33,8 @@ int gr6j_runtimestep(int nparams,
     double * states,
     double * outputs);
 
-int c_gr6j_run(int nval,
+int c_gr6j_run(int version,
+    int nval,
     int nparams,
     int nuh1,
     int nuh2,
