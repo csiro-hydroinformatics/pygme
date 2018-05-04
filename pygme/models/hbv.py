@@ -21,7 +21,7 @@ class HBV(Model):
         vect = Vector(
                     ['LPRAT', 'FC', 'BETA', 'K0', 'K1', 'K2', \
                         'LSUZ', 'CPERC', 'BMAX', 'CROUTE'], \
-                    [100, 2.2, 0.5, 9, 105, 50, 2, 10, 26.5], \
+                    [0.9, 100, 3.3, 0.5, 9, 105, 50, 2, 10, 26.5], \
                     [0, 0, 0, 0, 2, 30, 1, 0, 0, 0], \
                     [1, 600, 20, 2, 30 ,250, 100, 8, 30, 50])
 
@@ -55,7 +55,6 @@ class HBV(Model):
         SLZ0 = 0.
 
         self.initialise([MOIST0, SUZ0, SLZ0])
-
 
 
     def run(self):

@@ -316,8 +316,11 @@ int c_hbv_run(int nval, int nparams,
     double * states,
     double * outputs)
 {
-    int ierr=0, i, j, *bql=0;
+    int ierr=0, i, j;
+    int bql[1];
     double dquh[HBV_MAXUH];
+
+    bql[0] = 0;
 
     /* Check dimensions */
     if(noutputs > HBV_NOUTPUTS)
@@ -349,11 +352,13 @@ int c_hbv_run(int nval, int nparams,
                 &(outputs[noutputs*i]),
                 bql, dquh);
 
-        outputs[noutputs*i+1] = (double)(*bql);
+        outputs[noutputs*i+1] = (double)(bql[0]);
 
         /* Run variable length UH */
-        for(j=0; j < *bql; j++)
+        for(j=0; j < bql[0]; j++)
+        {
             if(i+j <= end) outputs[noutputs*(i+j)] += dquh[j];
+        }
 
 		if(ierr>0)
 			return ierr;
