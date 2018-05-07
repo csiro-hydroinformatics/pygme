@@ -50,7 +50,7 @@ class ObjFunSSE(ObjFun):
 
 
     def compute(self, obs, sim, **kwargs):
-        err = obs-sim
+        err = obs.squeeze()-sim.squeeze()
         return np.nansum(err*err)
 
 
@@ -63,7 +63,7 @@ class ObjFunKGE(ObjFun):
 
 
     def compute(self, obs, sim, **kwargs):
-        return metrics.kge(obs, sim)
+        return metrics.kge(obs.squeeze(), sim.squeeze())
 
 
 
@@ -94,7 +94,8 @@ class ObjFunBCSSE(ObjFun):
         tsim = self.trans.forward(sim)
 
         # Compute errors
-        err = tobs-tsim
+        t2 = time.time()
+        err = tobs.squeeze()-tsim.squeeze()
         return np.nansum(err*err)
 
 
