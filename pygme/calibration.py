@@ -671,7 +671,7 @@ class Calibration(object):
 
         LOGGER.info('End of explore [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
             self.nbeval, self.objfun.name, format_array(self.calparams.truevalues), \
-            ofun, self.runtime))
+            ofun_min, self.runtime))
 
         LOGGER.info('Parameter exploration completed')
 
