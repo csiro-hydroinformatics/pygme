@@ -580,7 +580,7 @@ class Model(object):
             'Method run not implemented').format(self.name))
 
 
-    def inisens(self, states0, states1, eps=1e-4, iout=0):
+    def inisens(self, states0, states1, eps=1e-4, iout=0, ignore_error=False):
         ''' Sensitivity on model initialisation
 
         Parameters
@@ -622,7 +622,7 @@ class Model(object):
         else:
             warmup = np.max(np.where(idiff)[0])
 
-        if warmup == nval-1:
+        if warmup == nval-1 and not ignore_error:
             raise ValueError('Warmup period is longer'+\
                     ' than simulation duration')
 
