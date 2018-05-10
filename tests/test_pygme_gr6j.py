@@ -15,6 +15,7 @@ from pygme.models.gr4j import compute_PmEm, gr4j_X1_initial
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
+PROFILE = True
 
 class GR6JTestCases(unittest.TestCase):
 
@@ -189,11 +190,8 @@ class GR6JTestCases(unittest.TestCase):
             # Sensitivity to initial conditionos
             s1 = [0, 0, -100-gr.params.X6]
             s2 = [gr.params.X1, gr.params.X3, -gr.params.X6]
-            try:
-                warmup_ideal, sim0, sim1 = gr.inisens(s1, s2)
-            except:
-                warmup_ideal = 'too long'
-                pass
+            warmup_ideal, sim0, sim1 = gr.inisens(s1, s2, \
+                                eps=1e-3, ignore_error=True)
 
             # Special criteria
             # 5 values with difference greater than 1e-5
@@ -242,8 +240,30 @@ class GR6JTestCases(unittest.TestCase):
             obs = sim0+noise
 
             t0 = time.time()
-            final, ofun, _ = calib.workflow(obs, inputs, \
-                                        maxfun=100000, ftol=1e-8)
+
+            # Wrapper function for profiling
+            def profilewrap(outputs):
+                final, ofun, _ = calib.workflow(obs, inputs, \
+                                            maxfun=100000, ftol=1e-8)
+                outputs.append(final)
+                outputs.append(ofun)
+
+            # Run profiler
+            if PROFILE and i == 0:
+                import cProfile
+                pstats = os.path.join(self.ftest, \
+                                'gr6j_calib{0:02d}.pstats'.format(i))
+                outputs = []
+                prof = cProfile.runctx('profilewrap(outputs)', globals(), \
+                            locals(), filename=pstats)
+                final = outputs[0]
+                ofun = outputs[1]
+            else:
+                outputs = []
+                profilewrap(outputs)
+                final = outputs[0]
+                ofun = outputs[1]
+
             t1 = time.time()
             dt = (t1-t0)/len(obs)*365.25
 

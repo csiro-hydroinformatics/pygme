@@ -20,7 +20,7 @@ class GR6J(Model):
         # params vector
         vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
                     [400, -1, 50, 0.5, 0., 10.], \
-                    [1, -50, 1, 0.5, -50., 1], \
+                    [1, -50, 1, 0.5, -50., 1e-1], \
                     [1e4, 50, 1e4, 1e2, 50., 1e3])
         params = ParamsVector(vect)
 

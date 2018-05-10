@@ -5,6 +5,7 @@
 *.so
 *.png
 *.swp
+*.pstats
 .coverage
 build
 pygme.egg-info

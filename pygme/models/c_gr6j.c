@@ -27,7 +27,7 @@ int gr6j_minmaxparams(int nparams, double * params)
 	params[2] = c_minmax(1, 1e4, params[2]); 	// R
 	params[3] = c_minmax(0.5, 50, params[3]); // TB
 	params[4] = c_minmax(-50, 50, params[4]); // IGF 2
-	params[5] = c_minmax(1, 1e4, params[5]); // A
+	params[5] = c_minmax(1e-1, 1e4, params[5]); // A
 
 	return 0;
 }
