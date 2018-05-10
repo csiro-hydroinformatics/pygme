@@ -62,7 +62,7 @@ class GR4J(Model):
         params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
 
         # State vector
-        states = Vector(['S', 'R'])
+        states = Vector(['S', 'R'], check_bounds=False)
 
         # Model
         super(GR4J, self).__init__('GR4J',

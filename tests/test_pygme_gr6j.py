@@ -1,5 +1,6 @@
 import os
 import re
+import cProfile
 import unittest
 import math
 from itertools import product as prod
@@ -126,13 +127,25 @@ class GR6JTestCases(unittest.TestCase):
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
             Q0 = np.nanmean(inputs[:, -1])
 
-            for X1, X3, X6 in prod(np.logspace(0, 4, 5), \
-                        np.logspace(0, 4, 5), np.logspace(0, 2, 5)):
+            for itest, (X1, X3, X6) in enumerate(prod(np.logspace(0, 4, 5), \
+                        np.logspace(0, 4, 5), np.logspace(0, 2, 5))):
                 gr.params.X1 = X1
                 gr.params.X3 = X3
                 gr.params.X6 = X6
 
-                gr.initialise_fromdata(Pm, Em, Q0)
+                # Wrapper function for profiling
+                def profilewrap():
+                    gr.initialise_fromdata(Pm, Em, Q0)
+
+                # Run profiler
+                if PROFILE and i==0 and itest == 50:
+                    pstats = os.path.join(self.ftest, \
+                                    'gr6j_initdata{0:02d}.pstats'.format(i))
+                    prof = cProfile.runctx('profilewrap()', globals(), \
+                                locals(), filename=pstats)
+                else:
+                    profilewrap()
+
                 ini = gr4j_X1_initial(Pm, Em, X1)
 
                 self.assertTrue(np.isclose(gr.states.values[0], ini*X1))
@@ -250,7 +263,6 @@ class GR6JTestCases(unittest.TestCase):
 
             # Run profiler
             if PROFILE and i == 0:
-                import cProfile
                 pstats = os.path.join(self.ftest, \
                                 'gr6j_calib{0:02d}.pstats'.format(i))
                 outputs = []

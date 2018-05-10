@@ -30,7 +30,8 @@ class GR6J(Model):
 
         # State vector
         # Set default state vector to -100 for exponential reservoir
-        states = Vector(['S', 'R', 'A'], [0., 0., -100])
+        states = Vector(['S', 'R', 'A'], [0., 0., -100], \
+                                check_bounds=False)
 
         # Model
         super(GR6J, self).__init__('GR6J',
@@ -56,9 +57,9 @@ class GR6J(Model):
             Michel, Claude, Charles Perrin, and Vazken Andréassian. "The exponential store: a correct formulation
             for rainfall—runoff modelling." Hydrological Sciences Journal 48.1 (2003): 109-124.
         '''
-        X1 = self.params.X1
-        X3 = self.params.X3
-        X6 = self.params.X6
+        X1 = self.params.values[0]
+        X3 = self.params.values[2]
+        X6 = self.params.values[5]
 
         # Production store
         if Pm > 1e-10 or Em > 1e-10:
