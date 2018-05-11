@@ -20,7 +20,7 @@
 #define HBV_NSTATES 3
 
 /* Number of outputs returned by HBV run */
-#define HBV_NOUTPUTS 10
+#define HBV_NOUTPUTS 13
 
 int hbv_soilmoisture(double rain, double etp, double moist,
         double LP, double FC, double BETA, double *prod);

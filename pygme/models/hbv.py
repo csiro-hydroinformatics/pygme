@@ -34,10 +34,11 @@ class HBV(Model):
         super(HBV, self).__init__('HBV',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=10)
+            noutputsmax=13)
 
         self.outputs_names = ['Q', 'BRT', 'DQ', \
-                    'DMOIST', 'ETA', 'Q0', 'Q1', 'Q2', 'QG', 'SUM']
+                    'DMOIST', 'ETA', 'Q0', 'Q1', 'Q2', 'QG', 'SUM', \
+                    'MOIST', 'SUZ', 'SLZ']
 
 
     def initialise_fromdata(self):
@@ -83,24 +84,24 @@ class CalibrationHBV(Calibration):
         model = HBV()
         params = model.params
 
+        # TODO
+        #trans2true = lambda x: np.array([
+        #                math.exp(x[0]), \
+        #                math.sinh(x[1]), \
+        #                math.exp(x[2]), \
+        #                0.49+math.exp(x[3]), \
+        #                math.sinh(x[4]), \
+        #                math.exp(x[5])
+        #            ])
 
-        trans2true = lambda x: np.array([
-                        math.exp(x[0]), \
-                        math.sinh(x[1]), \
-                        math.exp(x[2]), \
-                        0.49+math.exp(x[3]), \
-                        math.sinh(x[4]), \
-                        math.exp(x[5])
-                    ])
-
-        true2trans = lambda x: np.array([
-                        math.log(x[0]), \
-                        math.asinh(x[1]), \
-                        math.log(x[2]), \
-                        math.log(x[3]-0.49), \
-                        math.asinh(x[4]), \
-                        math.log(x[5])
-                    ])
+        #true2trans = lambda x: np.array([
+        #                math.log(x[0]), \
+        #                math.asinh(x[1]), \
+        #                math.log(x[2]), \
+        #                math.log(x[3]-0.49), \
+        #                math.asinh(x[4]), \
+        #                math.log(x[5])
+        #            ])
 
         cp = Vector(['tLPRAT', 'tFC', 'tBETA', 'tK0', 'tK1', 'tK2', \
                         'tLSUZ', 'tCPERC', 'tBMAX', 'tCROUTE'], \

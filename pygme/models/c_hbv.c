@@ -157,15 +157,15 @@ int hbv_respfunc(double dq, double K0, double LSUZ,
         {
             if(j <= bqlh)
             {
-                dquh[j-1] = ((j-0.5)*4.*qg)/bql2;
+                dquh[j-1] = (((double)j-0.5)*4*qg)/bql2;
             }
             else if (fabs(j-(bqlh+0.5)) < 0.1)
             {
-                dquh[j-1] = ((j-0.75) *4.*qg)/bql2;
+                dquh[j-1] = (((double)j-0.75)*4*qg)/bql2;
             }
             else
             {
-                dquh[j-1] = ((*bql-j+0.5)*4.*qg)/bql2;
+                dquh[j-1] = (((double)(*bql-j)+0.5)*4*qg)/bql2;
             }
             sum = sum + dquh[j];
          }
@@ -298,6 +298,21 @@ int hbv_runtimestep(int nparams,
 
     if(noutputs>9)
 	    outputs[9] = sum;
+	else
+		return ierr;
+
+    if(noutputs>10)
+	    outputs[10] = moist;
+	else
+		return ierr;
+
+    if(noutputs>11)
+	    outputs[11] = suz;
+	else
+		return ierr;
+
+    if(noutputs>12)
+	    outputs[12] = slz;
 	else
 		return ierr;
 

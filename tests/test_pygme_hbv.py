@@ -32,7 +32,8 @@ class HBVTestCases(unittest.TestCase):
         try:
             hb.allocate(np.random.uniform(0, 1, (200, 2)), 30)
         except ValueError as  err:
-            self.assertTrue(str(err).startswith('model HBV: Expected noutputs'))
+            self.assertTrue(str(err).startswith(\
+                                'model HBV: Expected noutputs'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -44,7 +45,8 @@ class HBVTestCases(unittest.TestCase):
             hb.allocate(inputs, 5)
             hb.initialise()
         except ValueError as  err:
-            self.assertTrue(str(err).startswith('model HBV: Expected 2 inputs'))
+            self.assertTrue(str(err).startswith(\
+                        'model HBV: Expected 2 inputs'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -71,6 +73,8 @@ class HBVTestCases(unittest.TestCase):
     def test_run_against_data(self):
         ''' Compare HBV simulation with test data '''
         warmup = 365 * 10
+        warmup = 0
+
         hb = HBV()
 
         #for i in range(13, 14):
@@ -79,17 +83,22 @@ class HBVTestCases(unittest.TestCase):
             fts = os.path.join(self.ftest, 'output_data', \
                     'HBV_timeseries_{0:02d}.csv'.format(i+1))
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
+
+            nval = 100
+            data = data[:nval]
+
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             # Get parameters
             fp = os.path.join(self.ftest, 'output_data', \
                     'HBV_params_{0:02d}.csv'.format(i+1))
-            params = np.genfromtxt(fp, dtype=[('parname', str), ('parvalue', \
-                            np.float64)], skip_header=1, delimiter=',')
+            params = np.genfromtxt(fp, dtype=[('parname', str), \
+                                    ('parvalue', np.float64)], \
+                                    skip_header=1, delimiter=',')
             params = np.array([p[1] for p in params])
 
-            # Run hbv
-            hb.allocate(inputs, 10)
+            # Allocate model and set parameters
+            hb.allocate(inputs, 13)
             hb.params.values = params
 
             # .. initiase to same values than TUWmodel run ...
@@ -99,23 +108,27 @@ class HBVTestCases(unittest.TestCase):
             sini = 2*s0-s1
             hb.initialise(states=sini)
 
-            sim = hb.outputs[:, [0, 5, 6, 7]].copy()
+            # Run model
+            hb.run()
 
-            # Compare
+            # Get outputs
+            snames = ['Q', 'Q0', 'Q1', 'Q2', 'ETA']
+            onames = np.array(hb.outputs_names)
+            cc = [np.where(n == onames)[0][0] for n in snames]
+            sim = hb.outputs[:, cc].copy()
+
+            # Compare with outputs generated from R code
+            # Comparison is done after warmup
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[:, [3, 6, 7, 8]]
+            expected = data[:, [3, 6, 7, 8, 12]]
 
             err = np.abs(sim[idx, :] - expected[idx, :])
 
             # Sensitivity to initial conditionos
             s1 = [0]*3
-
             Pm = np.mean(inputs[:, 0])
             s2 = [hb.params.FC, hb.params.LSUZ, 2*Pm*hb.params.K2]
-            try:
-                warmup_ideal = hb.inisens(s1, s2)
-            except:
-                warmup_ideal = 'too long'
+            warmup_ideal, sim0, sim1 = hb.inisens(s1, s2, ignore_error=True)
 
             # Special criteria
             # 5 values with difference hbeater than 1e-5
@@ -126,8 +139,9 @@ class HBVTestCases(unittest.TestCase):
             cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
             ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
 
-            print('\t\tTEST SIM {0:2d} : crit={1} err={2:3.3e} warmup={3}'.format(\
-                                        i+1, ck, np.max(err), warmup_ideal))
+            print(('\t\tTEST SIM {0:2d} : crit={1} err={2:3.3e}'+\
+                    ' warmup={3}').format(i+1, ck, np.max(err), \
+                            warmup_ideal))
 
             try:
                 self.assertTrue(ck)
@@ -140,7 +154,7 @@ class HBVTestCases(unittest.TestCase):
                     ax = axs[i]
                     ax.plot(expected[:, i], label='TUWmodel')
                     ax.plot(sim[:, i], label='pygme')
-                    ax.set_title(hb.outputs_names[i])
+                    ax.set_title(snames[i])
 
                 plt.show()
                 import pdb; pdb.set_trace()
