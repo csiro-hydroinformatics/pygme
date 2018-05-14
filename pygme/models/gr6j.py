@@ -167,7 +167,7 @@ class CalibrationGR6J(Calibration):
             [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
             [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]])
 
-        tplib = lhs_params(tmean, tcov, 4000)
+        tplib = lhs_params(tmean, tcov, 8000)
 
         # Back transform parameter library
         plib = tplib * 0.

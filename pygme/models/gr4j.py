@@ -189,7 +189,7 @@ class CalibrationGR4J(Calibration):
                 [0.4, 1.6, -0.3, -0.17],
                 [0.15, -0.3, 1.68, -0.3],
                 [-0.2, -0.17, -0.3, 0.6]])
-        tplib = lhs_params(tmean, tcov, 500)
+        tplib = lhs_params(tmean, tcov, 2000)
 
         # Back transform
         plib = tplib * 0.
