@@ -7,6 +7,7 @@ from hydrodiy.data.containers import Vector
 
 from pygme.model import Model, ParamsVector
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
+from pygme.models.gr4j import lhs_params
 
 import c_pygme_models_hydromodels
 
@@ -85,9 +86,10 @@ class CalibrationGR2M(Calibration):
         calparams = CalibParamsVector(model, cp, \
             trans2true='exp', fixed=fixed)
 
-        plib = np.random.multivariate_normal(mean=params.defaults, \
-                    cov=np.diag((params.maxs-params.mins)/2), \
-                    size=500)
+        # Sample parameter library from latin hyper-cube
+        mean = params.defaults
+        cov = np.diag((params.maxs-params.mins)/2)
+        plib = lhs_params(mean, cov, 500)
         plib = np.clip(plib, params.mins, params.maxs)
 
         # Initialisation arguments

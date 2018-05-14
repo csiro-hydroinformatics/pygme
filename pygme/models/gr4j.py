@@ -2,7 +2,11 @@ import math
 import numpy as np
 import pandas as pd
 
+from scipy.stats import norm
+
 from hydrodiy.data.containers import Vector
+from hydrodiy.stat import sutils
+
 from pygme.model import Model, ParamsVector, UH
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
@@ -23,6 +27,16 @@ def compute_PmEm(rain, evap):
             ' returns {0}').format(ierr))
 
     return PmEm[0], PmEm[1]
+
+
+def lhs_params(tmean, tcov, nsamples):
+    ''' Perform latin hypercube sampling of parameters in transformed space '''
+    nvars = len(tmean)
+    q = sutils.lhs(nsamples, [0]*nvars, [1]*nvars)
+    nsmp = norm.ppf(q)
+    S = np.linalg.cholesky(tcov)
+    smp = tmean[:, None] + np.dot(S, nsmp.T)
+    return smp.T
 
 
 def gr4j_X1_initial(Pm, Em, X1):
@@ -169,19 +183,20 @@ class CalibrationGR4J(Calibration):
             fixed=fixed)
 
         # Build parameter library from
-        # MVT norm in transform space
-        tplib = np.random.multivariate_normal(\
-                    mean=[6., -0.8, 3., 0.7],
-                    cov = [[1.16, 0.4, 0.15, -0.2],
-                            [0.4, 1.6, -0.3, -0.17],
-                            [0.15, -0.3, 1.68, -0.3],
-                            [-0.2, -0.17, -0.3, 0.6]],
-                    size=2000)
-        tplib = np.clip(tplib, calparams.mins, calparams.maxs)
+        # MVT norm in transform space using latin hypercube
+        tmean = np.array([6., -0.8, 3., 0.7])
+        tcov = np.array([[1.16, 0.4, 0.15, -0.2],
+                [0.4, 1.6, -0.3, -0.17],
+                [0.15, -0.3, 1.68, -0.3],
+                [-0.2, -0.17, -0.3, 0.6]])
+        tplib = lhs_params(tmean, tcov, 500)
+
+        # Back transform
         plib = tplib * 0.
         plib[:, [0, 2, 3]] = np.exp(tplib[:, [0, 2, 3]])
         plib[:, 3] += 0.49
         plib[:, 1] = np.sinh(tplib[:, 1])
+        plib = np.clip(plib, model.params.mins, model.params.maxs)
 
         # Instanciate calibration
         super(CalibrationGR4J, self).__init__(calparams, \

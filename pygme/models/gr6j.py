@@ -5,7 +5,7 @@ import pandas as pd
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
-from pygme.models.gr4j import gr4j_X1_initial
+from pygme.models.gr4j import gr4j_X1_initial, lhs_params
 
 import c_pygme_models_hydromodels
 
@@ -158,21 +158,23 @@ class CalibrationGR6J(Calibration):
 
         # Build parameter library from
         # MVT norm in transform space
-        tplib = np.random.multivariate_normal(\
-                    mean=[5.3, -0.37, 2.5, 0.32, 0.11, 1.5],\
-                    cov = \
-                        [[2.85701,0.31298,-1.08943,-0.19579,0.11324,-0.60121],\
-                        [0.31298,0.40240,-0.51347,-0.13173,0.00879,-0.14192],\
-                        [-1.08943,-0.51347,1.99216,-0.03083,-0.03706,0.76333],\
-                        [-0.19579,-0.13173,-0.03083,0.55924,0.01843,-0.05714],\
-                        [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
-                        [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]], \
-                    size=5000)
-        tplib = np.clip(tplib, calparams.mins, calparams.maxs)
+        tmean = np.array([5.3, -0.37, 2.5, 0.32, 0.11, 1.5])
+        tcov = np.array([
+            [2.85701,0.31298,-1.08943,-0.19579,0.11324,-0.60121],\
+            [0.31298,0.40240,-0.51347,-0.13173,0.00879,-0.14192],\
+            [-1.08943,-0.51347,1.99216,-0.03083,-0.03706,0.76333],\
+            [-0.19579,-0.13173,-0.03083,0.55924,0.01843,-0.05714],\
+            [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
+            [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]])
+
+        tplib = lhs_params(tmean, tcov, 4000)
+
+        # Back transform parameter library
         plib = tplib * 0.
         plib[:, [0, 2, 3, 5]] = np.exp(tplib[:, [0, 2, 3, 5]])
         plib[:, 3] += 0.49
         plib[:, [1, 4]] = np.sinh(tplib[:, [1, 4]])
+        plib = np.clip(plib, model.params.mins, model.params.maxs)
 
         # Instanciate calibration
         super(CalibrationGR6J, self).__init__(calparams, \

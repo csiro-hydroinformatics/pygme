@@ -292,16 +292,6 @@ class GR6JTestCases(unittest.TestCase):
                     ' dt={2:3.3e} sec/yr').format(\
                         i+1, np.max(err), dt))
 
-            if not (ck1 or ck2):
-                import matplotlib.pyplot as plt
-                from hydrodiy.plot import putils
-                fig, ax = putils.get_fig_axs()
-                ax.plot(sim0)
-                ax.plot(sim)
-                plt.show()
-
-                import pdb; pdb.set_trace()
-
             self.assertTrue(ck1 or ck2)
 
 
