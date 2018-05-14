@@ -9,8 +9,11 @@ import logging
 
 import numpy as np
 
+from scipy.optimize import fmin, fmin_bfgs, fmin_cg
+
 from hydrodiy.stat.transform import BoxCox2
 from hydrodiy.data.containers import Vector
+
 from pygme.model import Model
 from pygme.calibration import Calibration, CalibParamsVector
 from pygme.calibration import ObjFunSSE, ObjFunBCSSE, ObjFunKGE
@@ -435,6 +438,37 @@ class CalibrationTestCases(unittest.TestCase):
         # Test parameters at the end
         ck = np.allclose(calib.model.params.values, params, atol=1e-3)
         self.assertTrue(ck)
+
+
+    def test_optimizers(self):
+        ''' Test a range of optimizer from scipy '''
+        inputs = np.random.exponential(1, (100, 2))
+        dum = Dummy()
+        dum.allocate(inputs, 2)
+        dum.initialise()
+
+        calib = CalibrationDummy(warmup=10)
+        params = calib.paramslib[0, :]+0.1
+        dum.params.values = params
+        dum.run()
+
+        obs = dum.outputs[:, 0]
+
+        ical = np.arange(10, obs.shape[0])
+        kwargs = {'lam':1.0, 'idx':np.arange(len(ical))}
+        calib = CalibrationDummy(objfun=ObjFunSSEargs(), \
+                    warmup=10, \
+                    objfun_kwargs=kwargs)
+        calib.allocate(obs, inputs)
+        calib.ical = ical
+
+        start, _, _ = calib.explore()
+
+        for opt in [fmin, fmin_bfgs, fmin_cg]:
+            final, _, _ = calib.fit(iprint=10, optimizer=opt)
+            ck = np.allclose(calib.model.params.values, params, \
+                    atol=1e-5, rtol=0.)
+            self.assertTrue(ck)
 
 
 if __name__ == "__main__":

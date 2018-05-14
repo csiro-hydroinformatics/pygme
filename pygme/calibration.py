@@ -680,7 +680,7 @@ class Calibration(object):
 
 
     def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin_powell, \
-                *args, **kwargs):
+                **kwargs):
         ''' Fit model using the supplied optmizer '''
 
         LOGGER.info('Parameter fit started')
@@ -711,8 +711,8 @@ class Calibration(object):
 
             # Run optimizer using fitfun with transformed parameters
             tfinal = optimizer(fitfun, \
-                        start, (self, True, ), \
-                        *args, **kwargs)
+                        start, args=(self, True, ), \
+                        **kwargs)
 
             calparams.values = tfinal
             fitfun_final = fitfun(tfinal, calib=self, \
@@ -741,7 +741,7 @@ class Calibration(object):
             ical=None, \
             iprint=0, \
             optimizer=fmin_powell, \
-            *args, **kwargs):
+            **kwargs):
 
         LOGGER.info('Calibration workflow started')
 
@@ -755,7 +755,9 @@ class Calibration(object):
         # 3. Run exploration
         try:
             start, _, _ = self.explore(iprint=iprint)
-        except ValueError:
+        except ValueError as err:
+            LOGGER.error('error in parameter exploration: {0}'.format(\
+                            str(err)))
             start = self.model.params.defaults
 
         # 4. Run fit
@@ -765,7 +767,7 @@ class Calibration(object):
         final, fitfun_final, outputs_final = self.fit(tstart, \
                                     iprint=iprint, nrepeat=1, \
                                     optimizer=optimizer, \
-                                    *args, **kwargs)
+                                    **kwargs)
 
         LOGGER.info('Calibration workflow completed')
 
