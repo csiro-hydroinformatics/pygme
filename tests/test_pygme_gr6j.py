@@ -188,10 +188,8 @@ class GR6JTestCases(unittest.TestCase):
             s1 = data[1, [2, 10, 17]]
             sini = 2*s0-s1
             gr.initialise(states=sini)
-
-            gr.config.version = 1
-
             gr.run()
+
             sim = gr.outputs[:, [0, 4, 5, 7]].copy()
             expstore = gr.outputs[:, -1]
 
@@ -216,10 +214,15 @@ class GR6JTestCases(unittest.TestCase):
             cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
             ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
 
-            print('\t\tTEST SIM {0:2d} : crit={1} err={2:3.3e} warmup={3}'.format(\
-                                        i+1, ck, np.max(err), warmup_ideal))
+            print(('\t\tTEST SIM {0:2d} : '+#
+                        'crit={1} err={2:3.3e} warmup={3}').format(\
+                        i+1, ck, np.max(err), warmup_ideal))
 
-            self.assertTrue(ck)
+            try:
+                self.assertTrue(ck)
+            except:
+                import pdb; pdb.set_trace()
+
 
 
     def test_calibrate_against_itself(self):
