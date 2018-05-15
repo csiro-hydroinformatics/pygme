@@ -357,16 +357,6 @@ def fitfun(values, calib, use_transformed_parameters):
     model.run()
     calib._nbeval += 1
 
-    #import matplotlib.pyplot as plt
-    #from hydrodiy.plot import putils
-    #fig, ax = putils.get_fig_axs()
-    #ax.plot(calib.obs)
-    #ax.plot(model.outputs[:, 0])
-    #plt.show()
-
-    #import pdb; pdb.set_trace()
-
-
     if calib.timeit:
         t1 = time.time()
         calib._runtime = (t1-t0)*1000
@@ -649,8 +639,12 @@ class Calibration(object):
         # Systematic exploration of parameter library
         for i, values in enumerate(paramslib):
             # Run fitfun with untransformed parameters
-            ofun = fitfun(values, calib=self, \
+            try:
+                ofun = fitfun(values, calib=self, \
                         use_transformed_parameters=False)
+            except ValueError:
+                ofun = np.inf
+
             ofuns[i] = ofun
 
             # Store minimum of objfun
