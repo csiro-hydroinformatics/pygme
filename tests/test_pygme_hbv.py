@@ -84,10 +84,10 @@ class HBVTestCases(unittest.TestCase):
                     'HBV_timeseries_{0:02d}.csv'.format(i+1))
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
 
-            nval = 100
-            data = data[:nval]
-
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            #nval = 10
+            #data = data[:nval]
+            inputs = np.ascontiguousarray(data[1:, [0, 1]], np.float64)
+            inputs = np.concatenate([inputs, inputs[-1:]], axis=0)
 
             # Get parameters
             fp = os.path.join(self.ftest, 'output_data', \
@@ -112,15 +112,19 @@ class HBVTestCases(unittest.TestCase):
             hb.run()
 
             # Get outputs
-            snames = ['Q', 'Q0', 'Q1', 'Q2', 'ETA']
-            onames = np.array(hb.outputs_names)
-            cc = [np.where(n == onames)[0][0] for n in snames]
+            onames = ['Q', 'Q0', 'Q1', 'Q2', 'ETA']
+            allnames = np.array(hb.outputs_names)
+            cc = [np.where(n == allnames)[0][0] for n in onames]
             sim = hb.outputs[:, cc].copy()
+
+            snames = allnames[-3:]
+            states = hb.outputs[:, -3:].copy()
 
             # Compare with outputs generated from R code
             # Comparison is done after warmup
             idx = np.arange(inputs.shape[0]) > warmup
             expected = data[:, [3, 6, 7, 8, 12]]
+            states_expected = data[:, [9, 13, 14]]
 
             err = np.abs(sim[idx, :] - expected[idx, :])
 
@@ -149,13 +153,24 @@ class HBVTestCases(unittest.TestCase):
                 import matplotlib.pyplot as plt
                 from hydrodiy.plot import putils
                 plt.close('all')
-                fig, axs = putils.get_fig_axs(2, 2)
-                for i in range(4):
-                    ax = axs[i]
+                fig, axs = plt.subplots(nrows=3)
+                for i in range(3):
+                    ax = axs.flat[i]
                     ax.plot(expected[:, i], label='TUWmodel')
                     ax.plot(sim[:, i], label='pygme')
-                    ax.set_title(snames[i])
+                    tax = ax.twinx()
+                    tax.plot(sim[:, i]-expected[:, i], 'k-', lw=0.7)
+                    ax.set_title(onames[i])
 
+                    #ax.plot(states_expected[:, i], label='TUWmodel')
+                    #ax.plot(states[:, i], label='pygme')
+                    #if i == 0:
+                    #    putils.line(ax, 1, 0, 0, hb.FC, 'k--', label='FC')
+                    #    putils.line(ax, 1, 0, 0, hb.LPRAT*hb.FC, \
+                    #                                'r--', label='FC')
+                    #ax.set_title(snames[i])
+                    ax.legend()
+                fig.tight_layout()
                 plt.show()
                 import pdb; pdb.set_trace()
 
