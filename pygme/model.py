@@ -549,7 +549,8 @@ class Model(object):
 
                 if abs(uh1.timebase-uh2.timebase)>1e-8:
                     raise ValueError(('Expected UH[{0}] timebase to be {1}.'+\
-                            ' Got {2}.').format(iuh, uh1.timebase, uh2.timebase))
+                            ' Got {2}.').format(iuh, uh1.timebase, \
+                            uh2.timebase))
 
                 uh1.reset()
                 uh1.states[:uh1.nord] = uh2.states[:uh2.nord]
@@ -568,7 +569,7 @@ class Model(object):
         ''' Initialise model from external data
             (e.g. steady state from parameter values)
 
-            By default, the function run the initialise command without
+            If not overridden, the function runs the initialise command without
             parameters.
         '''
         self.initialise()

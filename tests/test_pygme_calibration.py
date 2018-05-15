@@ -310,7 +310,8 @@ class CalibrationTestCases(unittest.TestCase):
         start, _, _ = calib.explore()
         final, _, _ = calib.fit(iprint=10,
                                     maxfun=100000, ftol=1e-8)
-        ck = np.allclose(calib.model.params.values, params)
+        ck = np.allclose(calib.model.params.values, params, \
+                            atol=1e-5, rtol=0.)
         self.assertTrue(ck)
 
 
@@ -338,7 +339,8 @@ class CalibrationTestCases(unittest.TestCase):
         start, _, _ = calib.explore()
         final, _, _ = calib.fit(iprint=10,
                                     maxfun=100000, ftol=1e-8)
-        ck = np.allclose(calib.model.params.values, params)
+        ck = np.allclose(calib.model.params.values, params, \
+                            atol=1e-5, rtol=0.)
         self.assertTrue(ck)
 
 
@@ -377,7 +379,8 @@ class CalibrationTestCases(unittest.TestCase):
         self.assertEqual(fixed, calib.fixed)
         self.assertTrue(np.allclose(fixed['X1'], start[0]))
         self.assertTrue(np.allclose(fixed['X1'], final[0]))
-        self.assertTrue(np.allclose(fixed['X1'], calib.model.params.values[0]))
+        self.assertTrue(np.allclose(fixed['X1'], \
+                            calib.model.params.values[0]))
 
 
     def test_workflow(self):
@@ -404,7 +407,8 @@ class CalibrationTestCases(unittest.TestCase):
                 maxfun=100000, ftol=1e-8)
 
         # Test parameters at the end
-        ck = np.allclose(calib.model.params.values, params)
+        ck = np.allclose(calib.model.params.values, params, \
+                            atol=1e-5, rtol=0.)
         self.assertTrue(ck)
 
 

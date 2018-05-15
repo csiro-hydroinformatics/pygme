@@ -1,5 +1,6 @@
 import os
 import re
+import cProfile
 import unittest
 from itertools import product as prod
 
@@ -15,6 +16,8 @@ import c_pygme_models_hydromodels
 
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
+
+PROFILE = True
 
 class InitialTestCases(unittest.TestCase):
 
@@ -283,16 +286,35 @@ class GR4JTestCases(unittest.TestCase):
             gr.initialise_fromdata(Pm, Em)
             gr.run()
 
-            # Calibrate
-            calib = CalibrationGR4J(objfun=ObjFunSSE(), Pm=Pm, Em=Em)
+            # Add error to outputs
             err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
             obs = gr.outputs[:,0].copy()+err
 
+            # Wrapper function for profiling
             t0 = time.time()
-            final, ofun, _ = calib.workflow(obs, inputs, \
-                                        maxfun=100000, ftol=1e-8)
-            t1 = time.time()
+            calib = CalibrationGR4J(objfun=ObjFunSSE(), Pm=Pm, Em=Em)
+            def profilewrap(outputs):
+                final, ofun, _, _ = calib.workflow(obs, inputs, \
+                                            maxfun=100000, ftol=1e-8)
+                outputs.append(final)
+                outputs.append(ofun)
 
+            # Run profiler
+            if PROFILE and i == 0:
+                pstats = os.path.join(self.ftest, \
+                                'gr4j_calib{0:02d}.pstats'.format(i))
+                outputs = []
+                prof = cProfile.runctx('profilewrap(outputs)', globals(), \
+                            locals(), filename=pstats)
+                final = outputs[0]
+                ofun = outputs[1]
+            else:
+                outputs = []
+                profilewrap(outputs)
+                final = outputs[0]
+                ofun = outputs[1]
+
+            t1 = time.time()
             dt = (t1-t0)/len(obs)*365.25
 
             # Test error on parameters
@@ -334,14 +356,14 @@ class GR4JTestCases(unittest.TestCase):
         err = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
         obs = gr.outputs[:,0].copy()+err
 
-        final1, ofun1, _ = calib1.workflow(obs, inputs, \
+        final1, ofun1, _, _ = calib1.workflow(obs, inputs, \
                                     maxfun=100000, ftol=1e-8)
 
-        final2, ofun2, _ = calib2.workflow(obs, inputs, \
+        final2, ofun2, _, _ = calib2.workflow(obs, inputs, \
                                     maxfun=100000, ftol=1e-8)
 
         # Check one calibration works as expected
-        self.assertTrue(np.allclose(final1, expected, atol=1e-1))
+        self.assertTrue(np.allclose(final1, expected, atol=1e-1, rtol=0.))
 
         # Check the other one returns fixed parameters
         self.assertTrue(np.allclose(final2[[0, 3]], [1000, 10]))

@@ -2,7 +2,7 @@ import numpy as np
 import time
 import logging
 
-from scipy.optimize import fmin_powell
+from scipy.optimize import fmin
 
 from hydrodiy.stat import transform, metrics
 from hydrodiy.data.containers import Vector
@@ -670,16 +670,18 @@ class Calibration(object):
         # Set model parameters
         self.calparams.truevalues = best
 
-        LOGGER.info('End of explore [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
-            self.nbeval, self.objfun.name, format_array(self.calparams.truevalues), \
-            ofun_min, self.runtime))
+        LOGGER.info(('End of explore [{0}]: '+\
+                '{1}({2}) = {3:3.3e} ~ {4:.3f} ms').format( \
+                self.nbeval, self.objfun.name, \
+                format_array(self.calparams.truevalues), \
+                ofun_min, self.runtime))
 
         LOGGER.info('Parameter exploration completed')
 
         return best, ofun_min, ofuns
 
 
-    def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin_powell, \
+    def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin, \
                 **kwargs):
         ''' Fit model using the supplied optmizer '''
 
@@ -740,7 +742,8 @@ class Calibration(object):
     def workflow(self, obs, inputs, \
             ical=None, \
             iprint=0, \
-            optimizer=fmin_powell, \
+            nrepeat=1, \
+            optimizer=fmin, \
             **kwargs):
 
         LOGGER.info('Calibration workflow started')
@@ -754,7 +757,7 @@ class Calibration(object):
 
         # 3. Run exploration
         try:
-            start, _, _ = self.explore(iprint=iprint)
+            start, _, ofun_explore = self.explore(iprint=iprint)
         except ValueError as err:
             LOGGER.error('error in parameter exploration: {0}'.format(\
                             str(err)))
@@ -764,13 +767,13 @@ class Calibration(object):
         self.calparams.truevalues = start
         tstart = self.calparams.values
 
-        final, fitfun_final, outputs_final = self.fit(tstart, \
-                                    iprint=iprint, nrepeat=1, \
+        final, ofun_final, outputs_final = self.fit(tstart, \
+                                    iprint=iprint, nrepeat=nrepeat, \
                                     optimizer=optimizer, \
                                     **kwargs)
 
         LOGGER.info('Calibration workflow completed')
 
-        return final, fitfun_final, outputs_final
+        return final, ofun_final, outputs_final, ofun_explore
 
 

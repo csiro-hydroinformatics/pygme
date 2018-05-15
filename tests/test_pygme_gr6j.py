@@ -37,7 +37,8 @@ class GR6JTestCases(unittest.TestCase):
         try:
             gr.allocate(np.random.uniform(0, 1, (200, 2)), 30)
         except ValueError as  err:
-            self.assertTrue(str(err).startswith('model GR6J: Expected noutputs'))
+            self.assertTrue(str(err).startswith(\
+                            'model GR6J: Expected noutputs'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -256,7 +257,7 @@ class GR6JTestCases(unittest.TestCase):
 
             # Wrapper function for profiling
             def profilewrap(outputs):
-                final, ofun, _ = calib.workflow(obs, inputs, \
+                final, ofun, _, _ = calib.workflow(obs, inputs, \
                                             maxfun=100000, ftol=1e-8)
                 outputs.append(final)
                 outputs.append(ofun)

@@ -105,7 +105,7 @@ class GR2MTestCases(unittest.TestCase):
             obs = gr.outputs[:,0].copy()+err
 
             # Calibrate
-            final, ofun, _ = calib.workflow(obs, inputs, \
+            final, ofun, _, _ = calib.workflow(obs, inputs, \
                                         maxfun=100000, ftol=1e-8)
 
             # Test
