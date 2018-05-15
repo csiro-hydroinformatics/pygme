@@ -642,7 +642,8 @@ class Calibration(object):
             try:
                 ofun = fitfun(values, calib=self, \
                         use_transformed_parameters=False)
-            except ValueError:
+            except ValueError as err:
+                LOGGER.error(str(err))
                 ofun = np.inf
 
             ofuns[i] = ofun
