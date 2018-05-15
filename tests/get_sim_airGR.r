@@ -97,7 +97,7 @@ for(i in 1:20)
     gr6j_params <- outputscalib$ParamFinalR
     gr6j_params[1] = max(1, gr6j_params[1])
     gr6j_params[3] = max(1, gr6j_params[3])
-    gr6j_params[6] = max(1, gr6j_params[6])
+    gr6j_params[6] = max(0.1, gr6j_params[6])
 
     # Run model
     outputs <- RunModel_GR6J(InputsModel = inputs,
