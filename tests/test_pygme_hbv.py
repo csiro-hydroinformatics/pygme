@@ -15,7 +15,6 @@ UHEPS = c_pygme_models_utils.uh_getuheps()
 
 class HBVTestCases(unittest.TestCase):
 
-
     def setUp(self):
         print('\t=> HBVTestCase')
         filename = os.path.abspath(__file__)
@@ -84,8 +83,11 @@ class HBVTestCases(unittest.TestCase):
                     'HBV_timeseries_{0:02d}.csv'.format(i+1))
             data = np.loadtxt(fts, delimiter=',', skiprows=1)
 
-            #nval = 10
-            #data = data[:nval]
+            nval = 10
+            data = data[:nval]
+            #inputs = np.ascontiguousarray(data[:, [0, 1]], np.float64)
+
+            # Lag by one time step ?????
             inputs = np.ascontiguousarray(data[1:, [0, 1]], np.float64)
             inputs = np.concatenate([inputs, inputs[-1:]], axis=0)
 
@@ -102,10 +104,10 @@ class HBVTestCases(unittest.TestCase):
             hb.params.values = params
 
             # .. initiase to same values than TUWmodel run ...
-            # Estimate initial states based on first two state values
             s0 = data[0, [9, 13, 14]]
             s1 = data[1, [9, 13, 14]]
             sini = 2*s0-s1
+            #sini = [50, 2.5, 2.5]
             hb.initialise(states=sini)
 
             # Run model
@@ -124,7 +126,7 @@ class HBVTestCases(unittest.TestCase):
             # Comparison is done after warmup
             idx = np.arange(inputs.shape[0]) > warmup
             expected = data[:, [3, 6, 7, 8, 12]]
-            states_expected = data[:, [9, 13, 14]]
+            expected_states = data[:, [9, 13, 14]]
 
             err = np.abs(sim[idx, :] - expected[idx, :])
 
@@ -155,20 +157,21 @@ class HBVTestCases(unittest.TestCase):
                 plt.close('all')
                 fig, axs = plt.subplots(nrows=3)
                 for i in range(3):
-                    ax = axs.flat[i]
-                    ax.plot(expected[:, i], label='TUWmodel')
-                    ax.plot(sim[:, i], label='pygme')
-                    tax = ax.twinx()
-                    tax.plot(sim[:, i]-expected[:, i], 'k-', lw=0.7)
-                    ax.set_title(onames[i])
+                    x1 = expected[:, i]
+                    x2 = sim[:, i]
+                    title = onames[i]
 
-                    #ax.plot(states_expected[:, i], label='TUWmodel')
-                    #ax.plot(states[:, i], label='pygme')
-                    #if i == 0:
-                    #    putils.line(ax, 1, 0, 0, hb.FC, 'k--', label='FC')
-                    #    putils.line(ax, 1, 0, 0, hb.LPRAT*hb.FC, \
-                    #                                'r--', label='FC')
-                    #ax.set_title(snames[i])
+                    x1 = expected_states[:, i]
+                    x2 = states[:, i]
+                    title = snames[i]
+
+                    ax = axs.flat[i]
+                    ax.plot(x1, label='TUWmodel')
+                    ax.plot(x2, label='pygme')
+                    tax = ax.twinx()
+                    tax.plot(x2-x1, 'k-', lw=0.7)
+                    ax.set_title(title)
+
                     ax.legend()
                 fig.tight_layout()
                 plt.show()
