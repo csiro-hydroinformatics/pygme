@@ -50,8 +50,9 @@ for(i in 1:20)
     df = data[c('Precip', 'PotEvap')]
     nms = names(sim)[10:22]
     for(nm in nms){
-        df[nm] = sim[[nm]][1,]
+        df[nm] = as.vector(sim[[nm]])
     }
+
     filename <- file.path('output_data', 
                     sprintf('HBV_timeseries_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
