@@ -6,6 +6,8 @@
 *.png
 *.swp
 *.pstats
+*.mod
+*.o
 .coverage
 build
 pygme.egg-info
