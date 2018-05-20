@@ -163,3 +163,5 @@ class CompositeModelTestCases(unittest.TestCase):
         ck = np.allclose(o1, o2)
 
 
+if __name__ == "__main__":
+    unittest.main()

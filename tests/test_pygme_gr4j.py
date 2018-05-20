@@ -368,3 +368,6 @@ class GR4JTestCases(unittest.TestCase):
         # Check the other one returns fixed parameters
         self.assertTrue(np.allclose(final2[[0, 3]], [1000, 10]))
 
+
+if __name__ == "__main__":
+    unittest.main()

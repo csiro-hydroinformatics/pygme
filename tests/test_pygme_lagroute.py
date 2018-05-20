@@ -191,3 +191,5 @@ class LagRouteTestCases(unittest.TestCase):
             self.assertTrue(ck)
 
 
+if __name__ == "__main__":
+    unittest.main()

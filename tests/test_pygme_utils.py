@@ -159,3 +159,5 @@ class UtilsTestCases(unittest.TestCase):
             self.assertTrue(ck1 and ck2 and ck3)
 
 
+if __name__ == "__main__":
+    unittest.main()

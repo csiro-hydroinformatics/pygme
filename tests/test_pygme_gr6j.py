@@ -299,3 +299,5 @@ class GR6JTestCases(unittest.TestCase):
             self.assertTrue(ck1 or ck2)
 
 
+if __name__ == "__main__":
+    unittest.main()
