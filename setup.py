@@ -22,6 +22,8 @@ ext_utils=Extension(name='c_pygme_models_utils',
         'pygme/models/c_utils.c',
         'pygme/models/c_uh.c'
     ],
+    extra_cflags=['-O3'],
+    extra_compile_args=['-ffast-math'],
     include_dirs=[numpy.get_include()])
 
 ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
@@ -35,6 +37,8 @@ ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
         'pygme/models/c_gr6j.c',
         'pygme/models/c_hbv.c'
     ],
+    extra_cflags=['-O3'],
+    extra_compile_args=['-ffast-math'],
     include_dirs=[numpy.get_include()])
 
 cmdclass = versioneer.get_cmdclass()
