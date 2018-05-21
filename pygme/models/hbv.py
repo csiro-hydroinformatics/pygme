@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pandas as pd
 
+from hydrodiy.stat import sutils
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
@@ -117,15 +118,14 @@ class CalibrationHBV(Calibration):
         # Build parameter library from
         # MVT norm in transform space
         # TODO !!!!!!!
-        tplib = np.random.multivariate_normal(\
-                    mean=[5.8, -0.78, 3.39, 0.86, 0., 3.],\
-                    cov = [[1.16, 0.2, -0.15, -0.07, 0., 0.],\
-                            [0.2, 1.79, -0.24, -0.149, 0., 0.],\
-                            [-0.15, -0.24, 1.68, -0.16, 0., 0.],\
-                            [-0.07, -0.149, -0.16, 0.167, 0., 0.],\
-                            [0., 0., 0., 0., 1., 0.], \
-                            [0., 0., 0., 0., 0., 1.]], \
-                    size=5000)
+        mean = [5.8, -0.78, 3.39, 0.86, 0., 3.]
+        cov = [[1.16, 0.2, -0.15, -0.07, 0., 0.],\
+                [0.2, 1.79, -0.24, -0.149, 0., 0.],\
+                [-0.15, -0.24, 1.68, -0.16, 0., 0.],\
+                [-0.07, -0.149, -0.16, 0.167, 0., 0.],\
+                [0., 0., 0., 0., 1., 0.], \
+                [0., 0., 0., 0., 0., 1.]]
+        tplib = sutils.lhs_norm(5000, mean, cov)
         tplib = np.clip(tplib, calparams.mins, calparams.maxs)
         plib = tplib * 0.
         plib[:, [0, 2, 3, 5]] = np.exp(tplib[:, [0, 2, 3, 5]])

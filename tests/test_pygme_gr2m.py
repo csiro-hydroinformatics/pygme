@@ -88,7 +88,7 @@ class GR2MTestCases(unittest.TestCase):
         calib = CalibrationGR2M(objfun=ObjFunSSE())
 
         # Sample parameters
-        nsamples = 50
+        nsamples = 10
         samples = calib.paramslib[:nsamples]
 
         # loop through parameters
@@ -144,9 +144,9 @@ class GR2MTestCases(unittest.TestCase):
         obs = gr.outputs[:,0].copy()+err
 
         # Calibrate
-        final1, ofun1, _ = calib1.workflow(obs, inputs, \
+        final1, ofun1, _, _ = calib1.workflow(obs, inputs, \
                                     maxfun=100000, ftol=1e-8)
-        final2, ofun2, _ = calib2.workflow(obs, inputs, \
+        final2, ofun2, _, _ = calib2.workflow(obs, inputs, \
                                     maxfun=100000, ftol=1e-8)
 
         self.assertTrue(np.allclose(final1, expected, atol=1e-2))

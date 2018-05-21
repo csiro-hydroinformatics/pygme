@@ -2,10 +2,11 @@ import math
 import numpy as np
 import pandas as pd
 
+from hydrodiy.stat import sutils
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector, UH
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
-from pygme.models.gr4j import gr4j_X1_initial, lhs_params
+from pygme.models.gr4j import gr4j_X1_initial
 
 import c_pygme_models_hydromodels
 
@@ -167,7 +168,7 @@ class CalibrationGR6J(Calibration):
             [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
             [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]])
 
-        tplib = lhs_params(tmean, tcov, 8000)
+        tplib = sutils.lhs_norm(8000, tmean, tcov)
 
         # Back transform parameter library
         plib = tplib * 0.

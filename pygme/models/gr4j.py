@@ -29,16 +29,6 @@ def compute_PmEm(rain, evap):
     return PmEm[0], PmEm[1]
 
 
-def lhs_params(tmean, tcov, nsamples):
-    ''' Perform latin hypercube sampling of parameters in transformed space '''
-    nvars = len(tmean)
-    q = sutils.lhs(nsamples, [0]*nvars, [1]*nvars)
-    nsmp = norm.ppf(q)
-    S = np.linalg.cholesky(tcov)
-    smp = tmean[:, None] + np.dot(S, nsmp.T)
-    return smp.T
-
-
 def gr4j_X1_initial(Pm, Em, X1):
     ''' Compute optimised filling level for the production store of GR4J '''
     # Check data
@@ -189,7 +179,7 @@ class CalibrationGR4J(Calibration):
                 [0.4, 1.6, -0.3, -0.17],
                 [0.15, -0.3, 1.68, -0.3],
                 [-0.2, -0.17, -0.3, 0.6]])
-        tplib = lhs_params(tmean, tcov, 2000)
+        tplib = sutils.lhs_norm(2000, tmean, tcov)
 
         # Back transform
         plib = tplib * 0.

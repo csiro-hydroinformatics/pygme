@@ -5,9 +5,9 @@ import pandas as pd
 
 from hydrodiy.data.containers import Vector
 
+from hydrodiy.stat import sutils
 from pygme.model import Model, ParamsVector
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
-from pygme.models.gr4j import lhs_params
 
 import c_pygme_models_hydromodels
 
@@ -89,7 +89,7 @@ class CalibrationGR2M(Calibration):
         # Sample parameter library from latin hyper-cube
         mean = params.defaults
         cov = np.diag((params.maxs-params.mins)/2)
-        plib = lhs_params(mean, cov, 500)
+        plib = sutils.lhs_norm(500, mean, cov)
         plib = np.clip(plib, params.mins, params.maxs)
 
         # Initialisation arguments
