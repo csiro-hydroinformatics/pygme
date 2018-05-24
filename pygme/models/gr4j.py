@@ -46,7 +46,31 @@ def gr4j_X1_initial(Pm, Em, X1):
 
     return solution[0]
 
+# Transformation functions for gr4j parameters
+def gr4j_trans2true(x):
+    return np.array([ \
+                math.exp(x[0]), \
+                math.sinh(x[1]), \
+                math.exp(x[2]), \
+                0.49+math.exp(x[3])
+            ])
 
+def gr4j_true2trans(x):
+    return np.array([ \
+                math.log(max(1e-10, x[0])), \
+                math.asinh(x[1]), \
+                math.log(max(1e-10, x[2])), \
+                math.log(max(1e-10, x[3]-0.49))
+            ])
+
+# Transformed parameters mean and covariance
+GR4J_TMEAN = np.array([6., -0.8, 3., 0.7])
+GR4J_TCOV = np.array([[1.16, 0.4, 0.15, -0.2],
+        [0.4, 1.6, -0.3, -0.17],
+        [0.15, -0.3, 1.68, -0.3],
+        [-0.2, -0.17, -0.3, 0.6]])
+
+# Model
 class GR4J(Model):
 
     def __init__(self, Pm=0., Em=0.):
@@ -140,22 +164,6 @@ class CalibrationGR4J(Calibration):
         # Input objects for Calibration class
         model = GR4J()
         params = model.params
-
-        # Transformation functions for parameters
-        trans2true = lambda x: np.array([
-                        math.exp(x[0]), \
-                        math.sinh(x[1]), \
-                        math.exp(x[2]), \
-                        0.49+math.exp(x[3])
-                    ])
-
-        true2trans = lambda x: np.array([
-                        math.log(x[0]), \
-                        math.asinh(x[1]), \
-                        math.log(x[2]), \
-                        math.log(x[3]-0.49)
-                    ])
-
         # initialisation of states
         if Pm < 0 or Em < 0 :
             raise ValueError('Expected Pm and Em >0, '+\
@@ -163,29 +171,23 @@ class CalibrationGR4J(Calibration):
 
         # Calib param vector
         cp = Vector(['tX1', 'tX2', 'tX3', 'tX4'], \
-                mins=true2trans(params.mins),
-                maxs=true2trans(params.maxs),
-                defaults=true2trans(params.defaults))
+                mins=gr4j_true2trans(params.mins),
+                maxs=gr4j_true2trans(params.maxs),
+                defaults=gr4j_true2trans(params.defaults))
 
         calparams = CalibParamsVector(model, cp, \
-            trans2true=trans2true, \
-            true2trans=true2trans,\
+            trans2true=gr4j_trans2true, \
+            true2trans=gr4j_true2trans,\
             fixed=fixed)
 
         # Build parameter library from
         # MVT norm in transform space using latin hypercube
-        tmean = np.array([6., -0.8, 3., 0.7])
-        tcov = np.array([[1.16, 0.4, 0.15, -0.2],
-                [0.4, 1.6, -0.3, -0.17],
-                [0.15, -0.3, 1.68, -0.3],
-                [-0.2, -0.17, -0.3, 0.6]])
-        tplib = sutils.lhs_norm(2000, tmean, tcov)
+        tplib = sutils.lhs_norm(2000, GR4J_TMEAN, GR4J_TCOV)
 
         # Back transform
         plib = tplib * 0.
-        plib[:, [0, 2, 3]] = np.exp(tplib[:, [0, 2, 3]])
-        plib[:, 3] += 0.49
-        plib[:, 1] = np.sinh(tplib[:, 1])
+        for i in range(len(plib)):
+            plib[i, :] = gr4j_trans2true(tplib[i, :])
         plib = np.clip(plib, model.params.mins, model.params.maxs)
 
         # Instanciate calibration

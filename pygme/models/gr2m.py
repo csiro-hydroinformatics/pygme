@@ -11,7 +11,14 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
+# Transformation functions for gr4j parameters
+def gr2m_trans2true(x):
+    return np.exp(x)
 
+def gr2m_true2trans(x):
+    return np.log(np.maximum(1e-10, x))
+
+# Model
 class GR2M(Model):
 
     def __init__(self):
@@ -80,11 +87,13 @@ class CalibrationGR2M(Calibration):
         params = model.params
 
         cp = Vector(['tX1', 'tX2'], \
-                mins=np.log(params.mins),
-                maxs=np.log(params.maxs),
-                defaults=np.log(params.defaults))
+                mins=gr2m_true2trans(params.mins),
+                maxs=gr2m_true2trans(params.maxs),
+                defaults=gr2m_true2trans(params.defaults))
         calparams = CalibParamsVector(model, cp, \
-            trans2true='exp', fixed=fixed)
+            trans2true=gr2m_trans2true, \
+            true2trans=gr2m_true2trans, \
+            fixed=fixed)
 
         # Sample parameter library from latin hyper-cube
         mean = params.defaults
