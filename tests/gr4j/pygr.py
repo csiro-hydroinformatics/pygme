@@ -119,12 +119,12 @@ def run(LOGGER, rain, evap, params, states, ord1, ord2, uh1, uh2, nuh1, nuh2):
 
         #/* UH */
         for k in range(nuh1-1):
-            uh1[k] = uh1[k+1]*ord1[k]*PR
+            uh1[k] = uh1[k+1]+ord1[k]*PR
 
         uh1[nuh1-1] = ord1[nuh1-1]*PR
 
         for k in range(nuh2-1):
-            uh2[k] = uh2[k+1]*ord2[k]*PR
+            uh2[k] = uh2[k+1]+ord2[k]*PR
 
         uh2[nuh1-1] = ord2[nuh2-1]*PR
 
@@ -144,15 +144,14 @@ def run(LOGGER, rain, evap, params, states, ord1, ord2, uh1, uh2, nuh1, nuh2):
         states[1] = 0
 
         if TP>=0:
-            states[1]=TP
-            ech1=ECH
+            states[1] = TP
+            ech1 = ECH
         RR = states[1]/params[2]
         RR4 = RR*RR
         RR4 *= RR4
         R2 = states[1]/sqrt(sqrt(1.+RR4))
         QR = states[1]-R2
         states[1] = R2
-
 
         #/* Direct runoff calculation */
         QD = 0
