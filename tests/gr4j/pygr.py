@@ -64,13 +64,14 @@ def run(LOGGER, rain, evap, params, states, ord1, ord2, uh1, uh2, nuh1, nuh2):
     nval = len(rain)
     columns = ['P', 'E', 'ES', 'PS', 'PR', 'EN', \
             'AE', 'PERC', 'S', 'UH1', 'UH2', 'R', \
-            'Q9', 'QR', 'QD', 'Q', 'ECH']
+            'Q9', 'QR', 'QD', 'Q', 'ECH', 'TP1', 'TP9', \
+            'ech1', 'ech2']
     outputs = pd.DataFrame(np.zeros((nval, len(columns))), \
                     columns=columns)
 
     # Time loop
     for i in range(nval):
-        if i%50 == 0 and i> 0:
+        if i%200 == 0 and i> 0:
             LOGGER.info('Processing timestep {0}/{1}'.format(i+1, nval))
 
         # Get states
@@ -137,14 +138,14 @@ def run(LOGGER, rain, evap, params, states, ord1, ord2, uh1, uh2, nuh1, nuh2):
 
         #/* Routing store calculation */
         Q9 = uhoutput1 * partition1
-        TP = states[1] + Q9 + ECH
+        TP9 = states[1] + Q9 + ECH
 
         #/* Case where Reservoir content is not sufficient */
-        ech1 = ECH-TP
+        ech1 = ECH-TP9
         states[1] = 0
 
-        if TP>=0:
-            states[1] = TP
+        if TP9 >= 0:
+            states[1] = TP9
             ech1 = ECH
         RR = states[1]/params[2]
         RR4 = RR*RR
@@ -158,12 +159,12 @@ def run(LOGGER, rain, evap, params, states, ord1, ord2, uh1, uh2, nuh1, nuh2):
 
         #/* Case where the UH cannot provide enough water */
         Q1 = uhoutput2 * (1-partition1)
-        TP = Q1 + ECH
-        ech2 = ECH-TP
+        TP1 = Q1 + ECH
+        ech2 = ECH-TP1
         QD = 0
 
-        if TP>0:
-            QD = TP
+        if TP1 > 0:
+            QD = TP1
             ech2 = ECH
 
         #/* TOTAL STREAMFLOW */
@@ -187,5 +188,14 @@ def run(LOGGER, rain, evap, params, states, ord1, ord2, uh1, uh2, nuh1, nuh2):
         outputs.loc[i, 'QD'] = QD
         outputs.loc[i, 'Q'] = Q
         outputs.loc[i, 'ECH'] = ECH
+        outputs.loc[i, 'ech1'] = ech1
+        outputs.loc[i, 'ech2'] = ech2
+        outputs.loc[i, 'TP1'] = TP1
+        outputs.loc[i, 'TP9'] = TP9
+
+        if i == 1120:
+            df = outputs.loc[i-5:i, :]
+            import pdb; pdb.set_trace()
+
 
     return outputs

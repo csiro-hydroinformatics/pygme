@@ -1,5 +1,10 @@
 library(airGR)
 
+# Get X3 value from command line
+# low value of X3 (<5) trigger the oscillating behaviour
+args <- commandArgs()
+X3 <- as.numeric(args[6])
+
 # Open data
 filename <- file.path('data', '606002_inputs.csv')
 data <- read.csv(filename, stringsAsFactors=FALSE)
@@ -23,15 +28,19 @@ indrun <- seq(366*3+1, nval)
 boolcrit <- data$Runoff[indrun] >= 0
 
 # ------ GR4J ------------------
+#gr4j_params <- c(params[,'X1'], params[,'X2'], 
+#                    params[,'X3'], params[,'X4'])
+gr4j_params <- c(params[,'X1'], params[,'X2'], 
+                    X3, params[,'X4'])
+
+IniStates <- c(gr4j_params[1]/2, gr4j_params[3]*0.3)
+
 runoptions <- CreateRunOptions(FUN_MOD = RunModel_GR4J,
                            InputsModel = inputs,
                            IndPeriod_Run = indrun,
                            IniStates = NULL, 
                            IniResLevels = NULL, 
                            IndPeriod_WarmUp = indwarmup)
-
-gr4j_params <- c(params[,'X1'], params[,'X2'], 
-                    params[,'X3'], 0.5) #params[,'X4'])
 
 # Run model
 outputs <- RunModel_GR4J(InputsModel = inputs,
