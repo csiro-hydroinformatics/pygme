@@ -55,9 +55,9 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     double Rcapacity = 60;
 
     /* model variables */
-    double P, E;
+    double P, E, WS;
     double Sr, S, R, S1, S2, PHI, PSI, P1, P2, P3;
-    double R1, R2, F, Q;
+    double R1, R2, F, Q, AE;
 
     /* inputs */
     P = inputs[0] < 0 ? 0 : inputs[0];
@@ -70,12 +70,17 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     /* main GR2M procedure */
 
     /* production */
-    PHI = tanh(P/Scapacity);
+    WS = P/Scapacity;
+    WS = WS > 13 ? 13 : WS;
+    PHI = tanh(WS);
     S1 = (S+Scapacity*PHI)/(1+PHI*S/Scapacity);
     P1 = P+S-S1;
 
-    PSI = tanh(E/Scapacity);
+    WS = E/Scapacity;
+    WS = WS > 13 ? 13 : WS;
+    PSI = tanh(WS);
     S2 = S1*(1-PSI)/(1+PSI*(1-S1/Scapacity));
+    AE = S1-S2;
 
     Sr = S2/Scapacity;
     S = S2/pow(1.+Sr*Sr*Sr, 1./3);
@@ -85,7 +90,7 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     /* routing */
     R1 = R + P3;
     R2 = IGFcoef * R1;
-    F = (IGFcoef-1)*R1;
+    F = R2-R1;
     Q = R2*R2/(R2+Rcapacity);
     R = R2-Q;
 
@@ -97,42 +102,48 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     outputs[0] = Q;
 
     if(noutputs>1)
-        outputs[1] = F;
+        outputs[1] = S;
     else
         return ierr;
 
     if(noutputs>2)
-        outputs[2] = P1;
-    else
-        return ierr;
+        outputs[2] = R;
 
     if(noutputs>3)
-        outputs[3] = P2;
+        outputs[3] = F;
     else
         return ierr;
 
     if(noutputs>4)
-        outputs[4] = P3;
+        outputs[4] = P1;
     else
         return ierr;
 
     if(noutputs>5)
-        outputs[5] = R1;
+        outputs[5] = P2;
     else
         return ierr;
 
     if(noutputs>6)
-        outputs[6] = R2;
+        outputs[6] = P3;
     else
         return ierr;
 
     if(noutputs>7)
-        outputs[7] = S;
+        outputs[7] = R1;
     else
         return ierr;
 
     if(noutputs>8)
-        outputs[8] = R;
+        outputs[8] = R2;
+    else
+        return ierr;
+
+    if(noutputs>9)
+        outputs[9] = AE;
+    else
+        return ierr;
+
 
     return ierr;
 }
@@ -162,7 +173,7 @@ int c_gr2m_run(int nval,
     if(ninputs < 2)
         return GR2M_ERROR + __LINE__;
 
-    if(noutputs > 9)
+    if(noutputs > GR2M_NOUTPUTS)
         return GR2M_ERROR + __LINE__;
 
     if(start < 0)

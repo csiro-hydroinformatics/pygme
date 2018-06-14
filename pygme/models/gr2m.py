@@ -38,10 +38,10 @@ class GR2M(Model):
         super(GR2M, self).__init__('GR2M',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=9)
+            noutputsmax=10)
 
-        self.outputs_names = ['Q', 'F', 'P1', 'P2', 'P3', \
-                            'R1', 'R2', 'S', 'R']
+        self.outputs_names = ['Q', 'S', 'R', 'F', 'P1', 'P2', 'P3', \
+                            'R1', 'R2', 'AE']
 
 
     def initialise_fromdata(self):
