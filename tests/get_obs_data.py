@@ -26,8 +26,8 @@ import datasets
 # Config
 #----------------------------------------------------------------------
 
-name = sys.argv[1]
-version = sys.argv[2]
+dset_name = sys.argv[1]
+dset_version = sys.argv[2]
 nsites = 20
 
 # GDA94
@@ -55,7 +55,7 @@ LOGGER = iutils.get_logger(basename)
 #----------------------------------------------------------------------
 # Get data
 #----------------------------------------------------------------------
-dset = datasets.Dataset(name, version)
+dset = datasets.Dataset(dset_name, dset_version)
 sites = dset.sites
 
 idx = sites.suspicious.astype(str) == 'nan'
@@ -109,6 +109,15 @@ for i, (siteid, row) in enumerate(sites.iterrows()):
         'coords': '{0:0.3f}, {1:0.3f}'.format(row['lon_outlet'], \
                             row['lat_outlet'])}
     csv.write_csv(daily, fd, comment, \
+        source_file, compress=False, write_index=True)
+
+    # Aggregate to monthly
+    daily[daily < 0] = np.nan
+    monthly = daily.resample('MS').sum()
+    monthly.fillna(-9.999, inplace=True)
+
+    fm = os.path.join(fout, 'input_data_monthly_{0:02d}.csv'.format(i+1))
+    csv.write_csv(monthly, fm, comment, \
         source_file, compress=False, write_index=True)
 
 fs = os.path.join(fout, 'sites.csv')
