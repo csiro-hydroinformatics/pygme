@@ -108,7 +108,7 @@ class InitialTestCases(unittest.TestCase):
 
 
 
-class GR4JTestCases(unittest.TestCase):
+class GR4JTestCase(unittest.TestCase):
 
     def setUp(self):
         print('\t=> GR4JTestCase')
@@ -174,12 +174,12 @@ class GR4JTestCases(unittest.TestCase):
         pe = np.ones(nval) * 5.
 
         inputs = np.array([p, pe]).T
-        gr.allocate(inputs, 9)
+        gr.allocate(inputs, 11)
         gr.initialise()
         gr.run()
 
         out = gr.outputs
-        ck = out.shape == (nval, 9)
+        ck = out.shape == (nval, 11)
         self.assertTrue(ck)
 
 
@@ -199,7 +199,7 @@ class GR4JTestCases(unittest.TestCase):
             inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
             # Run gr4j
-            gr.allocate(inputs, 9)
+            gr.allocate(inputs, 11)
             gr.params.values = params
 
             # .. initiase to same values than IRSTEA run ...
@@ -213,7 +213,7 @@ class GR4JTestCases(unittest.TestCase):
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
-            sim = gr.outputs[:, [0, 4, 5]].copy()
+            sim = gr.outputs[:, [0, 6, 7]].copy()
             expected = data[:, [17, 16, 15]]
 
             err = np.abs(sim[idx, :] - expected[idx, :])

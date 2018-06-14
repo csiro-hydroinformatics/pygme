@@ -96,10 +96,10 @@ class GR4J(Model):
         super(GR4J, self).__init__('GR4J',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=9)
+            noutputsmax=11)
 
-        self.outputs_names = ['Q', 'ECH', 'AE', \
-                    'PR', 'QD', 'QR', 'PERC', 'S', 'R']
+        self.outputs_names = ['Q', 'S', 'R', 'ECH', 'AE', \
+                    'PR', 'QD', 'QR', 'PERC', 'Q1', 'Q9']
 
 
     def initialise_fromdata(self, Pm=0., Em=0.):

@@ -24,7 +24,7 @@
 #define GR4J_NSTATES 2
 
 /* Number of outputs returned by GR4J run */
-#define GR4J_NOUTPUTS 9
+#define GR4J_NOUTPUTS 11
 
 int c_compute_PmEm(int nval,double * rain, double * evap, double* PmEm);
 

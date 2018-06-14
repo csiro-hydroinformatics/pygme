@@ -327,46 +327,56 @@ int gr4j_runtimestep(int nparams,
     outputs[0] = Q;
 
     if(noutputs>1)
-        outputs[1] = ech1+ech2;
-    else
-	return ierr;
+	    outputs[1] = states[0];
+	else
+		return ierr;
 
     if(noutputs>2)
-	    outputs[2] = AE;
-    else
-	    return ierr;
+	    outputs[2] = states[1];
+	else
+		return ierr;
 
     if(noutputs>3)
-	    outputs[3] = PR;
+        outputs[3] = ech1+ech2;
     else
 	    return ierr;
 
     if(noutputs>4)
-        outputs[4] = QD;
-    else
-        return ierr;
-
-    if(noutputs>5)
-        outputs[5] = QR;
-    else
-        return ierr;
-
-    if(noutputs>6)
-	outputs[6] = PERC;
+	    outputs[4] = AE;
     else
 	    return ierr;
 
+    if(noutputs>5)
+	    outputs[5] = PR;
+    else
+	    return ierr;
+
+    if(noutputs>6)
+        outputs[6] = QD;
+    else
+        return ierr;
+
     if(noutputs>7)
-	    outputs[7] = states[0];
-	else
-		return ierr;
+        outputs[7] = QR;
+    else
+        return ierr;
 
     if(noutputs>8)
-	    outputs[8] = states[1];
-	else
-		return ierr;
+	outputs[8] = PERC;
+    else
+	    return ierr;
 
-	return ierr;
+    if(noutputs>9)
+	    outputs[9] = Q1;
+    else
+	    return ierr;
+
+    if(noutputs>10)
+	    outputs[10] = Q9;
+    else
+	    return ierr;
+
+    return ierr;
 }
 
 
