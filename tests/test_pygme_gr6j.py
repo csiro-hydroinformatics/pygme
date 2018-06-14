@@ -18,7 +18,7 @@ UHEPS = c_pygme_models_utils.uh_getuheps()
 
 PROFILE = True
 
-class GR6JTestCases(unittest.TestCase):
+class GR6JTestCase(unittest.TestCase):
 
 
     def setUp(self):
@@ -179,7 +179,7 @@ class GR6JTestCases(unittest.TestCase):
             params = np.loadtxt(fp, delimiter=',', skiprows=1)
 
             # Run gr6j
-            gr.allocate(inputs, 11)
+            gr.allocate(inputs, 13)
             gr.params.values = params
 
             # .. initiase to same values than IRSTEA run ...
@@ -190,8 +190,9 @@ class GR6JTestCases(unittest.TestCase):
             gr.initialise(states=sini)
             gr.run()
 
-            sim = gr.outputs[:, [0, 4, 5, 7]].copy()
-            expstore = gr.outputs[:, -1]
+            # Collect Q, QD, QR, QExp
+            sim = gr.outputs[:, [0, 7, 8, 10]].copy()
+            expstore = gr.outputs[:, 3]
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
@@ -218,11 +219,7 @@ class GR6JTestCases(unittest.TestCase):
                         'crit={1} err={2:3.3e} warmup={3}').format(\
                         i+1, ck, np.max(err), warmup_ideal))
 
-            try:
-                self.assertTrue(ck)
-            except:
-                import pdb; pdb.set_trace()
-
+            self.assertTrue(ck)
 
 
     def test_calibrate_against_itself(self):

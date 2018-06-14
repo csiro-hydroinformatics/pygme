@@ -140,54 +140,64 @@ int gr6j_runtimestep(int version,
     outputs[0] = Q;
 
     if(noutputs>1)
-        outputs[1] = ech1+ech2;
-    else
-	    return ierr;
+	    outputs[1] = states[0];
+	else
+		return ierr;
 
     if(noutputs>2)
-	    outputs[2] = AE;
-    else
-	    return ierr;
+	    outputs[2] = states[1];
+	else
+		return ierr;
 
     if(noutputs>3)
-	    outputs[3] = PR;
+	    outputs[3] = states[2];
+	else
+		return ierr;
+
+    if(noutputs>4)
+        outputs[4] = ech1+ech2;
     else
 	    return ierr;
 
-    if(noutputs>4)
-        outputs[4] = QD;
-    else
-        return ierr;
-
     if(noutputs>5)
-        outputs[5] = QR;
+	    outputs[5] = AE;
     else
-        return ierr;
+	    return ierr;
 
     if(noutputs>6)
-	outputs[6] = PERC;
+	    outputs[6] = PR;
     else
 	    return ierr;
 
     if(noutputs>7)
-	outputs[7] = QRExp;
+        outputs[7] = QD;
+    else
+        return ierr;
+
+    if(noutputs>8)
+        outputs[8] = QR;
+    else
+        return ierr;
+
+    if(noutputs>9)
+	    outputs[9] = PERC;
     else
 	    return ierr;
 
-    if(noutputs>8)
-	    outputs[8] = states[0];
-	else
-		return ierr;
-
-    if(noutputs>9)
-	    outputs[9] = states[1];
-	else
-		return ierr;
-
     if(noutputs>10)
-	    outputs[10] = states[2];
-	else
-		return ierr;
+	    outputs[10] = QRExp;
+    else
+	    return ierr;
+
+    if(noutputs>11)
+	    outputs[11] = Q1;
+    else
+	    return ierr;
+
+    if(noutputs>12)
+	    outputs[12] = Q9;
+    else
+	    return ierr;
 
 	return ierr;
 }

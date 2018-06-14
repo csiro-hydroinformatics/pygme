@@ -70,10 +70,10 @@ class GR6J(Model):
         super(GR6J, self).__init__('GR6J',
             config, params, states, \
             ninputs=2, \
-            noutputsmax=11)
+            noutputsmax=13)
 
-        self.outputs_names = ['Q', 'ECH', 'AE', \
-                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'S', 'R', 'A']
+        self.outputs_names = ['Q', 'S', 'R', 'A', 'ECH', 'AE', \
+                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'Q1', 'Q9']
 
 
     def initialise_fromdata(self, Pm=0., Em=0., Q0=1e-3):

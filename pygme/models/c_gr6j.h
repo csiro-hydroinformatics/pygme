@@ -18,7 +18,7 @@
 #define GR6J_NSTATES 3
 
 /* Number of outputs returned by GR6J run */
-#define GR6J_NOUTPUTS 11
+#define GR6J_NOUTPUTS 13
 
 int gr6j_runtimestep(int version,
     int nparams,
