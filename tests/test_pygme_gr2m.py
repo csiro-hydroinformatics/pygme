@@ -9,13 +9,17 @@ import numpy as np
 from pygme.models.gr2m import GR2M, CalibrationGR2M
 from pygme.calibration import ObjFunSSE
 
-class GR2MTestCases(unittest.TestCase):
+import testdata
+
+class GR2MTestCase(unittest.TestCase):
 
     def setUp(self):
         print('\t=> GR2MTestCase')
         filename = os.path.abspath(__file__)
-        self.FHERE = os.path.dirname(filename)
+        self.ftest = os.path.dirname(filename)
 
+        # Check test data
+        testdata.check_all()
 
     def test_print(self):
         gr = GR2M()
@@ -38,41 +42,75 @@ class GR2MTestCases(unittest.TestCase):
         gr.run()
 
 
-    def test_gr2m_irstea(self):
-        fd = '{0}/data/GR2M_timeseries.csv'.format(self.FHERE)
-        data = np.loadtxt(fd, delimiter=',', skiprows=1)
-
-        params = [650.7, 0.8]
-
-        # Run
+    def test_run_against_data(self):
+        ''' Compare GR2M simulation with test data '''
+        warmup = 12 * 5
         gr = GR2M()
-        inputs = np.ascontiguousarray(data[:, :2])
-        gr.allocate(inputs, 9)
-        gr.X1 = params[0]
-        gr.X2 = params[1]
-        gr.inputs = inputs
-        gr.initialise()
-        gr.run()
-        out = gr.outputs
 
-        # Test
-        warmup = 30
-        res = out[warmup:,]
-        expected = data[warmup:, [13, 10, 4, 7, 8, 9, 11, 6, 12]]
+        for i in range(20):
+            fp = '{0}/output_data/GR2M_params_{1:02d}.csv'.format( \
+                    self.ftest, i+1)
+            params = np.loadtxt(fp, delimiter=',', skiprows=1)
 
-        for i in range(res.shape[1]):
-            err = np.abs(res[:,i] - expected[:,i])
+            fts = '{0}/output_data/GR2M_timeseries_{1:02d}.csv'.format( \
+                    self.ftest, i+1)
+            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
-            err_thresh = 4e-1
-            if not i in [0, 1, 6]:
-                err_thresh = 1e-2 * np.min(np.abs(expected[expected[:,i]!=0.,i]))
-            ck = np.max(err) < err_thresh
+            # Run gr4j
+            gr.allocate(inputs, 10)
+            gr.params.values = params
 
-            if not ck:
-                print('\tVAR[%d] : max abs err = %0.5f < %0.5f ? %s' % ( \
-                        i, np.max(err), err_thresh, ck))
+            # .. initiase to same values than IRSTEA run ...
+            # Estimate initial states based on first two state values
+            s0 = data[0, [6, 7]]
+            s1 = data[1, [6, 7]]
+            sini = 2*s0-s1
+            gr.initialise(states=sini)
 
-            self.assertTrue(ck)
+            gr.run()
+
+            # Compare
+            idx = np.arange(inputs.shape[0]) > warmup
+            sim = gr.outputs[:, [0, 3, 6, 9]].copy()
+            expected = data[:, [8, 5, 4, 2]]
+
+            err = np.abs(sim[idx, :] - expected[idx, :])
+
+            # Sensitivity to initial conditionos
+            s1 = [0]*2
+            s2 = [gr.params.X1, 60]
+            warmup_ideal, sim0, sim1 = gr.inisens(s1, s2)
+
+            # Special criteria
+            # 5 values with difference greater than 1e-5
+            # max diff lower than 5e-4
+            def fun(x):
+                return np.sum(x > 1e-5), np.max(x)
+
+            cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
+            ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
+
+            print('\t\tTEST SIM {0:2d} : crit={1} err={2:3.3e} warmup={3}'.format(\
+                                        i+1, ck, np.max(err), warmup_ideal))
+
+            try:
+                self.assertTrue(ck)
+            except:
+                import matplotlib.pyplot as plt
+                fig, axs = plt.subplots(nrows=2)
+
+                states = gr.outputs[:, [1, 2]]
+                states2 = data[:, [6, 7]]
+
+                for i in range(2):
+                    ax = axs[i]
+                    ax.plot(states[:, i], label='pygme')
+                    ax.plot(states2[:, i], label='airgr')
+
+                plt.show()
+                import pdb; pdb.set_trace()
+
 
 
     def test_gr2m_irstea_calib(self):

@@ -1,5 +1,6 @@
 import os
 import re
+import zipfile
 import cProfile
 import unittest
 from itertools import product as prod
@@ -11,6 +12,8 @@ import numpy as np
 from pygme.calibration import ObjFunSSE
 from pygme.models.gr4j import GR4J, CalibrationGR4J
 from pygme.models.gr4j import compute_PmEm, gr4j_X1_initial
+
+import testdata
 
 import c_pygme_models_hydromodels
 
@@ -25,6 +28,10 @@ class InitialTestCases(unittest.TestCase):
         print('\t=> PmEmTestCase')
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
+
+        # Check test data
+        testdata.check_all()
+
 
     def test_PmEm(self):
         ''' Test Pm and Em '''
@@ -115,6 +122,8 @@ class GR4JTestCase(unittest.TestCase):
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
 
+        # Check test data
+        testdata.check_all()
 
     def test_print(self):
         gr = GR4J()
@@ -335,17 +344,17 @@ class GR4JTestCase(unittest.TestCase):
         calib2 = CalibrationGR4J(objfun=ObjFunSSE(), \
                         fixed={'X1':1000, 'X4':10})
 
-        fp = '{0}/data/GR4J_params.csv'.format(self.ftest)
-        params = np.loadtxt(fp, delimiter=',')
-
-        i = 0
-        fts = '{0}/data/GR4J_timeseries_{1:02d}.csv'.format( \
+        i = 10
+        fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
                 self.ftest, i+1)
-        data = np.loadtxt(fts, delimiter=',')
-        inputs = np.ascontiguousarray(data[:, [1, 2]], np.float64)
+        expected = np.loadtxt(fp, delimiter=',', skiprows=1)
+
+        fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
+                self.ftest, i+1)
+        data = np.loadtxt(fts, delimiter=',', skiprows=1)
+        inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
 
         # Run gr first
-        expected = params[i, [2, 0, 1, 3]]
         gr = calib1.model
         gr.allocate(inputs, 1)
         gr.params.values = expected

@@ -13,6 +13,8 @@ from pygme.calibration import ObjFunSSE
 from pygme.models.gr6j import GR6J, CalibrationGR6J
 from pygme.models.gr4j import compute_PmEm, gr4j_X1_initial
 
+import testdata
+
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
@@ -25,6 +27,9 @@ class GR6JTestCase(unittest.TestCase):
         print('\t=> GR6JTestCase')
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
+
+        # Check test data
+        testdata.check_all()
 
 
     def test_print(self):
