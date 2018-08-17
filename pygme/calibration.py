@@ -753,7 +753,7 @@ class Calibration(object):
         # 3. Run exploration
         try:
             start, _, ofun_explore = self.explore(iprint=iprint)
-        except ValueError as err:
+        except Exception as err:
             LOGGER.error('error in parameter exploration: {0}'.format(\
                             str(err)))
             start = self.model.params.defaults
