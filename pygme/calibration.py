@@ -658,7 +658,9 @@ class Calibration(object):
                 # (e.g. fixed)
                 best = self.model.params.values
 
-        if best is None:
+        raise_it = True if best is None else False
+        raise_it = True if not np.isfinite(ofun_min) else False
+        if raise_it:
             raise ValueError('Could not identify a suitable' + \
                 '  parameter set by exploration')
 
@@ -753,10 +755,11 @@ class Calibration(object):
         # 3. Run exploration
         try:
             start, _, ofun_explore = self.explore(iprint=iprint)
-        except Exception as err:
+        except ValueError as err:
             LOGGER.error('error in parameter exploration: {0}'.format(\
                             str(err)))
             start = self.model.params.defaults
+            ofun_explore = None
 
         # 4. Run fit
         self.calparams.truevalues = start
