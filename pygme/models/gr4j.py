@@ -12,6 +12,14 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
+# Transformed parameters mean and covariance
+GR4J_TMEAN = np.array([6., -0.8, 3., 0.7])
+GR4J_TCOV = np.array([[1.16, 0.4, 0.15, -0.2],
+        [0.4, 1.6, -0.3, -0.17],
+        [0.15, -0.3, 1.68, -0.3],
+        [-0.2, -0.17, -0.3, 0.6]])
+
+
 def compute_PmEm(rain, evap):
     ''' Compute rain and evap statistics needed for GR4J initialisation '''
     # Check data
@@ -62,14 +70,6 @@ def gr4j_true2trans(x):
                 math.log(max(1e-10, x[2])), \
                 math.log(max(1e-10, x[3]-0.49))
             ])
-
-# Transformed parameters mean and covariance
-GR4J_TMEAN = np.array([6., -0.8, 3., 0.7])
-GR4J_TCOV = np.array([[1.16, 0.4, 0.15, -0.2],
-        [0.4, 1.6, -0.3, -0.17],
-        [0.15, -0.3, 1.68, -0.3],
-        [-0.2, -0.17, -0.3, 0.6]])
-
 # Model
 class GR4J(Model):
 
@@ -159,6 +159,7 @@ class CalibrationGR4J(Calibration):
                     timeit=False, \
                     fixed=None, \
                     objfun_kwargs={}, \
+                    nparamslib=2000, \
                     Pm=0, Em=0):
 
         # Input objects for Calibration class
@@ -180,23 +181,23 @@ class CalibrationGR4J(Calibration):
             true2trans=gr4j_true2trans,\
             fixed=fixed)
 
+        # Instanciate calibration
+        super(CalibrationGR4J, self).__init__(calparams, \
+            objfun=objfun, \
+            warmup=warmup, \
+            timeit=timeit, \
+            objfun_kwargs=objfun_kwargs,
+            initial_kwargs={'Pm':Pm, 'Em':Em})
+
         # Build parameter library from
         # MVT norm in transform space using latin hypercube
-        tplib = sutils.lhs_norm(2000, GR4J_TMEAN, GR4J_TCOV)
+        tplib = sutils.lhs_norm(nparamslib, GR4J_TMEAN, GR4J_TCOV)
 
         # Back transform
         plib = tplib * 0.
         for i in range(len(plib)):
             plib[i, :] = gr4j_trans2true(tplib[i, :])
         plib = np.clip(plib, model.params.mins, model.params.maxs)
-
-        # Instanciate calibration
-        super(CalibrationGR4J, self).__init__(calparams, \
-            objfun=objfun, \
-            warmup=warmup, \
-            timeit=timeit, \
-            paramslib=plib, \
-            objfun_kwargs=objfun_kwargs,
-            initial_kwargs={'Pm':Pm, 'Em':Em})
+        self.paramslib = plib
 
 

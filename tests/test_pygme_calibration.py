@@ -31,7 +31,7 @@ sh.setFormatter(ft)
 LOGGER.addHandler(sh)
 
 
-class ObjFunTestCases(unittest.TestCase):
+class ObjFunTestCase(unittest.TestCase):
 
     def setUp(self):
         print('\t=> ObjFunTestCase')
@@ -93,10 +93,10 @@ class ObjFunTestCases(unittest.TestCase):
 
 
 
-class CalibParamsVectorTestCases(unittest.TestCase):
+class CalibParamsVectorTestCase(unittest.TestCase):
 
     def setUp(self):
-        print('\t=> CalibParamsVectorTestCases')
+        print('\t=> CalibParamsVectorTestCase')
 
         config = Vector([])
         nval = 10
@@ -260,7 +260,8 @@ class CalibrationTestCases(unittest.TestCase):
         try:
             plib = calib.paramslib
         except ValueError as err:
-            self.assertTrue(str(err).startswith('Trying to get paramslib, but '))
+            self.assertTrue(str(err).startswith(\
+                    'Trying to access paramslib, but '))
         else:
             raise ValueError('Problem with error handling')
 

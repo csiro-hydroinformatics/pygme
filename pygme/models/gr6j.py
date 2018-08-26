@@ -10,6 +10,16 @@ from pygme.models.gr4j import gr4j_X1_initial
 
 import c_pygme_models_hydromodels
 
+# Mean and covariance of transformed parameters
+GR6J_TMEAN = np.array([5.3, -0.37, 2.5, 0.32, 0.11, 1.5])
+GR6J_TCOV = np.array([
+    [2.85701,0.31298,-1.08943,-0.19579,0.11324,-0.60121],\
+    [0.31298,0.40240,-0.51347,-0.13173,0.00879,-0.14192],\
+    [-1.08943,-0.51347,1.99216,-0.03083,-0.03706,0.76333],\
+    [-0.19579,-0.13173,-0.03083,0.55924,0.01843,-0.05714],\
+    [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
+    [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]])
+
 
 # Transformation functions for gr6j parameters
 def gr6j_trans2true(x):
@@ -31,17 +41,6 @@ def gr6j_true2trans(x):
                 math.asinh(x[4]), \
                 math.log(max(1e-10, x[5]))
             ])
-
-# Mean and covariance of transformed parameters
-GR6J_TMEAN = np.array([5.3, -0.37, 2.5, 0.32, 0.11, 1.5])
-GR6J_TCOV = np.array([
-    [2.85701,0.31298,-1.08943,-0.19579,0.11324,-0.60121],\
-    [0.31298,0.40240,-0.51347,-0.13173,0.00879,-0.14192],\
-    [-1.08943,-0.51347,1.99216,-0.03083,-0.03706,0.76333],\
-    [-0.19579,-0.13173,-0.03083,0.55924,0.01843,-0.05714],\
-    [0.11324,0.00879,-0.03706,0.01843,0.63799,0.03747], \
-    [-0.60121,-0.14192,0.76333,-0.05714,0.03747,2.25238]])
-
 # Model
 class GR6J(Model):
 
@@ -145,6 +144,7 @@ class CalibrationGR6J(Calibration):
                     warmup=5*365, \
                     timeit=False, \
                     fixed=None, \
+                    nparamslib=8000, \
                     objfun_kwargs={},
                     Pm=0., Em=0.):
 
@@ -170,10 +170,17 @@ class CalibrationGR6J(Calibration):
             true2trans=gr6j_true2trans,\
             fixed=fixed)
 
+        # Instanciate calibration
+        super(CalibrationGR6J, self).__init__(calparams, \
+            objfun=objfun, \
+            warmup=warmup, \
+            timeit=timeit, \
+            objfun_kwargs=objfun_kwargs, \
+            initial_kwargs=initial_kwargs)
+
         # Build parameter library from
         # MVT norm in transform space
-
-        tplib = sutils.lhs_norm(8000, GR6J_TMEAN, GR6J_TCOV)
+        tplib = sutils.lhs_norm(nparamslib, GR6J_TMEAN, GR6J_TCOV)
 
         # Back transform parameter library
         plib = tplib * 0.
@@ -181,14 +188,5 @@ class CalibrationGR6J(Calibration):
             plib[i, :] = gr6j_trans2true(tplib[i, :])
 
         plib = np.clip(plib, model.params.mins, model.params.maxs)
-
-        # Instanciate calibration
-        super(CalibrationGR6J, self).__init__(calparams, \
-            objfun=objfun, \
-            warmup=warmup, \
-            timeit=timeit, \
-            paramslib=plib, \
-            objfun_kwargs=objfun_kwargs, \
-            initial_kwargs=initial_kwargs)
-
+        self.paramslib = plib
 

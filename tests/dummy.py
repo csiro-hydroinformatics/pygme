@@ -132,14 +132,8 @@ class CalibrationDummy(Calibration):
                 objfun=ObjFunSSE(), \
                 objfun_kwargs={}):
 
-        # Input objects for Calibration class
+        # Calibration params
         model = Dummy()
-        params = model.params
-        plib = np.random.multivariate_normal(mean=params.defaults, \
-                    cov=np.diag((params.maxs-params.mins)/2), \
-                    size=5000)
-        plib = np.clip(plib, params.mins, params.maxs)
-
         cp = Vector(['tX1', 'tX2'], mins=[-10]*2, maxs=[10]*2, \
                 defaults=[1, 0])
         calparams = CalibParamsVector(Dummy(), cp, \
@@ -151,7 +145,13 @@ class CalibrationDummy(Calibration):
             objfun=objfun, \
             warmup=warmup, \
             timeit=True, \
-            paramslib=plib, \
             objfun_kwargs=objfun_kwargs)
 
+        # Parameter library
+        params = model.params
+        plib = np.random.multivariate_normal(mean=params.defaults, \
+                    cov=np.diag((params.maxs-params.mins)/2), \
+                    size=5000)
+        plib = np.clip(plib, params.mins, params.maxs)
+        self.paramslib = plib
 

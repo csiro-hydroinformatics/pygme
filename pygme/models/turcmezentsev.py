@@ -51,23 +51,23 @@ class TurcMezentsev(Model):
 
 class CalibrationTurcMezentsev(Calibration):
 
-    def __init__(self, timeit=False,\
+    def __init__(self, nparamslib=500, timeit=False,\
                     objfun_kwargs={}):
 
         # Input objects for Calibration class
         model = TurcMezentsev()
         params = model.params
 
-        plib = np.random.multivariate_normal(mean=params.defaults, \
-                    cov=np.diag((params.maxs-params.mins)/3), \
-                    size=500)
-        plib = np.clip(plib, params.mins, params.maxs)
-
         calparams = CalibParamsVector(model)
 
         # Instanciate calibration
         super(CalibrationTurcMezentsev, self).__init__(calparams, \
-            paramslib=plib,\
-            objfun_kwargs={})
+            objfun_kwargs=objfun_kwargs)
 
+        # Parameter library
+        plib = np.random.multivariate_normal(mean=params.defaults, \
+                    cov=np.diag((params.maxs-params.mins)/3), \
+                    size=nparamslib)
+        plib = np.clip(plib, params.mins, params.maxs)
+        self.paramslib = plib
 

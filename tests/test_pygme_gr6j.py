@@ -55,7 +55,8 @@ class GR6JTestCase(unittest.TestCase):
             gr.allocate(inputs, 5)
             gr.initialise()
         except ValueError as  err:
-            self.assertTrue(str(err).startswith('model GR6J: Expected 2 inputs'))
+            self.assertTrue(str(err).startswith(\
+                    'model GR6J: Expected 2 inputs'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -73,7 +74,8 @@ class GR6JTestCase(unittest.TestCase):
         try:
             gr.run()
         except ValueError as err:
-            self.assertTrue(str(err).startswith('c_pygme_models_hydromodels.gr6j_run '+\
+            self.assertTrue(str(err).startswith(\
+                        'c_pygme_models_hydromodels.gr6j_run '+\
                         'returns'))
         else:
             raise ValueError('Problem with error handling')

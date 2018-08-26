@@ -80,6 +80,7 @@ class CalibrationGR2M(Calibration):
             warmup=36, \
             timeit=False,\
             fixed=None, \
+            nparamslib=500, \
             objfun_kwargs={}):
 
         # Input objects for Calibration class
@@ -95,12 +96,6 @@ class CalibrationGR2M(Calibration):
             true2trans=gr2m_true2trans, \
             fixed=fixed)
 
-        # Sample parameter library from latin hyper-cube
-        mean = params.defaults
-        cov = np.diag((params.maxs-params.mins)/2)
-        plib = sutils.lhs_norm(500, mean, cov)
-        plib = np.clip(plib, params.mins, params.maxs)
-
         # Initialisation arguments
         initial_kwargs = {}
 
@@ -109,9 +104,14 @@ class CalibrationGR2M(Calibration):
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
-            paramslib=plib, \
             objfun_kwargs=objfun_kwargs, \
             initial_kwargs=initial_kwargs)
 
+        # Sample parameter library from latin hyper-cube
+        mean = params.defaults
+        cov = np.diag((params.maxs-params.mins)/2)
+        plib = sutils.lhs_norm(nparamslib, mean, cov)
+        plib = np.clip(plib, params.mins, params.maxs)
+        self.paramslib = plib
 
 

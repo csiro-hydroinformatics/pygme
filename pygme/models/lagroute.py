@@ -91,6 +91,7 @@ class CalibrationLagRoute(Calibration):
                     warmup=5*365, \
                     timeit=False, \
                     fixed=None, \
+                    nparamslib=400, \
                     objfun_kwargs={}):
 
         # Input objects for Calibration class
@@ -108,18 +109,18 @@ class CalibrationLagRoute(Calibration):
             true2trans=true2trans,\
             fixed=fixed)
 
-        # Build parameter library from
-        # systematic exploration of parameter space
-        uu , aa = np.mesh_grid(np.linspace(0.1, 3, 20), \
-                        np.linspace(0, 1, 20))
-        plib = np.column_stack([uu.ravel(), aa.ravel()])
-
         # Instanciate calibration
         super(CalibrationLagRoute, self).__init__(calparams, \
             objfun=objfun, \
             warmup=warmup, \
             timeit=timeit, \
-            paramslib=plib, \
             objfun_kwargs=objfun_kwargs)
 
+        # Build parameter library from
+        # systematic exploration of parameter space
+        nn = int(math.sqrt(nparamslib))
+        uu , aa = np.mesh_grid(np.linspace(0.1, 3, nn), \
+                        np.linspace(0, 1, nn))
+        plib = np.column_stack([uu.ravel(), aa.ravel()])
+        self.paramslib = plib
 

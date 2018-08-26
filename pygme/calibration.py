@@ -382,10 +382,11 @@ def fitfun(values, calib, use_transformed_parameters):
 
     # Print output if needed
     if calib.iprint>0 and calib.nbeval % calib.iprint == 0:
-        LOGGER.info('Fitfun [{0}]: {1}({2}) = {3:3.3e} ~ {4:.3f} ms'.format( \
-            calib.nbeval, objfun.name, format_array(\
+        LOGGER.info(('Fitfun [{0}]: {1}({2}) = {3:3.3e} '+\
+            '~ {4:.3f} ms').format( \
+                calib.nbeval, objfun.name, format_array(\
                     calib.calparams.truevalues), \
-            ofun, calib.runtime))
+                ofun, calib.runtime))
 
     return ofun
 
@@ -396,7 +397,6 @@ class Calibration(object):
     def __init__(self, calparams, \
             warmup=0, \
             objfun=ObjFunSSE(), \
-            paramslib=None, \
             timeit=False, \
             hitbounds=True,
             objfun_kwargs={},\
@@ -419,52 +419,8 @@ class Calibration(object):
         self._runtime = np.nan
         self._obs = None
         self._ical = None
-
-        # Check paramslib
-        if not paramslib is None:
-
-            # Check dimensions
-            paramslib = np.atleast_2d(paramslib).astype(np.float64)
-            nlib, nparams = paramslib.shape
-            if nparams != calparams.model.params.nval:
-                raise ValueError(('Expected {0} parameters in '+\
-                    'paramslib, got {1}').format(\
-                        calparams.model.params.nval, \
-                        nparams))
-
-            if np.any(np.isnan(paramslib)):
-                raise ValueError('Expected no NaN in paramslib')
-
-            # Clip paramslib within model parameter boundaries
-            model = calparams.model
-            mins = model.params.mins
-            maxs = model.params.maxs
-
-            for ip, values in enumerate(paramslib):
-                clipped = np.clip(values, mins, maxs)
-
-                if not np.allclose(values, clipped):
-                    LOGGER.warning('Clipped parameter set '+\
-                        '#{0} from paramslib: {1} -> {2}'.format(ip,\
-                            values, clipped))
-
-                # Check values is valid with parameter transform
-                tclipped = calparams.true2trans(clipped)
-                if np.any(np.isnan(tclipped)):
-                    raise ValueError('Parameter set '+\
-                        '#{0} is invalid after transform: {1}'.format(ip, \
-                            tclipped))
-
-                clipped2 = calparams.trans2true(tclipped)
-                if np.any(np.isnan(clipped2)):
-                    raise ValueError('Parameter set '+\
-                        '#{0} is invalid after back transform: {1}'.format(\
-                            ip,  clipped2))
-
-                paramslib[ip, :] = clipped
-
-        self._paramslib = paramslib
-
+        self._paramslib = None
+        self._nparamslib = 0
 
     def __str__(self):
         str = ('Calibration instance ' +
@@ -474,6 +430,7 @@ class Calibration(object):
         str += '  warmup     : {0}\n'.format(self.warmup)
         str += '  hitbounds  : {0}\n'.format(self.hitbounds)
         str += '  nbeval     : {0}\n'.format(self.nbeval)
+        str += '  nparamslib : {0}\n'.format(self.nparamslib)
 
         return str
 
@@ -513,15 +470,66 @@ class Calibration(object):
         return self._calparams.fixed
 
 
+    def _check_paramslib(self):
+        if self._paramslib is None:
+            raise ValueError('Trying to access paramslib, but it is '+\
+                        'not allocated.')
+
+    @property
+    def nparamslib(self):
+        self._check_paramslib()
+        return self._paramslib.shape[0]
+
     @property
     def paramslib(self):
-        if self._paramslib is None:
-            raise ValueError('Trying to get paramslib, but it is '+\
-                        'not allocated. '+\
-                        'Please supply data when creating Calibration'+\
-                        'object')
-
+        self._check_paramslib()
         return self._paramslib
+
+    @paramslib.setter
+    def paramslib(self, values):
+        # Check dimensions
+        values = np.atleast_2d(values).astype(np.float64)
+        calparams = self.calparams
+        model = calparams.model
+        nlib, nparams = values.shape
+        if nparams != model.params.nval:
+            raise ValueError(('Expected {0} parameters in '+\
+                'paramslib, got {1}').format(\
+                    model.params.nval, \
+                    nparams))
+
+        if np.any(np.isnan(values)):
+            raise ValueError('Expected no NaN in paramslib')
+
+        # Clip paramslib within model parameter boundaries
+        plib = values * np.nan
+        mins = model.params.mins
+        maxs = model.params.maxs
+
+        for ip, row in enumerate(values):
+            clipped = np.clip(row, mins, maxs)
+
+            if not np.allclose(row, clipped):
+                LOGGER.warning('Clipped parameter set '+\
+                    '#{0} from paramslib: {1} -> {2}'.format(ip,\
+                        row, clipped))
+
+            # Check values is valid with parameter transform
+            tclipped = calparams.true2trans(clipped)
+            if np.any(np.isnan(tclipped)):
+                raise ValueError('Parameter set '+\
+                    '#{0} is invalid after transform: {1}'.format(ip, \
+                        tclipped))
+
+            clipped2 = calparams.trans2true(tclipped)
+            if np.any(np.isnan(clipped2)):
+                raise ValueError('Parameter set '+\
+                    '#{0} is invalid after back transform: {1}'.format(\
+                        ip,  clipped2))
+
+            plib[ip, :] = clipped
+
+        self._paramslib = plib
 
 
     @property

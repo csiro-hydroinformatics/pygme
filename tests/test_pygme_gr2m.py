@@ -127,7 +127,7 @@ class GR2MTestCase(unittest.TestCase):
         gr.allocate(inputs)
 
         # Calibration object
-        calib = CalibrationGR2M(objfun=ObjFunSSE())
+        calib = CalibrationGR2M(objfun=ObjFunSSE(), nparamslib=1000)
 
         # Sample parameters
         nsamples = 10
