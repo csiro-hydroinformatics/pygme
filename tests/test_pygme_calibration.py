@@ -468,10 +468,18 @@ class CalibrationTestCase(unittest.TestCase):
 
         start, _, _ = calib.explore()
 
-        for opt in [fmin, fmin_bfgs]:
+        for iopt, opt in enumerate([fmin, fmin_bfgs]):
             final, _, _ = calib.fit(start=start, iprint=10, optimizer=opt)
             ck = np.allclose(calib.model.params.values, params, \
                     atol=5e-3, rtol=0.)
+            if not ck:
+                print(('Failing optimizer test {0} '+\
+                    'expected params={1}, got {2}').format(\
+                        iopt+1, \
+                        ' '.join(list(np.round(params, 2).astype(str))), \
+                        ' '.join(list(\
+                        np.round(calib.model.params.values, 2).astype(str)))
+                ))
             self.assertTrue(ck)
 
 
