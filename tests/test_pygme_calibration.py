@@ -1,5 +1,6 @@
 import sys, os, re
 import unittest
+from itertools import product as prod
 
 from timeit import Timer
 import time
@@ -9,7 +10,7 @@ import logging
 
 import numpy as np
 
-from scipy.optimize import fmin, fmin_bfgs, fmin_cg
+from scipy.optimize import fmin, fmin_bfgs
 
 from hydrodiy.stat.transform import BoxCox2
 from hydrodiy.data.containers import Vector
@@ -81,15 +82,15 @@ class ObjFunTestCase(unittest.TestCase):
 
 
     def test_BCSSE(self):
-        for lam in [0.1, 0.5, 1., 2]:
-            for msf in [1e-4, 1e-2, 1]:
-                of = ObjFunBCSSE(lam, msf)
-                value = of.compute(self.obs, self.sim)
-                BC.lam = lam
-                BC.nu = np.nanmean(self.obs)*msf
-                err = BC.forward(self.obs)-BC.forward(self.sim)
-                expected = np.nansum(err*err)
-                self.assertTrue(np.isclose(value, expected))
+        ''' test the BCSSE objfun '''
+        for lam, nu in prod([0.1, 0.5, 1., 2], [1e-4, 1e-2, 1]):
+            of = ObjFunBCSSE(lam, nu)
+            value = of.compute(self.obs, self.sim)
+            BC.lam = lam
+            BC.nu = nu
+            err = BC.forward(self.obs)-BC.forward(self.sim)
+            expected = np.nansum(err*err)
+            self.assertTrue(np.isclose(value, expected))
 
 
 
@@ -226,7 +227,7 @@ class CalibParamsVectorTestCase(unittest.TestCase):
 
 
 
-class CalibrationTestCases(unittest.TestCase):
+class CalibrationTestCase(unittest.TestCase):
 
     def setUp(self):
         print('\t=> CalibrationTestCase')
@@ -426,7 +427,7 @@ class CalibrationTestCases(unittest.TestCase):
         obs = dum.outputs[:, 0]
 
         # Define a customized objective function
-        objfun = ObjFunBCSSE(lam=0.8, eta=1e-1)
+        objfun = ObjFunBCSSE(lam=0.8, nu=1e-5)
 
         # Instanciate a new calib obj and applies objfun
         calib = CalibrationDummy(warmup=10, objfun=objfun)
@@ -459,20 +460,18 @@ class CalibrationTestCases(unittest.TestCase):
 
         obs = dum.outputs[:, 0]
 
-        ical = np.arange(10, obs.shape[0])
-        kwargs = {'lam':1.0, 'idx':np.arange(len(ical))}
-        calib = CalibrationDummy(objfun=ObjFunSSEargs(), \
-                    warmup=10, \
-                    objfun_kwargs=kwargs)
+        calib = CalibrationDummy(objfun=ObjFunSSE(), \
+                    warmup=10)
         calib.allocate(obs, inputs)
+        ical = np.arange(10, obs.shape[0])
         calib.ical = ical
 
         start, _, _ = calib.explore()
 
-        for opt in [fmin, fmin_bfgs, fmin_cg]:
-            final, _, _ = calib.fit(iprint=10, optimizer=opt)
+        for opt in [fmin, fmin_bfgs]:
+            final, _, _ = calib.fit(start=start, iprint=10, optimizer=opt)
             ck = np.allclose(calib.model.params.values, params, \
-                    atol=1e-5, rtol=0.)
+                    atol=5e-3, rtol=0.)
             self.assertTrue(ck)
 
 
