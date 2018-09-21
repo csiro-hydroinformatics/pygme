@@ -19,3 +19,4 @@ c_pygme_models_patterns.c
 nosetests.xml
 tests/matrix.hdf5
 tests/vector.json
+tests/input_data/*.csv
