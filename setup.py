@@ -4,9 +4,9 @@ import os
 import numpy
 
 try:
-    from setuptools import setup, Extension
+    from setuptools import setup, Extension, find_packages
 except ImportError:
-    from distutils.core import setup, Extension
+    from distutils.core import setup, Extension, find_packages
 
 from Cython.Distutils import build_ext
 
