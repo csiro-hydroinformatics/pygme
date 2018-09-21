@@ -1,71 +1,39 @@
 import os
+import re
 import zipfile
+import numpy as np
+
+from hydrodiy.io import csv
 
 FHERE = os.path.dirname(os.path.abspath(__file__))
 
-def check_files_exist(files, folder):
-    ''' Check folder and files exist '''
-    if not os.path.exists(folder):
-        return False
+FINPZ = os.path.join(FHERE, 'input_data.zip')
+FOUTPZ = os.path.join(FHERE, 'output_data.zip')
 
-    for f in files:
-        ff = os.path.join(folder, f)
-        if not os.path.exists(ff):
-            return False
+def read(filename, source='input', has_dates=False):
+    ''' Get data from zip file '''
 
-    return True
+    # Get zip file name
+    fzip = FINPZ if source == 'input' else FOUTPZ
 
+    # Read data
+    with zipfile.ZipFile(fzip, 'r') as archive:
+        archive.extract(filename, path=FHERE)
+        fout = os.path.join(FHERE, filename)
 
-def check_inputs():
-    ''' Check if input files exist '''
+    # Read data
+    if has_dates:
+        data, _ = csv.read_csv(fout, index_col=0, \
+                        parse_dates=True)
+    else:
+        data, _ = csv.read_csv(fout)
 
-    finputs = os.path.join(FHERE, 'input_data')
+    # Clean folder
+    os.remove(fout)
 
-    files = ['KNNTEST_H111_A0030501.csv', \
-                'KNNTEST_H125_473.csv', \
-                'KNNTEST_H212_803003.csv', \
-                'KNNTEST_H57_108003A.csv']
+    # Clean column names
+    data.columns = [re.sub('"', '', cn) for cn in data.columns]
 
-    for i in range(1, 21):
-        files.append('input_data_{0:02d}.csv'.format(i))
-        files.append('input_data_monthly_{0:02d}.csv'.format(i))
-
-    return check_files_exist(files, finputs)
-
-
-def check_outputs():
-    ''' Check if output files exist '''
-    foutputs = os.path.join(FHERE, 'output_data')
-
-    files = []
-    for i in range(1, 21):
-        for model in ['GR2M', 'GR4J', 'GR6J', 'HBV']:
-            files.append(model+'_params_{0:02d}.csv'.format(i))
-            files.append(model+'_timeseries_{0:02d}.csv'.format(i))
-
-    return check_files_exist(files, foutputs)
-
-
-def unzip(data='input'):
-    ''' Unzip input data '''
-    if not data in ['input', 'output']:
-        raise ValueError('Expected data in [input/output], got '+data)
-
-    fz = os.path.join(FHERE, data+'_data.zip')
-    if not os.path.exists(fz):
-        raise ValueError(data + ' data file {0} does not exist. '+\
-                    'Please run get_obs_data.py script')
-
-    with zipfile.ZipFile(fz, 'r') as archive:
-        archive.extractall(path=FHERE)
-
-
-def check_all():
-    ''' process all test data '''
-    if not check_inputs():
-        unzip('input')
-
-    if not check_outputs():
-        unzip('output')
+    return data
 
 

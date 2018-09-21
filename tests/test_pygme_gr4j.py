@@ -29,18 +29,17 @@ class InitialTestCases(unittest.TestCase):
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
 
-        # Check test data
-        testdata.check_all()
-
 
     def test_PmEm(self):
         ''' Test Pm and Em '''
 
         for i in range(20):
-            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            # Get data
+            data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
@@ -72,10 +71,12 @@ class InitialTestCases(unittest.TestCase):
         # Loop over test catchments
         for i in range(20):
             # Data
-            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
+
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
             # Test of multiple X1 values
@@ -122,9 +123,6 @@ class GR4JTestCase(unittest.TestCase):
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
 
-        # Check test data
-        testdata.check_all()
-
     def test_print(self):
         gr = GR4J()
         str_gr = '%s' % gr
@@ -135,7 +133,8 @@ class GR4JTestCase(unittest.TestCase):
         try:
             gr.allocate(np.random.uniform(0, 1, (200, 2)), 30)
         except ValueError as  err:
-            self.assertTrue(str(err).startswith('model GR4J: Expected noutputs'))
+            self.assertTrue(str(err).startswith(\
+                                'model GR4J: Expected noutputs'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -147,7 +146,8 @@ class GR4JTestCase(unittest.TestCase):
             gr.allocate(inputs, 5)
             gr.initialise()
         except ValueError as  err:
-            self.assertTrue(str(err).startswith('model GR4J: Expected 2 inputs'))
+            self.assertTrue(str(err).startswith(\
+                                'model GR4J: Expected 2 inputs'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -198,23 +198,23 @@ class GR4JTestCase(unittest.TestCase):
         gr = GR4J()
 
         for i in range(20):
-            fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+            # Get data
+            data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('GR4J_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
 
-            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
-
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
             # Run gr4j
             gr.allocate(inputs, 11)
             gr.params.values = params
 
             # .. initiase to same values than IRSTEA run ...
             # Estimate initial states based on first two state values
-            s0 = data[0, [2, 10]]
-            s1 = data[1, [2, 10]]
+            s0 = data.loc[0, ['Prod', 'Rout']].values
+            s1 = data.loc[1, ['Prod', 'Rout']].values
             sini = 2*s0-s1
             gr.initialise(states=sini)
 
@@ -223,8 +223,7 @@ class GR4JTestCase(unittest.TestCase):
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
             sim = gr.outputs[:, [0, 6, 7]].copy()
-            expected = data[:, [17, 16, 15]]
-
+            expected = data.loc[:, ['Qsim', 'QD', 'QR']].values
             err = np.abs(sim[idx, :] - expected[idx, :])
 
             # Sensitivity to initial conditionos
@@ -241,8 +240,9 @@ class GR4JTestCase(unittest.TestCase):
             cka = np.array([fun(err[:, k]) for k in range(err.shape[1])])
             ck = np.all((cka[:, 0] < 5) & (cka[:, 1] < 1e-4))
 
-            print('\t\tTEST SIM {0:2d} : crit={1} err={2:3.3e} warmup={3}'.format(\
-                                        i+1, ck, np.max(err), warmup_ideal))
+            print(('\t\tTEST SIM {0:2d} : crit={1} '+\
+                    'err={2:3.3e} warmup={3}').format(\
+                        i+1, ck, np.max(err), warmup_ideal))
 
             self.assertTrue(ck)
 
@@ -253,10 +253,11 @@ class GR4JTestCase(unittest.TestCase):
         warmup = 365*6
 
         for i in range(20):
-            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
@@ -279,14 +280,18 @@ class GR4JTestCase(unittest.TestCase):
         warmup = 365*6
 
         for i in range(20):
-            fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+            # Get data
+            data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('GR4J_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = params.values[:, 0]
 
-            fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
+
+            # Initialisation variables
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
 
             # Run gr first
@@ -345,14 +350,16 @@ class GR4JTestCase(unittest.TestCase):
                         fixed={'X1':1000, 'X4':10})
 
         i = 10
-        fp = '{0}/output_data/GR4J_params_{1:02d}.csv'.format( \
-                self.ftest, i+1)
-        expected = np.loadtxt(fp, delimiter=',', skiprows=1)
+        # Get data
+        data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                source='outputs', has_dates=False)
+        expected = testdata.read('GR4J_params_{0:02d}.csv'.format(i+1), \
+                                source='outputs', has_dates=False)
+        expected = expected.values[:, 0]
 
-        fts = '{0}/output_data/GR4J_timeseries_{1:02d}.csv'.format( \
-                self.ftest, i+1)
-        data = np.loadtxt(fts, delimiter=',', skiprows=1)
-        inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+        inputs = np.ascontiguousarray(\
+                        data.loc[:, ['Precip', 'PotEvap']], \
+                        np.float64)
 
         # Run gr first
         gr = calib1.model

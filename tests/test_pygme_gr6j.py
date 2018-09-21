@@ -28,9 +28,6 @@ class GR6JTestCase(unittest.TestCase):
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
 
-        # Check test data
-        testdata.check_all()
-
 
     def test_print(self):
         gr = GR6J()
@@ -127,10 +124,11 @@ class GR6JTestCase(unittest.TestCase):
         warmup = 365*6
 
         for i in range(20):
-            fts = '{0}/output_data/GR6J_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
             Pm, Em = compute_PmEm(inputs[:, 0], inputs[:, 1])
             Q0 = np.nanmean(inputs[:, -1])
@@ -174,16 +172,16 @@ class GR6JTestCase(unittest.TestCase):
         gr = GR6J()
 
         for i in range(20):
-            # Get inputs
-            fts = os.path.join(self.ftest, 'output_data', \
-                    'GR6J_timeseries_{0:02d}.csv'.format(i+1))
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            # Get data
+            data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('GR6J_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = params.values[:, 0]
 
-            # Get parameters
-            fp = os.path.join(self.ftest, 'output_data', \
-                    'GR6J_params_{0:02d}.csv'.format(i+1))
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
             # Run gr6j
             gr.allocate(inputs, 13)
@@ -191,8 +189,8 @@ class GR6JTestCase(unittest.TestCase):
 
             # .. initiase to same values than IRSTEA run ...
             # Estimate initial states based on first two state values
-            s0 = data[0, [2, 10, 17]]
-            s1 = data[1, [2, 10, 17]]
+            s0 = data.loc[0, ['Prod', 'Rout', 'Exp']]
+            s1 = data.loc[1, ['Prod', 'Rout', 'Exp']]
             sini = 2*s0-s1
             gr.initialise(states=sini)
             gr.run()
@@ -203,8 +201,7 @@ class GR6JTestCase(unittest.TestCase):
 
             # Compare
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[:, [19, 18, 15, 16]]
-
+            expected = data.loc[:, ['Qsim', 'QD', 'QR', 'QRExp']].values
             err = np.abs(sim[idx, :] - expected[idx, :])
 
             # Sensitivity to initial conditionos
@@ -235,17 +232,15 @@ class GR6JTestCase(unittest.TestCase):
         warmup = 365*6
 
         for i in range(20):
-            # Get inputs
-            fts = os.path.join(self.ftest, 'output_data', \
-                    'GR6J_timeseries_{0:02d}.csv'.format(i+1))
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('GR6J_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = params.values[:, 0]
 
-            # Get parameters
-            fp = os.path.join(self.ftest, 'output_data', \
-                    'GR6J_params_{0:02d}.csv'.format(i+1))
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
-
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
             # Run gr first
             gr.allocate(inputs, 1)
             gr.params.values = params

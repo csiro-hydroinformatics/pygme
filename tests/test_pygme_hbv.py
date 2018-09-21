@@ -12,6 +12,8 @@ from pygme.models.hbv import HBV, CalibrationHBV
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
+import testdata
+
 
 class HBVTestCases(unittest.TestCase):
 
@@ -78,34 +80,24 @@ class HBVTestCases(unittest.TestCase):
 
         #for i in range(13, 14):
         for i in range(20):
-            # Get inputs
-            fts = os.path.join(self.ftest, 'output_data', \
-                    'HBV_timeseries_{0:02d}.csv'.format(i+1))
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
+            # Get data
+            data = testdata.read('HBV_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('HBV_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = params.values[:, 1]
 
-            nval = 10
-            data = data[:nval]
-            #inputs = np.ascontiguousarray(data[:, [0, 1]], np.float64)
-
-            # Lag by one time step ?????
-            inputs = np.ascontiguousarray(data[1:, [0, 1]], np.float64)
-            inputs = np.concatenate([inputs, inputs[-1:]], axis=0)
-
-            # Get parameters
-            fp = os.path.join(self.ftest, 'output_data', \
-                    'HBV_params_{0:02d}.csv'.format(i+1))
-            params = np.genfromtxt(fp, dtype=[('parname', str), \
-                                    ('parvalue', np.float64)], \
-                                    skip_header=1, delimiter=',')
-            params = np.array([p[1] for p in params])
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
             # Allocate model and set parameters
             hb.allocate(inputs, 13)
             hb.params.values = params
 
             # .. initiase to same values than TUWmodel run ...
-            s0 = data[0, [9, 13, 14]]
-            s1 = data[1, [9, 13, 14]]
+            s0 = data.loc[0, ['moist', 'suz', 'slz']]
+            s1 = data.loc[1, ['moist', 'suz', 'slz']]
             sini = 2*s0-s1
             #sini = [50, 2.5, 2.5]
             hb.initialise(states=sini)
@@ -125,8 +117,8 @@ class HBVTestCases(unittest.TestCase):
             # Compare with outputs generated from R code
             # Comparison is done after warmup
             idx = np.arange(inputs.shape[0]) > warmup
-            expected = data[:, [3, 6, 7, 8, 12]]
-            expected_states = data[:, [9, 13, 14]]
+            expected = data[:, ['q', 'q0', 'q1', 'q2', 'eta']].values
+            expected_states = data.loc[:, ['moist', 'suz', 'slz']].values
 
             err = np.abs(sim[idx, :] - expected[idx, :])
 
@@ -187,18 +179,18 @@ class HBVTestCases(unittest.TestCase):
         calib = CalibrationHBV(objfun=ObjFunSSE())
 
         for i in range(8, 9):
-            # Get inputs
-            fts = os.path.join(self.ftest, 'output_data', \
-                    'HBV_timeseries_{0:02d}.csv'.format(i+1))
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            # Get data
+            data = testdata.read('HBV_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('HBV_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = params.values[:, 1]
 
-            # Get parameters
-            fp = os.path.join(self.ftest, 'output_data', \
-                    'HBV_params_{0:02d}.csv'.format(i+1))
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
-            # Run hb first
+           # Run hb first
             hb = calib.model
             hb.allocate(inputs, 1)
             hb.params.values = params

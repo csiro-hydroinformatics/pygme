@@ -20,8 +20,6 @@ class GR2MTestCase(unittest.TestCase):
         filename = os.path.abspath(__file__)
         self.ftest = os.path.dirname(filename)
 
-        # Check test data
-        testdata.check_all()
 
     def test_print(self):
         gr = GR2M()
@@ -54,15 +52,14 @@ class GR2MTestCase(unittest.TestCase):
                 warnings.warn('Skipping test {0} for GR2m'.format(i+1))
                 continue
 
-            fp = '{0}/output_data/GR2M_params_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-            params = np.loadtxt(fp, delimiter=',', skiprows=1)
+            data = testdata.read('GR2M_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
+            params = testdata.read('GR2M_params_{0:02d}.csv'.format(i+1), \
+                                    source='outputs', has_dates=False)
 
-            fts = '{0}/output_data/GR2M_timeseries_{1:02d}.csv'.format( \
-                    self.ftest, i+1)
-
-            data = np.loadtxt(fts, delimiter=',', skiprows=1)
-            inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+            inputs = np.ascontiguousarray(\
+                            data.loc[:, ['Precip', 'PotEvap']], \
+                            np.float64)
 
             # Run gr4j
             gr.allocate(inputs, 10)
@@ -85,8 +82,7 @@ class GR2MTestCase(unittest.TestCase):
             #sim = gr.outputs[:, [0, 3, 6, 9]].copy()
             #expected = data[:, [8, 5, 4, 2]]
             sim = gr.outputs[:, 0][:, None].copy()
-            expected = data[:, 10][:, None]
-
+            expected = data.loc[:, 'Qsim2'].values[:, None]
             err = np.abs(sim[idx, :] - expected[idx, :])
 
             # Sensitivity to initial conditionos
@@ -113,15 +109,16 @@ class GR2MTestCase(unittest.TestCase):
     def test_gr2m_calib(self):
         ''' Test gr2m calibration '''
         i = 0
-        fp = '{0}/output_data/GR2M_params_{1:02d}.csv'.format( \
-                self.ftest, i+1)
-        params = np.loadtxt(fp, delimiter=',', skiprows=1)
 
-        fts = '{0}/output_data/GR2M_timeseries_{1:02d}.csv'.format( \
-                self.ftest, i+1)
+        # Get data
+        data = testdata.read('GR2M_timeseries_{0:02d}.csv'.format(i+1), \
+                                source='outputs', has_dates=False)
+        params = testdata.read('GR2M_params_{0:02d}.csv'.format(i+1), \
+                                source='outputs', has_dates=False)
 
-        data = np.loadtxt(fts, delimiter=',', skiprows=1)
-        inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+        inputs = np.ascontiguousarray(\
+                        data.loc[:, ['Precip', 'PotEvap']], \
+                        np.float64)
 
         gr = GR2M()
         gr.allocate(inputs)
@@ -154,7 +151,8 @@ class GR2MTestCase(unittest.TestCase):
             err = np.abs(final-expected)/np.abs(expected)
             ck = np.max(err) < 1e-2
 
-            print('\t\tsample {0:02d} : max err = {1:3.3e} ofun = {2}'.format(i,
+            print('\t\tsample '+\
+                        '{0:02d} : max err = {1:3.3e} ofun = {2}'.format(i,
                         np.max(err), ofun))
 
             self.assertTrue(ck)
@@ -163,15 +161,17 @@ class GR2MTestCase(unittest.TestCase):
     def test_gr2m_calib_fixed(self):
         ''' Test GR2M calibration with fixed parameters '''
         i = 0
-        fp = '{0}/output_data/GR2M_params_{1:02d}.csv'.format( \
-                self.ftest, i+1)
-        expected = np.loadtxt(fp, delimiter=',', skiprows=1)
 
-        fts = '{0}/output_data/GR2M_timeseries_{1:02d}.csv'.format( \
-                self.ftest, i+1)
+        # Get data
+        data = testdata.read('GR2M_timeseries_{0:02d}.csv'.format(i+1), \
+                                source='outputs', has_dates=False)
+        expected = testdata.read('GR2M_params_{0:02d}.csv'.format(i+1), \
+                                source='outputs', has_dates=False)
+        expected = expected.values[:, 0]
 
-        data = np.loadtxt(fts, delimiter=',', skiprows=1)
-        inputs = np.ascontiguousarray(data[:, [1, 0]], np.float64)
+        inputs = np.ascontiguousarray(\
+                        data.loc[:, ['Precip', 'PotEvap']], \
+                        np.float64)
 
         gr = GR2M()
         gr.allocate(inputs, 1)
