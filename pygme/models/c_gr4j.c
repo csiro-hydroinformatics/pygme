@@ -254,7 +254,7 @@ int gr4j_runtimestep(int nparams,
     double prod[7];
     double ES, PS, PR, AE;
     double PERC,ECH,TP,R2,QR,QD;
-    double EN, ech1,ech2, RR, RR4;
+    double ech1,ech2, RR, RR4;
     double uhoutput1[1], uhoutput2[1];
 
     double partition1 = 0.9;
