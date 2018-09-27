@@ -60,7 +60,14 @@ jobs:
             export PYTHONWARNINGS="ignore"
 
             # Running tests
-            python -W ignore `which nosetests` tests
+            python -W ignore `which nosetests` tests/test_pymge_model.py
+            python -W ignore `which nosetests` tests/test_pymge_calibration.py
+            python -W ignore `which nosetests` tests/test_pymge_utils.py
+            python -W ignore `which nosetests` tests/test_pymge_turcmezentsev.py
+            python -W ignore `which nosetests` tests/test_pymge_gr2m.py
+            python -W ignore `which nosetests` tests/test_pymge_lagroute.py
+            python -W ignore `which nosetests` tests/test_pymge_gr4j.py
+            python -W ignore `which nosetests` tests/test_pymge_gr6j.py
 
           no_output_timeout: 30m
  
