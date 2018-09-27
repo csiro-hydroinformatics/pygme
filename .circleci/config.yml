@@ -60,7 +60,12 @@ jobs:
             export PYTHONWARNINGS="ignore"
 
             # Running tests
-            python -W ignore `which nosetests` tests
+            python -W ignore `which nosetests` tests/test_pygme_model.py
+            python -W ignore `which nosetests` tests/test_pygme_utils.py
+            python -W ignore `which nosetests` tests/test_pygme_calibration.py
+            python -W ignore `which nosetests` tests/test_pygme_turcmezentsev.py
+            python -W ignore `which nosetests` tests/test_pygme_lagroute.py
+            python -W ignore `which nosetests` tests/test_pygme_gr2m.py
  
       - store_artifacts:
           path: test-reports
