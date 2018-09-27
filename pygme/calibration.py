@@ -72,7 +72,7 @@ class ObjFunBCSSE(ObjFun):
         for BC transformed flows.
 
         See transform class in package hydrodiy
-        hydrodiy.stat.transforms.BoxCox1
+        hydrodiy.stat.transforms.BoxCox2
 
     '''
 
@@ -327,6 +327,20 @@ class CalibParamsVector(Vector):
 def fitfun(values, calib, use_transformed_parameters):
     ''' Objective function wrapper to  be used by optimizer.
         Can be run with transformed or untransformed parameter values.
+
+        Parameters
+        -----------
+        values : model : pygme.model.Model
+            Model to calibrate
+        calib : pygme.calibration.Calibration
+            Calibration object
+        use_transformed_parameters : bool
+            Use transformed parameters or not
+
+        Returns
+        -----------
+        ofun : float
+            Objective function value
     '''
     # Get objects
     calparams = calib.calparams
@@ -401,6 +415,34 @@ class Calibration(object):
             hitbounds=True,
             objfun_kwargs={},\
             initial_kwargs={}):
+        ''' Generic calibration object. Handles parameter exploration and
+            fitting using a scipy optimiser.
+
+            Parameters
+            -----------
+            calparams : pygme.calibration.CalibParamsVector
+                Vector of calibrated parameters (can be different from
+                model parameters, e.g. when fixing certain parameters or
+                calibrating parameter combinations)
+
+            objfun : pygme.calibration.ObjFun
+                Objective function object. Drives the optimisation process
+                by assessing fitness quality
+
+            timeit : bool
+                Time model execution. Useful to monitor calibration when
+                model runs are very long.
+
+            objfun_kwargs : dict
+                Dictionary containing arguments passed to objfun.compute
+                function (e.g objective function parameters).
+
+            initia_kwargs : dict
+                Dictionary containing arguments passed to the function
+                model.initialise_fromdata
+                This allows the model to be initialised in a particular
+                way
+        '''
 
         # Initialise calparams
         calparams.truevalues = calparams.model.params.defaults
@@ -437,36 +479,44 @@ class Calibration(object):
 
     @property
     def runtime(self):
+        ''' Model runtime in seconds '''
         return self._runtime
 
 
     @property
     def nbeval(self):
+        ''' Number of objective function evaluation '''
         return self._nbeval
 
 
     @property
     def objfun(self):
+        ''' Objective function object '''
         return self._objfun
 
 
     @property
     def objfun_args(self):
+        ''' Objective function arguments '''
         return self._objfun_args
 
 
     @property
     def objfun_kwargs(self):
+        ''' Objective function dict arguments '''
         return self._objfun_kwargs
 
 
     @property
     def initial_kwargs(self):
+        ''' Model initialisation dict arguments '''
         return self._initial_kwargs
 
 
     @property
     def fixed(self):
+        ''' Dict of fixed parameters (i.e. key are parameter names
+        and value are fixed values) '''
         return self._calparams.fixed
 
 
@@ -477,16 +527,19 @@ class Calibration(object):
 
     @property
     def nparamslib(self):
+        ''' Size of parameter exploration library '''
         self._check_paramslib()
         return self._paramslib.shape[0]
 
     @property
     def paramslib(self):
+        ''' Parameter exploration library '''
         self._check_paramslib()
         return self._paramslib
 
     @paramslib.setter
     def paramslib(self, values):
+        ''' Set parameter exploration library '''
         # Check dimensions
         values = np.atleast_2d(values).astype(np.float64)
         calparams = self.calparams
@@ -534,16 +587,19 @@ class Calibration(object):
 
     @property
     def calparams(self):
+        ''' Calibrated parameter vector '''
         return self._calparams
 
 
     @property
     def model(self):
+        ''' Calibrated model '''
         return self._calparams.model
 
 
     @property
     def obs(self):
+        ''' Observation used to calibrate model '''
         if self._obs is None:
             raise ValueError('Trying to get obs, but it is '+\
                         'not allocated. Please allocate')
@@ -553,10 +609,12 @@ class Calibration(object):
 
     @property
     def ical(self):
+        ''' Calibration indexes within obs vector '''
         return self._ical
 
     @ical.setter
     def ical(self, values):
+        ''' Set calibration indexes in obs vector '''
         nval = self.obs.shape[0]
 
         # Set to all indexes if None
@@ -594,7 +652,17 @@ class Calibration(object):
 
 
     def allocate(self, obs, inputs):
-        ''' Allocate model inputs and obs data '''
+        ''' Allocate model inputs and obs data
+
+            Parameters
+            -----------
+            obs : numpy.ndarray
+                Array of observations (1d or 2d, depends on
+                what the objective function can accept)
+
+            inputs : numpy.ndarray
+                Array of inputs to the model.
+        '''
 
         # Convert outputs to numpy 2d array
         obs = np.atleast_2d(obs).astype(np.float64)
@@ -629,7 +697,12 @@ class Calibration(object):
 
     def explore(self, iprint=0):
         ''' Systematic exploration of parameter space and
-        identification of best parameter set
+            identification of best parameter set
+
+            Parameters
+            -----------
+            iprint : int
+                Frequency of log printing
         '''
         self.iprint = iprint
         self._nbeval = 0
@@ -688,7 +761,27 @@ class Calibration(object):
 
     def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin, \
                 **kwargs):
-        ''' Fit model using the supplied optmizer '''
+        ''' Fit model using the supplied optmizer
+
+            Parameters
+            -----------
+            start : numpy.ndarray
+                Initial calibration parameter values
+
+            iprint : int
+                Frequency of log printing
+
+            nrepeat : int
+                Number of repetion of optimisation
+                (>1 applies the optimiser several times)
+
+            optimizer : function
+                Function with same signature than
+                scipy.optimize.fmin
+
+            kwargs : dict
+                Arguments passed to the optimize
+        '''
 
         LOGGER.info('Parameter fit started')
 
@@ -750,6 +843,39 @@ class Calibration(object):
             nrepeat=1, \
             optimizer=fmin, \
             **kwargs):
+        ''' Perform model allocation, exploration and fitting
+            in one command. See
+
+            pygme.calibration.Calibration.allocate
+            pygme.calibration.Calibration.explore
+            pygme.calibration.Calibration.fit
+
+            Parameters
+            -----------
+            obs : numpy.ndarray
+                Array of observations (1d or 2d, depends on
+                what the objective function can accept)
+
+            inputs : numpy.ndarray
+                Array of inputs to the model.
+
+            ical : numpy.ndarray
+                Calibration indexes in the obs vector
+
+            iprint : int
+                Frequency of log printing
+
+            nrepeat : int
+                Number of repetion of optimisation
+                (>1 applies the optimiser several times)
+
+            optimizer : function
+                Function with same signature than
+                scipy.optimize.fmin
+
+            kwargs : dict
+                Arguments passed to the optimize
+        '''
 
         LOGGER.info('Calibration workflow started')
 
