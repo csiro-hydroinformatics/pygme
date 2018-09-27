@@ -34,8 +34,7 @@ ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
         'pygme/models/c_lagroute.c',
         'pygme/models/c_gr2m.c',
         'pygme/models/c_gr4j.c',
-        'pygme/models/c_gr6j.c',
-        'pygme/models/c_hbv.c'
+        'pygme/models/c_gr6j.c'
     ],
     extra_cflags=['-O3'],
     extra_compile_args=['-ffast-math'],
