@@ -66,6 +66,8 @@ jobs:
             python -W ignore `which nosetests` tests/test_pygme_turcmezentsev.py
             python -W ignore `which nosetests` tests/test_pygme_lagroute.py
             python -W ignore `which nosetests` tests/test_pygme_gr2m.py
+
+          no_output_timeout: 30m
  
       - store_artifacts:
           path: test-reports
