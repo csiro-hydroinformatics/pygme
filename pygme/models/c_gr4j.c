@@ -252,7 +252,7 @@ int gr4j_runtimestep(int nparams,
 
     double Q, P, E, Q1, Q9;
     double prod[7];
-    double ES, PS, PR, AE;
+    double EN, ES, PS, PR, AE;
     double PERC,ECH,TP,R2,QR,QD;
     double ech1,ech2, RR, RR4;
     double uhoutput1[1], uhoutput2[1];
