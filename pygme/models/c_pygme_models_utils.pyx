@@ -18,8 +18,8 @@ cdef extern from 'c_utils.h':
             double * inputs, double * outputs)
 
     int c_rootfind_test(int ntest,
-        int *niter, int *status, double eps,
-        double * roots,
+        int *niter, int *status, double epsx, double epsfun,
+        int nitermax, double * roots,
         int nargs, double * args)
 
 
@@ -108,7 +108,7 @@ def accumulate(double start, int year_monthstart,
     return ierr
 
 
-def rootfind_test(int ntest, double eps,
+def rootfind_test(int ntest, double epsx, double epsfun, int nitermax,
         np.ndarray[int, ndim=1, mode='c'] niter not None,
         np.ndarray[int, ndim=1, mode='c'] status not None,
         np.ndarray[double, ndim=1, mode='c'] roots not None,
@@ -122,13 +122,13 @@ def rootfind_test(int ntest, double eps,
     if status.shape[0] != 1:
         raise ValueError('status.shape[0] != 1')
 
-    if roots.shape[0] != 3:
-        raise ValueError('roots.shape[0] != 3')
+    if roots.shape[0] != 2:
+        raise ValueError('roots.shape[0] != 2')
 
     ierr = c_rootfind_test(ntest,
         <int*> np.PyArray_DATA(niter),
         <int*> np.PyArray_DATA(status),
-        eps,
+        epsx, epsfun, nitermax,
         <double*> np.PyArray_DATA(roots),
         args.shape[0],
         <double*> np.PyArray_DATA(args))

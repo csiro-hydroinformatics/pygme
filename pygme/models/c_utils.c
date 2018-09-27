@@ -198,142 +198,141 @@ int c_accumulate(int nval, double start,
     return 0;
 }
 
-/* This is a simplistic root finder for function fun */
+/* ************************
+ * Bisection root finding algorithm.
+ * See https://en.wikipedia.org/wiki/Root-finding_algorithm#Bisection_method
+ *
+ * fun : function to find the root from. Function signature must be
+ *          double fun(double x, int nargs, double * args)
+ *
+ * niter : number of iterations
+ *
+ * status : convergence status
+ *     -1 = Error: Function values for roots are not bracketing zero
+ *     -2 = Error: Function value is NaN
+ *     -3 = Error: No convergence after nitermax iterations
+ *
+ *      0 = Nothing done. One of the initial points is a root
+ *      1 = Convergence achieved after nitermax iterations
+ *      2 = Convergence achived, stopped algorithm because
+ *              function does not change
+ *      3 = Convergence achieved, stopped algorithm because
+ *              parameters do no change
+ *
+ * nitermax : maximum number of iterations
+ *
+ * eps : Tolerance threshold for parameter and function changes
+ *
+ * roots : initial and final values (3 values, the root is the middle one)
+ *
+ * nargs : number of function arguments
+ *
+ * args : function arguments
+ *
+ * */
 int c_rootfind(double (*fun)(double, int, double *),
-        int *niter, int *status, double eps,
-        double *roots,
-        int nargs, double * args)
+        int *niter, int *status, double epsx, double epsfun,
+        int nitermax, double *roots, int nargs, double * args)
 {
-    int i, nitermax;
-    double values[3];
-    double a, b, c, D, E, F, G, H, I, J, x0;
-    double dx, dx0, df, df0;
+    int iroot;
+    double tmp, values[2];
+    double x0, f0, dx, maxf, fa, fb;
 
     *niter = 0;
     *status = 0;
 
-    /* Maximum number of iteration */
-    nitermax = 20;
-
-    /* Check roots are increating */
-    if(roots[1]<roots[0] || roots[2]<roots[1])
-        return UTILS_ERROR + __LINE__;
-
-    df0 = 1e30;
-    for(i=0; i<3; i++)
+    /* Sort initial roots */
+    if(roots[1]<roots[0])
     {
-        values[i]= fun(roots[i], nargs, args);
-
-        /* Computes reference for convergence test */
-        df = fabs(values[i]);
-        if(df<eps){
-            roots[1] = roots[i];
-            return 0;
-        }
-
-        if(df < df0)
-            df0 = df*eps;
+        tmp = roots[0];
+        roots[0] = roots[1];
+        roots[1] = tmp;
     }
 
-    /* Check roots are bracketing 0 */
-    if(values[0]*values[2]>=0)
-            return UTILS_ERROR + __LINE__;
+    /* Find largest function value */
+    values[0] = fun(roots[0], nargs, args);
+    values[1] = fun(roots[1], nargs, args);
 
-    /* Computes reference for convergence test */
-    dx0 = fabs(roots[1]-roots[0]);
-    if(fabs(roots[2]-roots[1]) < dx0)
-        dx0 = fabs(roots[2]-roots[1]);
-    dx0 *= eps;
+    fa = values[0];
+    fb = values[1];
+    maxf = fabs(fa) < fabs(fb) ? fabs(fb) : fabs(fa);
+
+    /* Root already found, nothing to do */
+    if(maxf < epsfun)
+        return 0;
+
+    /* Check roots are bracketing 0 */
+    if(values[0]*values[1]>=0)
+    {
+        *status = -1;
+        fprintf(stdout, "Roots not bracketing 0: f(%f)=%f and f(%f)=%f\n",
+                    roots[0], values[0], roots[1], values[1]);
+        return UTILS_ERROR + __LINE__;
+    }
 
     /* Convergence loop */
     while(*niter < nitermax)
     {
-        /* Check convergence */
-        if(df < df0 || df<eps)
-        {
+        /* x range */
+        dx = fabs(roots[0]-roots[1]);
+
+        /* Check convergence of fun */
+        if(maxf < epsfun)
             *status = 2;
-            return 0;
-        }
 
-        dx = fabs(roots[0]-roots[2]);
-        if(dx < dx0 || dx<eps)
-        {
+        /* Check convergence of parameters */
+        if(dx < epsx)
             *status = 3;
-            return 0;
-        }
 
-
-        /* Square interpolation
-        * g(x) = (x-b)*(x-c) * f(a)/(a-b)/(a-c)
-                 (x-a)*(x-c) * f(b)/(b-a)/(b-c)
-        *        (x-a)(x-b) * f(c)/(c-a)/(c-b)
-        * As a result:
-        *   g(a) = f(a)
-        *   g(b) = f(b)
-        *   g(c) = f(c)
-        *
-        * with D = f(a)/(a-b)/(a-c)
-        *      E = f(b)/(b-a)/(b-c)
-        *      F = f(c)/(c-a)/(c-b)
-        * we have
-        * g(x) = D*b*c + E*a*c + F*a*b
-        *        - [D*(b+c)+E*(a+c)+F*(a+b)]*x
-        *        + (D+E+F)*x^2
-        *
-        * we pose
-        * G = D*b*c + E*a*c + F*a*b
-        * H = D*(b+c)+E*(a+c)+F*(a+b)
-        * I = D+E+F
-        *
-        * Finally g(x0) = 0 leads to
-        *  J = H^2-4*G*I
-        *  x0 = (H+sqrt(J))/2I
-        */
-
-        a = roots[0];
-        b = roots[1];
-        c = roots[2];
-
-        D = values[0]/(a-b)/(a-c);
-        E = values[1]/(b-a)/(b-c);
-        F = values[2]/(c-b)/(c-a);
-
-        G = D*b*c+E*a*c+F*a*b;
-        H = D*(b+c)+E*(a+c)+F*(a+b);
-        I = D+E+F;
-
-        J = H*H-4*G*I;
-        if(J<0)
+        /* Continues if no convergence reached */
+        if(*status == 0)
         {
-            fprintf(stdout, "\n\nIter [%d]:\n", *niter);
-            for(i=0; i<3; i++)
-                fprintf(stdout, "f(%f) = %0.10f\n", roots[i], values[i]);
+            /* Compute mid-interval values */
+            x0 = (roots[0]+roots[1])/2;
+            f0 = fun(x0, nargs, args);
 
-            return UTILS_ERROR + __LINE__;
-        }
+            if(isnan(f0))
+            {
+                *status = -2;
+                fprintf(stdout, "\n\nIter [%d]: f(x0) is NaN\n", *niter);
+                return UTILS_ERROR + __LINE__;
+            }
 
-        /* iteration */
-        x0 = (H+sqrt(J))/2/I;
-        if(roots[1]<x0)
-            roots[0] = roots[1];
-        else
-            roots[2] = roots[1];
+            /* Choose which values to replace depending on the sign of f0 */
+            iroot = f0*values[0] > 0 ? 0 : 1;
 
-        roots[1] = x0;
+            /* Replace value */
+            roots[iroot] = x0;
+            values[iroot] = f0;
 
-        *niter = *niter + 1;
+            /* Iterate */
+            maxf = fabs(f0) < maxf ? fabs(f0) : maxf;
+            *niter = *niter + 1;
 
-        df = 1e30;
-        for(i=0; i<3; i++)
-        {
-            values[i]= fun(roots[i], nargs, args);
-
-            if(fabs(values[i]) < df)
-                df = fabs(values[i])*eps;
-        }
+        } else
+            break;
     }
 
-    *status = 1;
+    /* One more step to ensure convergence */
+    x0 = (roots[0]+roots[1])/2;
+    f0 = fun(x0, nargs, args);
+    iroot = f0*values[0] > 0 ? 0 : 1;
+    roots[iroot] = x0;
+    values[iroot] = f0;
+
+    /* Sort roots to ensure best root is the first one */
+    if(fabs(values[0]) > fabs(values[1]))
+    {
+        tmp = roots[0];
+        roots[0] = roots[1];
+        roots[1] = tmp;
+    }
+
+    /* check final convergence */
+    if(maxf > epsfun)
+        *status = -3;
+    else
+        *status = 1;
 
     return 0;
 }
@@ -341,7 +340,7 @@ int c_rootfind(double (*fun)(double, int, double *),
 
 /*
  * Root finding function to be used in the test
- * y = -a+x/(1+(x/b)^c)^(1/c)
+ * y = -a+x-x/(1+(x/b)^c)^(1/c)
  */
 double funtest1(double x, int nargs, double * args)
 {
@@ -354,17 +353,19 @@ double funtest1(double x, int nargs, double * args)
 }
 
 /*
- * Testing root finding
+ * Testing root finding algorithm
  */
 int c_rootfind_test(int ntest, int *niter, int *status,
-        double eps,
+        double epsx, double epsfun, int nitermax,
         double * roots, int nargs, double * args)
 {
     if(ntest == 1)
         return c_rootfind(funtest1, niter,
-            status, eps, roots, nargs, args);
+            status, epsx, epsfun, nitermax, roots, nargs, args);
     else
         return UTILS_ERROR + __LINE__;
 
     return 0;
 }
+
+
