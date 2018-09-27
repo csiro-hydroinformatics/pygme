@@ -265,7 +265,7 @@ int c_rootfind(double (*fun)(double, int, double *),
     if(values[0]*values[1]>=0)
     {
         *status = -1;
-        fprintf(stdout, "Roots not bracketing 0: f(%f)=%f and f(%f)=%f\n",
+        fprintf(stdout, "\n\nRoots not bracketing 0: f(%f)=%f and f(%f)=%f\n",
                     roots[0], values[0], roots[1], values[1]);
         return UTILS_ERROR + __LINE__;
     }
