@@ -553,7 +553,7 @@ class Model(object):
                             uh2.timebase))
 
                 uh1.reset()
-                uh1.states[:uh1.nord] = uh2.states[:uh2.nord]
+                uh1.states[:uh1.nord] = uh2.states[:uh2.nord].copy()
 
         else:
             # Reset uhs states values
