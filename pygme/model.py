@@ -541,11 +541,11 @@ class Model(object):
                 _, uh1 = self.params.uhs[iuh]
 
                 # Compare with the uh supplied to initialise
-                uh2 = uhs[iuh]
+                _, uh2 = uhs[iuh]
 
                 if uh1.nord != uh2.nord:
                     raise ValueError(('Expected UH[{0}] nord to be {1}.'+\
-                            ' Got {2}.').format(uh1.nord, uh2.nord))
+                            ' Got {2}.').format(iuh, uh1.nord, uh2.nord))
 
                 if abs(uh1.timebase-uh2.timebase)>1e-8:
                     raise ValueError(('Expected UH[{0}] timebase to be {1}.'+\
