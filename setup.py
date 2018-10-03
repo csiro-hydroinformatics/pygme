@@ -4,9 +4,9 @@ import os
 import numpy
 
 try:
-    from setuptools import setup, Extension
+    from setuptools import setup, Extension, find_packages
 except ImportError:
-    from distutils.core import setup, Extension
+    from distutils.core import setup, Extension, find_packages
 
 from Cython.Distutils import build_ext
 
@@ -34,8 +34,7 @@ ext_hydromodels=Extension(name='c_pygme_models_hydromodels',
         'pygme/models/c_lagroute.c',
         'pygme/models/c_gr2m.c',
         'pygme/models/c_gr4j.c',
-        'pygme/models/c_gr6j.c',
-        'pygme/models/c_hbv.c'
+        'pygme/models/c_gr6j.c'
     ],
     extra_cflags=['-O3'],
     extra_compile_args=['-ffast-math'],
@@ -47,16 +46,25 @@ cmdclass['build_ext'] = build_ext
 # Package config
 setup(
     name='pygme',
-    version= versioneer.get_version(),
-    description= 'Design, run and calibrate models used in environmental sciences',
+    description= 'Design, run and calibrate models used in'+\
+                            ' environmental sciences',
     long_description= read('README.rst'),
+
+    version=versioneer.get_version(),
+    packages=find_packages(),
+    package_data={
+        'pygme': [
+            'tests/*.zip'
+        ],
+    },
+
     author= 'Julien Lerat',
     author_email= 'julien.lerat@gmail.com',
-    license= 'MIT',
     url= 'https://bitbucket.org/jlerat/pygme',
     download_url= 'https://bitbucket.org/jlerat/pygme/downloads',
     install_requires= [
         'cython',
+        'hydrodiy >= 1.3.1',
         'numpy >= 1.8.0',
         'scipy (>=0.14.0)',
         'pandas >= 0.16'

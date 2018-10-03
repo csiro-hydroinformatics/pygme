@@ -57,12 +57,12 @@ int c_accumulate(int nval, double start,
 
 
 int c_rootfind(double (*fun)(double, int, double *),
-        int *niter, int * status, double eps,
+        int *niter, int * status, double epsx, double epsfun, int nitermax,
         double * roots, int nargs, double * args);
 
 
 int c_rootfind_test(int ntest, int *niter, int *status,
-        double eps, double * roots,
+        double epsx, double epsfun, int nitermax, double * roots,
         int nargs, double * args);
 
 #endif
