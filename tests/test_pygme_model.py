@@ -301,7 +301,10 @@ class ModelTestCases(unittest.TestCase):
         uh = UH(dum.params.uhs[0][1].name)
         uh.timebase = dum.params.uhs[0][1].timebase
         uh.states += 4.
-        dum.initialise(uhs=[uh])
+
+        # Add the uh with no set_timebase function
+        dum.initialise(uhs=[(None, uh)])
+
         self.assertTrue(np.allclose(dum.params.uhs[0][1].states, uh.states))
 
 
