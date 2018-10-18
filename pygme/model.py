@@ -26,9 +26,7 @@ class UH(object):
             Name of the UH
         nordmax : int
             Maximum number of ordinates
-
         '''
-
         # Set max length of uh
         if nordmax > NORDMAXMAX or nordmax<=0:
             raise ValueError(('Expected nuhmax in [1, {0}], '+\
@@ -136,10 +134,12 @@ class UH(object):
 
 
     def reset(self):
+        ''' Set all UH states to zeros '''
         self._states = np.zeros(self.nordmax)
 
 
     def clone(self):
+        ''' Generates a clone of the current UH '''
         clone = UH(self.name, self.nordmax)
         clone.timebase = self.timebase
         clone._states = self.states.copy()
@@ -161,8 +161,11 @@ class ParamsVector(Vector):
         params : hydrodiy.data.containers.Vector
             Vector of parameters including names, default values, min and max.
         uhs : list
-            list of tuples containing for each unit hydrograph a function to
-            setup the time base from parameter values and a UH object.
+            list of tuples (set_timebase, uh) containing:
+            (1) a function to setup the time base from parameter values
+                the function must have a signature like set_timebase(params)
+                and must return a float.
+            (2) UH object (see pygme.model.UH)
 
         Example
         -----------
@@ -182,7 +185,6 @@ class ParamsVector(Vector):
 
         self._uhs = None
 
-
     def __setattr__(self, name, value):
         # Set attribute for vector object
         super(ParamsVector, self).__setattr__(name, value)
@@ -193,6 +195,8 @@ class ParamsVector(Vector):
 
         if name in self.names:
             if self.nuh>0:
+                # If uh parameter set, run set_timebase
+                # to change uh ordinates
                 for iuh, (set_timebase, uh) in enumerate(self.uhs):
                     uh.timebase = set_timebase(self)
 
@@ -227,7 +231,20 @@ class ParamsVector(Vector):
 
 
     def add_uh(self, uh_name, set_timebase, nuhmax=NORDMAXMAX):
-        ''' Add uh object '''
+        ''' Add uh using the uh name and a set_time base function
+
+        Parameters
+        -----------
+        uh_name : str
+            Name of a recognised uh.
+        set_timebase: function
+            Function with signature set_timebase(params)
+            The function takes the parameter object as argument
+            and returns a float corresponding to the UH
+            time base
+        nuhmax : int
+            Maximum number of ordinates
+        '''
 
         if self._uhs is None:
             self._uhs = []
@@ -339,26 +356,31 @@ class Model(object):
 
     @property
     def params(self):
+        ''' Get the parameter object '''
         return self._params
 
 
     @property
     def config(self):
+        ''' Get the config vector '''
         return self._config
 
 
     @property
     def states(self):
+        ''' Get the state vector '''
         return self._states
 
 
     @property
     def ninputs(self):
+        ''' Get number of model input variables '''
         return self._ninputs
 
 
     @property
     def ntimesteps(self):
+        ''' Get number of simulation timestep '''
         if self._inputs is None:
             raise ValueError('Trying to get ntimesteps, but inputs '+\
                         'are not allocated. Please allocate')
@@ -368,6 +390,7 @@ class Model(object):
 
     @property
     def istart(self):
+        ''' Get index of simulation start '''
         if self._inputs is None:
             raise ValueError('Trying to get istart, '+\
                 'but inputs are not allocated. Please allocate')
@@ -381,7 +404,7 @@ class Model(object):
 
     @istart.setter
     def istart(self, value):
-        ''' Set data '''
+        ''' Set index of simulation start '''
         value = np.int32(value)
 
         if self._inputs is None:
@@ -397,6 +420,7 @@ class Model(object):
 
     @property
     def iend(self):
+        ''' Get index of simulation end '''
         if self._inputs is None:
             raise ValueError('Trying to get iend, '+\
                 'but inputs are not allocated. Please allocate')
@@ -410,7 +434,7 @@ class Model(object):
 
     @iend.setter
     def iend(self, value):
-        ''' Set data '''
+        ''' Set index of simulation end '''
         value = np.int32(value)
 
         if self._inputs is None:
@@ -430,6 +454,7 @@ class Model(object):
 
     @property
     def inputs(self):
+        ''' Get model input array '''
         if self._inputs is None:
             raise ValueError('Trying to access inputs, '+\
                 'but they are not allocated. Please allocate')
@@ -439,7 +464,7 @@ class Model(object):
 
     @inputs.setter
     def inputs(self, values):
-        ''' Set data '''
+        ''' Set model input array '''
         inputs = np.ascontiguousarray(np.atleast_2d(values).astype(np.float64))
         if inputs.shape[1] != self.ninputs:
             raise ValueError('model {0}: Expected {1} inputs, got {2}'.format(\
@@ -450,11 +475,13 @@ class Model(object):
 
     @property
     def noutputsmax(self):
+        ''' Get maximum number of model output variables '''
         return self._noutputsmax
 
 
     @property
     def outputs_names(self):
+        ''' Get model outputs names '''
         return self._outputs_names
 
     @outputs_names.setter
@@ -468,14 +495,15 @@ class Model(object):
         self._outputs_names = ['{0}'.format(nm) for nm in values]
 
 
-
     @property
     def noutputs(self):
+        ''' Get number of output variables '''
         return self._noutputs
 
 
     @property
     def outputs(self):
+        ''' Get model output array '''
         if self._outputs is None:
             raise ValueError(('model {0}: Trying to access outputs, '+\
                 'but they are not allocated. Please allocate').format(\
@@ -486,7 +514,7 @@ class Model(object):
 
     @outputs.setter
     def outputs(self, values):
-        ''' Set data '''
+        ''' Set model output array '''
         outputs = np.ascontiguousarray(np.atleast_2d(values).astype(np.float64))
         noutputs = max(1, self.noutputs)
 
