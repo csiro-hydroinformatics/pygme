@@ -65,7 +65,7 @@ setup(
     download_url= 'https://bitbucket.org/jlerat/pygme/downloads',
     install_requires= [
         'cython',
-        'hydrodiy >= 1.3.1',
+        'hydrodiy',
         'numpy >= 1.8.0',
         'scipy (>=0.14.0)',
         'pandas >= 0.16'
