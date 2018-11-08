@@ -76,19 +76,15 @@ class ObjFunBCSSE(ObjFun):
 
     '''
 
-    def __init__(self, lam=0.5, eta=1e-3):
+    def __init__(self, lam=0.5, nu=0.):
         super(ObjFunBCSSE, self).__init__('BCSSE', 1)
 
         # Set Transform
-        self.eta = eta
-        BC.lam = lam
-        BC.nu = 0.
+        BC.lam = float(lam)
+        BC.nu = float(nu)
         self.trans = BC
 
     def compute(self, obs, sim, **kwargs):
-        # Mean shift factor
-        BC.nu = np.nanmean(obs)*self.eta
-
         # Transform data
         tobs = self.trans.forward(obs)
         tsim = self.trans.forward(sim)
