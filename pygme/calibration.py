@@ -699,6 +699,20 @@ class Calibration(object):
             -----------
             iprint : int
                 Frequency of log printing
+
+
+            Returns
+            -----------
+            best : numpy.ndarray
+                Best parameter set among the parameter library
+
+            ofun_min : float
+                Value of the objective function corresponding to the
+                best parameter set
+
+            ofuns : numpy.ndarray
+                Objective function values for each set in the parameter
+                library
         '''
         self.iprint = iprint
         self._nbeval = 0
@@ -777,6 +791,20 @@ class Calibration(object):
 
             kwargs : dict
                 Arguments passed to the optimize
+
+
+            Returns
+            -----------
+            final : numpy.ndarray
+                Optimised parameter set
+
+            fitfun_final : float
+                Objective function corresponding to the optimised
+                parameter set
+
+            outputs_final : numpy.ndarray
+                Model outputs corresponding to the optimised parameter
+                set
         '''
 
         LOGGER.info('Parameter fit started')
@@ -871,6 +899,24 @@ class Calibration(object):
 
             kwargs : dict
                 Arguments passed to the optimize
+
+
+            Returns
+            -----------
+            final : numpy.ndarray
+                Optimised parameter set
+
+            ofun_final : float
+                Objective function corresponding to the optimised
+                parameter set
+
+            outputs_final : numpy.ndarray
+                Model outputs corresponding to the optimised parameter
+                set
+
+            ofun_explore : numpy.ndarray
+                Objective function values for each set in the parameter
+                library
         '''
 
         LOGGER.info('Calibration workflow started')
