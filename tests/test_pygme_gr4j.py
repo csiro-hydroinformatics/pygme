@@ -385,5 +385,31 @@ class GR4JTestCase(unittest.TestCase):
         self.assertTrue(np.allclose(final2[[0, 3]], [1000, 10]))
 
 
+    def test_instability(self):
+        ''' Test GR4J instability '''
+        data = testdata.read('GR4J_instability.csv', \
+                                source='instability', has_dates=False)
+
+        inputs = np.ascontiguousarray(\
+                        data.loc[:200, ['P', 'PET']], \
+                        np.float64)
+
+        sims = []
+        for imod in range(2):
+            gr = GR4J(catch_instability=(imod==1))
+            gr.allocate(inputs, gr.noutputsmax)
+            gr.params.values = [14.8, -7.41, 2.7, 50.]
+            gr.run()
+            sims.append(gr.outputs[:200, 0])
+
+        sims = np.array(sims).T
+
+        idx = [133, 135, 137, 138, 140, 143, 145, 147, 148, 151, \
+                    152, 153, 154, 155, 156, 158, 159, 163, 185, \
+                    187, 189, 190]
+        self.assertTrue(np.all(~np.isnan(sims[idx, 0])))
+        self.assertTrue(np.all(np.isnan(sims[idx, 1])))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -239,6 +239,7 @@ int gr4j_runtimestep(int nparams,
     int ninputs,
     int nstates,
     int noutputs,
+    int catch_instability,
     double * params,
     double * uh1,
     double * uh2,
@@ -246,6 +247,7 @@ int gr4j_runtimestep(int nparams,
     double * statesuh1,
     double * statesuh2,
     double * states,
+    double * instability,
     double * outputs)
 {
     int ierr=0;
@@ -258,6 +260,11 @@ int gr4j_runtimestep(int nparams,
     double uhoutput1[1], uhoutput2[1];
 
     double partition1 = 0.9;
+    double deltaQ9, deltaECH, nan;
+    static double zero = 0.0;
+
+    /* nan value if not defined */
+    nan = zero/zero;
 
     /* inputs */
     P = inputs[0];
@@ -280,16 +287,17 @@ int gr4j_runtimestep(int nparams,
     /* UH */
     uh_runtimestep(nuh1, PR, uh1, statesuh1, uhoutput1);
     uh_runtimestep(nuh2, PR, uh2, statesuh2, uhoutput2);
+    Q9 = *uhoutput1 * partition1;
+    Q1 = *uhoutput2 * (1-partition1);
 
     /* Potential Water exchange */
     RR = states[1]/params[2];
     ECH = params[1]*RR*RR*RR*sqrt(RR);
 
     /* Routing store calculation */
-    Q9 = *uhoutput1 * partition1;
     TP = states[1] + Q9 + ECH;
 
-    /* Case where Reservoir content is not sufficient */
+    /* ... Case where Reservoir content is not sufficient */
     ech1 = ECH-TP;
     states[1] = 0;
 
@@ -309,7 +317,6 @@ int gr4j_runtimestep(int nparams,
     QD = 0;
 
     /* Case where the UH cannot provide enough water */
-    Q1 = *uhoutput2 * (1-partition1);
     TP = Q1 + ECH;
     ech2 = ECH-TP;
     QD = 0;
@@ -320,8 +327,21 @@ int gr4j_runtimestep(int nparams,
         ech2 = ECH;
     }
 
+    /* Check instability */
+    deltaQ9 = Q9-instability[0];
+    deltaECH = fabs(ECH)-instability[1];
+    if(deltaQ9 * deltaECH < 0 &&  catch_instability == 1)
+    {
+        QR = nan;
+        QD = nan;
+    }
+
     /* TOTAL STREAMFLOW */
     Q = QD + QR;
+
+    /* INSTABILITY VARIABLES */
+    instability[0] = Q9;
+    instability[1] = fabs(ECH);
 
     /* RESULTS */
     outputs[0] = Q;
@@ -387,6 +407,7 @@ int c_gr4j_run(int nval, int nparams,
     int nstates,
     int noutputs,
     int start, int end,
+    int catch_instability,
     double * params,
     double * uh1,
     double * uh2,
@@ -397,6 +418,7 @@ int c_gr4j_run(int nval, int nparams,
     double * outputs)
 {
     int ierr=0, i;
+    double instability[2];
 
     /* Check dimensions */
     if(noutputs > GR4J_NOUTPUTS)
@@ -429,12 +451,14 @@ int c_gr4j_run(int nval, int nparams,
                 ninputs,
                 nstates,
                 noutputs,
+                catch_instability,
                 params,
                 uh1, uh2,
                 &(inputs[ninputs*i]),
                 statesuh1,
                 statesuh2,
                 states,
+                instability,
                 &(outputs[noutputs*i]));
 
 		if(ierr>0)
