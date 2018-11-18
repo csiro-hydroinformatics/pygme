@@ -73,7 +73,7 @@ def gr4j_true2trans(x):
 # Model
 class GR4J(Model):
 
-    def __init__(self, Pm=0., Em=0., catch_instability=False):
+    def __init__(self, Pm=0., Em=0.):
 
         # Config vector - used to initialise model
         config = Vector(['nodata'], [0], [0], [1])
@@ -100,8 +100,6 @@ class GR4J(Model):
 
         self.outputs_names = ['Q', 'S', 'R', 'ECH', 'AE', \
                     'PR', 'QD', 'QR', 'PERC', 'Q1', 'Q9']
-
-        self.catch_instability = catch_instability
 
 
     def initialise_fromdata(self, Pm=0., Em=0.):
@@ -138,12 +136,10 @@ class GR4J(Model):
         # Get uh object (not set_timebase function, see ParamsVector class)
         _, uh1 = self.params.uhs[0]
         _, uh2 = self.params.uhs[1]
-        catch_instability = int(self.catch_instability)
 
         # Run gr4j c code
         ierr = c_pygme_models_hydromodels.gr4j_run(uh1.nord, \
             uh2.nord, self.istart, self.iend, \
-            catch_instability, \
             self.params.values, \
             uh1.ord, \
             uh2.ord, \

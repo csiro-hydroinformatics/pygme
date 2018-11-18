@@ -202,13 +202,14 @@ class GR4JTestCase(unittest.TestCase):
                                     source='output', has_dates=False)
             params = testdata.read('GR4J_params_{0:02d}.csv'.format(i+1), \
                                     source='output', has_dates=False)
-
+            params = params.values.squeeze()
             inputs = np.ascontiguousarray(\
                             data.loc[:, ['Precip', 'PotEvap']], \
                             np.float64)
             # Run gr4j
             gr.allocate(inputs, 11)
             gr.params.values = params
+
 
             # .. initiase to same values than IRSTEA run ...
             # Estimate initial states based on first two state values
@@ -223,6 +224,7 @@ class GR4JTestCase(unittest.TestCase):
             idx = np.arange(inputs.shape[0]) > warmup
             sim = gr.outputs[:, [0, 6, 7]].copy()
             expected = data.loc[:, ['Qsim', 'QD', 'QR']].values
+
             err = np.abs(sim[idx, :] - expected[idx, :])
 
             # Sensitivity to initial conditionos
@@ -275,7 +277,7 @@ class GR4JTestCase(unittest.TestCase):
 
     def test_calibrate_against_itself(self):
         ''' Calibrate GR4J against a simulation with known parameters '''
-        gr = GR4J(catch_instability=True)
+        gr = GR4J()
         warmup = 365*6
 
         for i in range(20):
@@ -394,22 +396,10 @@ class GR4JTestCase(unittest.TestCase):
                         data.loc[:200, ['P', 'PET']], \
                         np.float64)
 
-        sims = []
-        for imod in range(2):
-            gr = GR4J(catch_instability=(imod==1))
-            gr.allocate(inputs, gr.noutputsmax)
-            gr.params.values = [14.8, -7.41, 2.7, 50.]
-            gr.run()
-            sims.append(gr.outputs[:200, 0])
-
-        sims = np.array(sims).T
-
-        idx = [133, 135, 137, 138, 140, 143, 145, 147, 148, 151, \
-                    152, 153, 154, 155, 156, 158, 159, 163, 185, \
-                    187, 189, 190]
-        self.assertTrue(np.all(~np.isnan(sims[idx, 0])))
-        self.assertTrue(np.all(np.isnan(sims[idx, 1])))
-
+        gr = GR4J()
+        gr.allocate(inputs, gr.noutputsmax)
+        gr.params.values = [14.8, -7.41, 2.7, 50.]
+        gr.run()
 
 if __name__ == "__main__":
     unittest.main()

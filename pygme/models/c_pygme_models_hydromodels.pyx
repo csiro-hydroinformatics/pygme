@@ -25,7 +25,6 @@ cdef extern from 'c_gr4j.h':
             int ninputs,
             int nstates, int noutputs,
             int start, int end,
-            int catch_instability,
     	    double * params,
             double * uh1,
             double * uh2,
@@ -130,7 +129,6 @@ def gr4j_X1_initial(double Pm, double Em, double X1,
 
 
 def gr4j_run(int nuh1, int nuh2, int start, int end,
-        int catch_instability,
         np.ndarray[double, ndim=1, mode='c'] params not None,
         np.ndarray[double, ndim=1, mode='c'] uh1 not None,
         np.ndarray[double, ndim=1, mode='c'] uh2 not None,
@@ -170,7 +168,6 @@ def gr4j_run(int nuh1, int nuh2, int start, int end,
             states.shape[0], \
             outputs.shape[1], \
             start, end,
-            catch_instability,
             <double*> np.PyArray_DATA(params), \
             <double*> np.PyArray_DATA(uh1), \
             <double*> np.PyArray_DATA(uh2), \

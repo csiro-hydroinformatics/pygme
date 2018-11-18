@@ -239,7 +239,6 @@ int gr4j_runtimestep(int nparams,
     int ninputs,
     int nstates,
     int noutputs,
-    int catch_instability,
     double * params,
     double * uh1,
     double * uh2,
@@ -247,11 +246,9 @@ int gr4j_runtimestep(int nparams,
     double * statesuh1,
     double * statesuh2,
     double * states,
-    double * instability,
     double * outputs)
 {
     int ierr=0;
-
     double Q, P, E, Q1, Q9;
     double prod[7];
     double EN, ES, PS, PR, AE;
@@ -260,11 +257,6 @@ int gr4j_runtimestep(int nparams,
     double uhoutput1[1], uhoutput2[1];
 
     double partition1 = 0.9;
-    double deltaQ9, deltaECH, nan;
-    static double zero = 0.0;
-
-    /* nan value if not defined */
-    nan = zero/zero;
 
     /* inputs */
     P = inputs[0];
@@ -327,21 +319,8 @@ int gr4j_runtimestep(int nparams,
         ech2 = ECH;
     }
 
-    /* Check instability */
-    deltaQ9 = Q9-instability[0];
-    deltaECH = fabs(ECH)-instability[1];
-    if(deltaQ9 * deltaECH < 0 &&  catch_instability == 1)
-    {
-        QR = nan;
-        QD = nan;
-    }
-
     /* TOTAL STREAMFLOW */
     Q = QD + QR;
-
-    /* INSTABILITY VARIABLES */
-    instability[0] = Q9;
-    instability[1] = fabs(ECH);
 
     /* RESULTS */
     outputs[0] = Q;
@@ -357,7 +336,7 @@ int gr4j_runtimestep(int nparams,
 		return ierr;
 
     if(noutputs>3)
-        outputs[3] = ech1+ech2;
+        outputs[3] = ECH; //ech1+ech2;
     else
 	    return ierr;
 
@@ -407,7 +386,6 @@ int c_gr4j_run(int nval, int nparams,
     int nstates,
     int noutputs,
     int start, int end,
-    int catch_instability,
     double * params,
     double * uh1,
     double * uh2,
@@ -418,7 +396,6 @@ int c_gr4j_run(int nval, int nparams,
     double * outputs)
 {
     int ierr=0, i;
-    double instability[2];
 
     /* Check dimensions */
     if(noutputs > GR4J_NOUTPUTS)
@@ -451,14 +428,12 @@ int c_gr4j_run(int nval, int nparams,
                 ninputs,
                 nstates,
                 noutputs,
-                catch_instability,
                 params,
                 uh1, uh2,
                 &(inputs[ninputs*i]),
                 statesuh1,
                 statesuh2,
                 states,
-                instability,
                 &(outputs[noutputs*i]));
 
 		if(ierr>0)

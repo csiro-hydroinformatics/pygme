@@ -13,7 +13,6 @@
 */
 #define GR4J_PERCFACTOR 2.25
 
-
 /* Number of inputs required by GR4J run */
 #define GR4J_NINPUTS 2
 
@@ -40,7 +39,6 @@ int gr4j_production(double P, double E,
 int gr4j_runtimestep(int nparams,
     int nuh1, int nuh2, int ninputs,
     int nstates, int noutputs,
-    int catch_instability,
 	double * params,
     double * uh1,
     double * uh2,
@@ -48,7 +46,6 @@ int gr4j_runtimestep(int nparams,
 	double * statesuh1,
 	double * statesuh2,
     double * states,
-    double * instability,
     double * outputs);
 
 int c_gr4j_run(int nval,
@@ -59,7 +56,6 @@ int c_gr4j_run(int nval,
     int nstates,
     int noutputs,
     int start, int end,
-    int catch_instability,
 	double * params,
     double * uh1,
     double * uh2,
