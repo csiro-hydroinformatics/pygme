@@ -18,7 +18,7 @@ class ObjFunSSEargs(ObjFun):
         idx = kwargs['idx']
         self.BC.lam = kwargs['lam']
         err = self.BC.forward(obs[idx])-self.BC.forward(sim[idx])
-        return np.nansum(err*err)
+        return np.sum(err*err)
 
 
 

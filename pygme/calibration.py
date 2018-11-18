@@ -51,7 +51,7 @@ class ObjFunSSE(ObjFun):
 
     def compute(self, obs, sim, **kwargs):
         err = obs.squeeze()-sim.squeeze()
-        return np.nansum(err*err)
+        return np.sum(err*err)
 
 
 
@@ -92,7 +92,8 @@ class ObjFunBCSSE(ObjFun):
         # Compute errors
         t2 = time.time()
         err = tobs.squeeze()-tsim.squeeze()
-        return np.nansum(err*err)
+
+        return np.sum(err*err)
 
 
 def check_vector(x, nval):
@@ -376,7 +377,6 @@ def fitfun(values, calib, use_transformed_parameters):
     ofun = objfun.compute(calib.obs[ical, :], \
                                     model.outputs[ical, :], \
                                     **objfun_kwargs)
-
     if np.isnan(ofun):
         ofun = np.inf
 
@@ -384,11 +384,6 @@ def fitfun(values, calib, use_transformed_parameters):
     # +1 = minimization
     # -1 = maximization
     ofun *= objfun.orientation
-
-    # Check obj fun is not nan
-    if np.isnan(ofun) or ofun == -np.inf:
-        raise ValueError('Objective function is NaN or -inf for '+\
-                'params={0}'.format(values))
 
     # Print output if needed
     if calib.iprint>0 and calib.nbeval % calib.iprint == 0:
@@ -616,14 +611,16 @@ class Calibration(object):
         # Set to all indexes if None
         if values is None:
             ical = np.arange(nval)
+            ical = ical[~np.isnan(obs)]
 
         else:
             values = np.atleast_1d(values)
 
             if values.dtype == np.dtype('bool'):
                 if values.shape[0] != nval:
-                    raise ValueError(('Expected boolean ical of length {0},'+\
-                            ' got {1}').format(nval, values.shape[0]))
+                    raise ValueError('Expected boolean ical of '+\
+                            'length {0}, got {1}'.format(nval, \
+                                values.shape[0]))
 
                 # Convert boolean to index
                 ical = np.where(values)[0]
@@ -638,6 +635,14 @@ class Calibration(object):
             raise ValueError('Expected all values in ical to be '+
                 'in [0, {0}], got {1} (first five only)'.format(nval-1,\
                 out[:5]))
+
+        # check obs[ical] are not nan
+        isnan = np.isnan(self.obs[ical])
+        if np.any(isnan):
+            nval_nan = np.sum(isnan)
+            raise ValueError('Expected no nan in obs[ical], '+\
+                        'got {0} nan values (len(obs)={1})'.format(\
+                            nval_nan, nval))
 
         # Check value leaves enough data for warmup
         if ical[0] < self.warmup:
@@ -686,7 +691,10 @@ class Calibration(object):
         self._obs = obs
 
         # By default calibrate on everything excluding warmup
-        self.ical = np.arange(self.warmup, nval)
+        # and NaN values
+        ical = np.arange(nval)
+        ical = ical[(ical >= self.warmup) & np.all(~np.isnan(obs), axis=1)]
+        self.ical = ical
 
         LOGGER.info('Calibration data allocated')
 

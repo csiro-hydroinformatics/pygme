@@ -38,12 +38,12 @@ class ObjFunTestCase(unittest.TestCase):
         print('\t=> ObjFunTestCase')
 
         nval = 1000
-        obs = np.random.uniform(-0.1, 1, size=nval)
+        obs = np.random.uniform(0., 1, size=nval)
         idx = np.random.choice(np.arange(nval), nval//100)
         obs[idx] = np.nan
         self.obs = obs
 
-        sim = np.random.uniform(-0.1, 1, size=nval)
+        sim = np.random.uniform(0., 1, size=nval)
         idx = np.random.choice(np.arange(nval), nval//100)
         sim[idx] = np.nan
         self.sim = sim
@@ -61,37 +61,55 @@ class ObjFunTestCase(unittest.TestCase):
 
 
     def test_SSE(self):
+        obs, sim = self.obs, self.sim
+        idx = (~np.isnan(obs)) & (~np.isnan(sim))
+
         of = ObjFunSSE()
-        value = of.compute(self.obs, self.sim)
+        value = of.compute(obs[idx], sim[idx])
         err = self.obs-self.sim
         expected = np.nansum(err*err)
         self.assertTrue(np.allclose(value, expected))
+
+        value = of.compute(obs, sim)
+        self.assertTrue(np.isnan(value))
 
 
     def test_KGE(self):
         of = ObjFunKGE()
         obs, sim = self.obs, self.sim
-        value = of.compute(obs, sim)
         idx = (~np.isnan(obs)) & (~np.isnan(sim))
-        obs, sim = obs[idx], sim[idx]
-        bias = np.mean(sim)/np.mean(obs)
-        rstd = np.std(sim)/np.std(obs)
-        corr = np.corrcoef(obs, sim)[0, 1]
+
+        value = of.compute(obs[idx], sim[idx])
+
+        obsok, simok = obs[idx], sim[idx]
+        bias = np.mean(simok)/np.mean(obsok)
+        rstd = np.std(simok)/np.std(obsok)
+        corr = np.corrcoef(obsok, simok)[0, 1]
         expected = 1-math.sqrt((1-bias)**2+(1-rstd)**2+(1-corr)**2)
         self.assertTrue(np.allclose(value, expected))
+
+        value = of.compute(obs, sim)
+        self.assertTrue(np.isnan(value))
 
 
     def test_BCSSE(self):
         ''' test the BCSSE objfun '''
+        obs, sim = self.obs, self.sim
+        idx = (~np.isnan(obs)) & (~np.isnan(sim))
+
         for lam, nu in prod([0.1, 0.5, 1., 2], [1e-4, 1e-2, 1]):
             of = ObjFunBCSSE(lam, nu)
-            value = of.compute(self.obs, self.sim)
+            value = of.compute(obs[idx], sim[idx])
+
             BC.lam = lam
             BC.nu = nu
             err = BC.forward(self.obs)-BC.forward(self.sim)
             expected = np.nansum(err*err)
+
             self.assertTrue(np.isclose(value, expected))
 
+            value = of.compute(obs, sim)
+            self.assertTrue(np.isnan(value))
 
 
 class CalibParamsVectorTestCase(unittest.TestCase):

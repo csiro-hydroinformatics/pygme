@@ -115,7 +115,6 @@ class InitialTestCases(unittest.TestCase):
 
 
 
-
 class GR4JTestCase(unittest.TestCase):
 
     def setUp(self):
@@ -276,7 +275,7 @@ class GR4JTestCase(unittest.TestCase):
 
     def test_calibrate_against_itself(self):
         ''' Calibrate GR4J against a simulation with known parameters '''
-        gr = GR4J()
+        gr = GR4J(catch_instability=True)
         warmup = 365*6
 
         for i in range(20):
@@ -340,6 +339,7 @@ class GR4JTestCase(unittest.TestCase):
                         i+1, np.max(err), dt))
 
             self.assertTrue(ck)
+
 
     def test_calibrate_fixed(self):
         ''' Calibrate GR4J with fixed parameter '''
