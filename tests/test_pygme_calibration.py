@@ -360,7 +360,8 @@ class CalibrationTestCase(unittest.TestCase):
         final, _, _ = calib.fit(iprint=10,
                                     maxfun=100000, ftol=1e-8)
         ck = np.allclose(calib.model.params.values, params, \
-                            atol=1e-5, rtol=0.)
+                            atol=1e-3, rtol=0.)
+
         self.assertTrue(ck)
 
 
@@ -466,7 +467,7 @@ class CalibrationTestCase(unittest.TestCase):
 
     def test_optimizers(self):
         ''' Test a range of optimizer from scipy '''
-        inputs = np.random.exponential(1, (100, 2))
+        inputs = np.minimum(np.random.exponential(1, (100, 2)), 10)
         dum = Dummy()
         dum.allocate(inputs, 2)
         dum.initialise()
@@ -498,6 +499,7 @@ class CalibrationTestCase(unittest.TestCase):
                         ' '.join(list(\
                         np.round(calib.model.params.values, 2).astype(str)))
                 ))
+
             self.assertTrue(ck)
 
 
