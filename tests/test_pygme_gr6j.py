@@ -125,7 +125,7 @@ class GR6JTestCase(unittest.TestCase):
 
         for i in range(20):
             data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
             inputs = np.ascontiguousarray(\
                             data.loc[:, ['Precip', 'PotEvap']], \
                             np.float64)
@@ -174,9 +174,9 @@ class GR6JTestCase(unittest.TestCase):
         for i in range(20):
             # Get data
             data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
             params = testdata.read('GR6J_params_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
             params = params.values[:, 0]
 
             inputs = np.ascontiguousarray(\
@@ -233,9 +233,9 @@ class GR6JTestCase(unittest.TestCase):
 
         for i in range(20):
             data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
             params = testdata.read('GR6J_params_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
             params = params.values[:, 0]
 
             inputs = np.ascontiguousarray(\

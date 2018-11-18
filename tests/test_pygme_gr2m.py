@@ -53,9 +53,9 @@ class GR2MTestCase(unittest.TestCase):
                 continue
 
             data = testdata.read('GR2M_timeseries_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
             params = testdata.read('GR2M_params_{0:02d}.csv'.format(i+1), \
-                                    source='outputs', has_dates=False)
+                                    source='output', has_dates=False)
 
             inputs = np.ascontiguousarray(\
                             data.loc[:, ['Precip', 'PotEvap']], \
@@ -112,9 +112,9 @@ class GR2MTestCase(unittest.TestCase):
 
         # Get data
         data = testdata.read('GR2M_timeseries_{0:02d}.csv'.format(i+1), \
-                                source='outputs', has_dates=False)
+                                source='output', has_dates=False)
         params = testdata.read('GR2M_params_{0:02d}.csv'.format(i+1), \
-                                source='outputs', has_dates=False)
+                                source='output', has_dates=False)
 
         inputs = np.ascontiguousarray(\
                         data.loc[:, ['Precip', 'PotEvap']], \
@@ -164,9 +164,9 @@ class GR2MTestCase(unittest.TestCase):
 
         # Get data
         data = testdata.read('GR2M_timeseries_{0:02d}.csv'.format(i+1), \
-                                source='outputs', has_dates=False)
+                                source='output', has_dates=False)
         expected = testdata.read('GR2M_params_{0:02d}.csv'.format(i+1), \
-                                source='outputs', has_dates=False)
+                                source='output', has_dates=False)
         expected = expected.values[:, 0]
 
         inputs = np.ascontiguousarray(\

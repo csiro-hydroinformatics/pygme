@@ -7,14 +7,21 @@ from hydrodiy.io import csv
 
 FHERE = os.path.dirname(os.path.abspath(__file__))
 
-FINPZ = os.path.join(FHERE, 'input_data.zip')
-FOUTPZ = os.path.join(FHERE, 'output_data.zip')
+ZIPFILES = {
+    'input': os.path.join(FHERE, 'input_data.zip'), \
+    'output': os.path.join(FHERE, 'output_data.zip'), \
+    'instability': os.path.join(FHERE, 'instability_data.zip')
+}
 
 def read(filename, source='input', has_dates=False):
     ''' Get data from zip file '''
 
     # Get zip file name
-    fzip = FINPZ if source == 'input' else FOUTPZ
+    if source in ZIPFILES:
+        fzip = ZIPFILES[source]
+    else:
+        raise ValueError('Expected source in {0}, got {1}'.format(\
+            '/'.join(list(ZIPFILES.keys())), source))
 
     # Read data
     with zipfile.ZipFile(fzip, 'r') as archive:
