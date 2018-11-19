@@ -83,7 +83,13 @@ class GR4J(Model):
                     [400, -1, 50, 0.5], \
                     [1, -50, 1, 0.5], \
                     [1e4, 50, 1e4, 50])
-        params = ParamsVector(vect)
+
+        # Rule to exclude certain parameters
+        def checkvalues(values):
+            if values[2] < -values[1]:
+                raise ValueError('X3 < -X2')
+
+        params = ParamsVector(vect, checkvalues=checkvalues)
 
         # UH
         params.add_uh('gr4j_ss1_daily', lambda params: params.X4)

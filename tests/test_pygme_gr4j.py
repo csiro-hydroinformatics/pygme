@@ -151,6 +151,26 @@ class GR4JTestCase(unittest.TestCase):
             raise ValueError('Problem with error handling')
 
 
+    def test_checkvalues(self):
+        ''' Test that parameter cannot be set if not checked '''
+        gr = GR4J()
+
+        gr.X2 = -50
+        try:
+            gr.X3 = 10
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('X3 <'))
+        else:
+            raise ValueError('Problem with error trapping')
+
+        try:
+            gr.params.values = [100., -20, 10, 0.5]
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('X3 <'))
+        else:
+            raise ValueError('Problem with error trapping')
+
+
     def test_uh(self):
         ''' Test GR4J UH '''
         gr = GR4J()

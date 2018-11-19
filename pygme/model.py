@@ -152,30 +152,29 @@ class UH(object):
 # when changing model parameters
 class ParamsVector(Vector):
 
-    def __init__(self, params):
+    def __init__(self, params, checkvalues=None):
         ''' Object handling parameter vector. The object stores the unit
-        hydrographs and the functions used to set the uh time base
+        hydrographs and the functions used to set the uh time base.
 
-        Parameters
-        -----------
-        params : hydrodiy.data.containers.Vector
-            Vector of parameters including names, default values, min and max.
-        uhs : list
-            list of tuples (set_timebase, uh) containing:
+        The uhs are stoed in a list of tuples that can be accessed via the
+        self.uhs. Each tuple contains two elements:
             (1) a function to setup the time base from parameter values
                 the function must have a signature like set_timebase(params)
                 and must return a float.
             (2) UH object (see pygme.model.UH)
 
-        Example
+        Parameters
         -----------
-        This code produces a parameter vector with two uh attached.
-        The first uh is controled by the first parameter (X1),
-        the second uh is controled by the expression X2+X3/2
+        params : hydrodiy.data.containers.Vector
+            Vector of parameters including names, default values, min and max.
+        checkvalues : function
+            Function assessing if the parameter combination is valid. The
+            function must have the following signature:
 
-        >>> params = Vector(['X1', 'X2', 'X3'])
-        >>> uhs =[(lambda params: params.X1, UH("lag")), (lambda params: params.X1+params.X1/2, UH("lag")]
-        >>> pv = ParamsVector(params, uhs)
+            def suitable(values)
+
+            It must return a ValueError if the values are considered
+            invalid
 
         '''
         # check_hitbounds is turned on
@@ -184,6 +183,29 @@ class ParamsVector(Vector):
                     True)
 
         self._uhs = None
+
+        # Check if the suitable function works for the default
+        # parameter values
+        self._checkvalues = None
+        if not checkvalues is None:
+            # Run the function for default values
+            # this should not fail
+            checkvalues(params.defaults)
+
+            # Run the function for values lower than the minimum
+            # this should fail and return a ValueError
+            try:
+                checkvalues(params.mins-1)
+            except ValueError:
+                pass
+            else:
+                raise ValueError('checkvalues error does not '+\
+                    'generate a ValueError when run '+\
+                    'with params.mins-1')
+
+
+            self._checkvalues = checkvalues
+
 
     def __setattr__(self, name, value):
         # Set attribute for vector object
@@ -194,11 +216,19 @@ class ParamsVector(Vector):
             return
 
         if name in self.names:
+            # Check if the values are suitable
+            if not self._checkvalues is None:
+                self._checkvalues(self.values)
+
             if self.nuh>0:
                 # If uh parameter set, run set_timebase
                 # to change uh ordinates
                 for iuh, (set_timebase, uh) in enumerate(self.uhs):
                     uh.timebase = set_timebase(self)
+
+    @property
+    def checkvalues(self):
+        return self._checkvalues
 
 
     @property
@@ -223,6 +253,10 @@ class ParamsVector(Vector):
     def values(self, val):
         # Run the vector value setter
         Vector.values.fset(self, val)
+
+        # Check if the values suitable
+        if not self._checkvalues is None:
+            self._checkvalues(self.values)
 
         # Set UH parameter if needed
         if self.nuh>0:

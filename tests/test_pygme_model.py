@@ -229,6 +229,40 @@ class ParamsVectorTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(pv.uhs[0][1].timebase, 35))
 
 
+    def test_checkvalues(self):
+        vect = Vector(['X{0}'.format(k) for k in range(10)])
+        def fun(values):
+            if np.any(values < -10):
+                raise ValueError('One parameter value is < -10')
+
+        pv = ParamsVector(vect, checkvalues=fun)
+
+        # Set params (no error)
+        pv.X1 = 10
+        pv.X3 = 2.5
+
+        # Set params (error)
+        try:
+            pv.X1 = -11
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('One parameter'))
+        else:
+            raise ValueError('Problem with error trapping')
+
+
+        # Set params (no error)
+        values = np.zeros(pv.nval)
+        pv.values = values
+
+        values[0] = -11.
+        try:
+            pv.values = values
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('One parameter'))
+        else:
+            raise ValueError('Problem with error trapping')
+
+
 
 class ModelTestCases(unittest.TestCase):
 
