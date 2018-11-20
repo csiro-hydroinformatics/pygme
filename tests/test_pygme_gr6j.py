@@ -232,7 +232,7 @@ class GR6JTestCase(unittest.TestCase):
         gr = GR6J()
         warmup = 365*6
 
-        for i in range(20):
+        for i in range(3):
             data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
                                     source='output', has_dates=False)
             params = testdata.read('GR6J_params_{0:02d}.csv'.format(i+1), \
