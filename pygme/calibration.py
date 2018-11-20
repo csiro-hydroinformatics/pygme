@@ -358,7 +358,7 @@ def fitfun(values, calib, use_transformed_parameters):
             calparams.truevalues = values
 
     except ParameterCheckValueError:
-        # Return np.inf if setting parameters
+        # Return np.inf if setting invalid parameters
         return np.inf
 
     # Exit objectif function if parameters hit bounds
