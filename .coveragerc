@@ -1,9 +1,9 @@
 [run]
 branch = True
-include = useme/**
+include = pygme/**
 
 [report]
-include = useme/**
+include = pygme/**
 omit = **/test*
 
 exclude_lines=
