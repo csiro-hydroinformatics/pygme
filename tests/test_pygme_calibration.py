@@ -250,21 +250,30 @@ class CalibrationTestCase(unittest.TestCase):
     def setUp(self):
         print('\t=> CalibrationTestCase')
 
+        # Create random inputs
+        inputs = np.random.exponential(1, (100, 2))
 
-    def test_calibration_instance_print(self):
-        ''' Test printing of calibration object '''
+        # Allocate model
         dum = Dummy()
-        inputs = np.random.uniform(0, 1, (1000, 2))
-        dum.allocate(inputs)
+        dum.allocate(inputs, 2)
 
-        params = [0.5, 10.]
+        # Run model to create a sudo obs
+        params = dum.params.defaults+0.1
         dum.params.values = params
         dum.run()
         obs = dum.outputs[:, 0].copy()
 
-        calib = CalibrationDummy(warmup=10)
-        calib.allocate(obs, inputs)
+        # Store calibration set up
+        self.inputs = inputs
+        self.params = params
+        self.obs = obs
+        self.ical = np.arange(10, obs.shape[0])
 
+
+    def test_calibration_instance_print(self):
+        ''' Test printing of calibration object '''
+        calib = CalibrationDummy(warmup=10)
+        calib.allocate(self.obs, self.inputs)
         str = '{0}'.format(calib)
 
 
@@ -296,96 +305,54 @@ class CalibrationTestCase(unittest.TestCase):
 
     def test_explore(self):
         ''' Test explore function '''
-        inputs = np.random.uniform(0, 1, (1000, 2))
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-        dum.initialise()
-
         calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]
-        dum.params.values = params.copy()
-        dum.run()
+        plib = np.random.uniform(-0.1, 0.1, size=(1000, 2)) \
+                        + self.params[None, :]
+        calib.paramslib = plib
 
-        obs = dum.outputs[:, 0]
-        calib.allocate(obs, inputs)
-        calib.ical = np.arange(obs.shape[0])>10
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
 
-        start, explo, explo_ofun = calib.explore()
-        self.assertTrue(np.allclose(start, params))
+        start, _, explo_ofun = calib.explore()
+        self.assertTrue(np.allclose(start, self.params, rtol=0., atol=0.05))
 
 
     def test_explore_fit(self):
         ''' Test explore and fit functions '''
-        inputs = np.random.exponential(1, (100, 2))
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-        dum.initialise()
-
         calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]+0.1
-        dum.params.values = params
-        dum.run()
-
-        obs = dum.outputs[:, 0]
-        calib = CalibrationDummy(warmup=10)
-        calib.allocate(obs, inputs)
-        calib.ical = np.arange(10, obs.shape[0])
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
 
         start, _, _ = calib.explore()
         final, _, _ = calib.fit(iprint=10,
                                     maxfun=100000, ftol=1e-8)
-        ck = np.allclose(calib.model.params.values, params, \
+        ck = np.allclose(calib.model.params.values, self.params, \
                             atol=1e-5, rtol=0.)
         self.assertTrue(ck)
 
 
-    def test_explore_fit_args(self):
+    def test_fit_args(self):
         ''' Test passing arguments to objective function '''
-        inputs = np.random.exponential(1, (100, 2))
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-        dum.initialise()
-
-        calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]+0.1
-        dum.params.values = params
-        dum.run()
-
-        obs = dum.outputs[:, 0]
-
-        ical = np.arange(10, obs.shape[0])
-        kwargs = {'lam':1.0, 'idx':np.arange(len(ical))}
+        kwargs = {'lam':1.0, 'idx':np.arange(len(self.ical))}
         calib = CalibrationDummy(objfun=ObjFunSSEargs(), \
                     warmup=10, \
                     objfun_kwargs=kwargs)
-        calib.allocate(obs, inputs)
-        calib.ical = ical
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
 
         start, _, _ = calib.explore()
         final, _, _ = calib.fit(iprint=10,
                                     maxfun=100000, ftol=1e-8)
-        ck = np.allclose(calib.model.params.values, params, \
+        ck = np.allclose(calib.model.params.values, self.params, \
                             atol=1e-3, rtol=0.)
 
         self.assertTrue(ck)
 
 
-    def test_explore_fit_fixed(self):
+    def test_fixed(self):
         ''' Test calibration with fixed parameters '''
-        inputs = np.random.exponential(1, (100, 2))
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-        dum.initialise()
-
-        calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]+0.1
-        dum.params.values = params
-        dum.run()
-
-        obs = dum.outputs[:, 0]
-
         # Test error
-        fixed = {'X10':params[0]+3}
+        fixed = {'X10':self.params[0]+3}
         try:
             calib = CalibrationDummy(warmup=10, fixed=fixed)
         except ValueError as err:
@@ -394,10 +361,10 @@ class CalibrationTestCase(unittest.TestCase):
         else:
             raise ValueError('Problem with error handling')
 
-        fixed = {'X1':params[0]+3}
+        fixed = {'X1':self.params[0]+3}
         calib = CalibrationDummy(warmup=10, fixed=fixed)
-        calib.allocate(obs, inputs)
-        calib.ical = np.arange(10, obs.shape[0])
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
 
         start, _, _ = calib.explore()
         final, _, _ = calib.fit(iprint=10,
@@ -412,47 +379,24 @@ class CalibrationTestCase(unittest.TestCase):
 
     def test_workflow(self):
         ''' Test calibration workflow (i.e. explore+fit) '''
-        inputs = np.random.exponential(1, (100, 2))
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-
-        calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]+0.1
-        dum.params.values = params
-        dum.run()
-        obs = dum.outputs[:, 0]
-
-        # Instanciate a new calib obj
         calib = CalibrationDummy(warmup=10)
 
         # Check parameter are not close at the beginning
-        ck = ~np.allclose(calib.model.params.values, params)
+        ck = ~np.allclose(calib.model.params.values, self.params)
         self.assertTrue(ck)
 
         # Run calibration
-        ical = np.arange(10, obs.shape[0])
-        calib.workflow(obs, inputs, ical, iprint=0,
+        calib.workflow(self.obs, self.inputs, self.ical, iprint=0,
                 maxfun=100000, ftol=1e-8)
 
         # Test parameters at the end
-        ck = np.allclose(calib.model.params.values, params, \
+        ck = np.allclose(calib.model.params.values, self.params, \
                             atol=1e-5, rtol=0.)
         self.assertTrue(ck)
 
 
     def test_customised_objfun(self):
         ''' Test customised objective function '''
-        inputs = np.random.exponential(1, (100, 2))
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-
-        # Run model
-        calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]+0.1
-        dum.params.values = params
-        dum.run()
-        obs = dum.outputs[:, 0]
-
         # Define a customized objective function
         objfun = ObjFunBCSSE(lam=0.8, nu=1e-5)
 
