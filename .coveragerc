@@ -1,10 +1,22 @@
 [run]
 branch = True
-include = pygme/**
+omit = venv/*
+       env/*
+       /opt/*
+       **/template/*
+       **/_version.py
 
 [report]
-include = pygme/**
 omit = **/test*
+       venv/*
+       env/*
+       /opt/*
+       **/template/*
+       **/_version.py
+       *.xml
+       script_template_*
 
-exclude_lines=
+exclude_lines =
+    raise AssertionError
+    raise NotImplementedError
     if __name__ == .__main__.:
