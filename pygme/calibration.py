@@ -15,6 +15,10 @@ LOGGER = logging.getLogger(__name__)
 # Setup box cox transform
 BC = transform.BoxCox2()
 
+class CalibrationExplorationError(Exception):
+    ''' Error raised by the exploration phase of a calibration task '''
+    pass
+
 
 def format_array(x, fmt='3.3e'):
     return ' '.join([('{0:'+fmt+'}').format(u) for u in x])
@@ -706,7 +710,7 @@ class Calibration(object):
         LOGGER.info('Calibration data allocated')
 
 
-    def explore(self, iprint=0):
+    def explore(self, iprint=0, raise_error=False):
         ''' Systematic exploration of parameter space and
             identification of best parameter set
 
@@ -714,7 +718,8 @@ class Calibration(object):
             -----------
             iprint : int
                 Frequency of log printing
-
+            raise_error : bool
+                Raise error during objective function evaluation
 
             Returns
             -----------
@@ -750,6 +755,10 @@ class Calibration(object):
                         use_transformed_parameters=False)
             except ValueError as err:
                 LOGGER.error(str(err))
+
+                if raise_error:
+                    raise CalibrationExplorationError(str(err))
+
                 ofun = np.inf
 
             ofuns[i] = ofun
@@ -880,6 +889,7 @@ class Calibration(object):
             ical=None, \
             iprint=0, \
             nrepeat=1, \
+            raise_exploration_error=False, \
             optimizer=fmin, \
             **kwargs):
         ''' Perform model allocation, exploration and fitting
@@ -907,6 +917,9 @@ class Calibration(object):
             nrepeat : int
                 Number of repetion of optimisation
                 (>1 applies the optimiser several times)
+
+            raise_exploration_error : bool
+                Raise error during exploration phase
 
             optimizer : function
                 Function with same signature than
@@ -945,12 +958,16 @@ class Calibration(object):
 
         # 3. Run exploration
         try:
-            start, _, ofun_explore = self.explore(iprint=iprint)
-        except ValueError as err:
+            start, _, ofun_explore = self.explore(iprint=iprint, \
+                                    raise_error=raise_exploration_error)
+        except CalibrationExplorationError as err:
             LOGGER.error('error in parameter exploration: {0}'.format(\
                             str(err)))
             start = self.model.params.defaults
             ofun_explore = None
+
+            if raise_exploration_error:
+                raise err
 
         # 4. Run fit
         self.calparams.truevalues = start

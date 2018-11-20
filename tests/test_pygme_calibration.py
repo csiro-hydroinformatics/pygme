@@ -18,6 +18,7 @@ from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector
 from pygme.calibration import ObjFunSSE, ObjFunBCSSE, ObjFunKGE
+from pygme.calibration import CalibrationExplorationError
 
 from dummy import Dummy, CalibrationDummy, ObjFunSSEargs
 
@@ -319,6 +320,47 @@ class CalibrationTestCase(unittest.TestCase):
         self.assertTrue(np.allclose(start, self.params, rtol=0., atol=0.05))
 
 
+    def test_explore_error(self):
+        ''' Test calibration exploration error '''
+
+        class ObjFunError(ObjFunSSE):
+            ''' Sum of squared error objective function '''
+
+            def __init__(self):
+                super(ObjFunError, self).__init__()
+                self.name = 'Error'
+
+            def compute(self, obs, sim, **kwargs):
+                of = super(ObjFunError, self).compute(obs, sim)
+                if of < 1e-1:
+                    # This is a stupid error generation
+                    # we use it just for testing
+                    raise ValueError('Error in exploration')
+                return of
+
+
+        calib = CalibrationDummy(warmup=10, objfun=ObjFunError())
+        plib = np.random.uniform(-0.1, 0.1, size=(1000, 2)) \
+                        + self.params[None, :]
+        calib.paramslib = plib
+
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
+
+        start, _, explo_ofun = calib.explore()
+        # Check that no objective function is below 1e-1
+        # because the objective function does not allow it
+        self.assertTrue(np.all(explo_ofun > 1e-1))
+
+        # Check that we trigger an error during exploration
+        try:
+            start, _, explo_ofun = calib.explore(raise_error=True)
+        except CalibrationExplorationError as err:
+            self.assertTrue(str(err).startswith('Error in explo'))
+        else:
+            raise ValueError('Problem with error handling')
+
+
     def test_explore_fit(self):
         ''' Test explore and fit functions '''
         calib = CalibrationDummy(warmup=10)
@@ -329,7 +371,7 @@ class CalibrationTestCase(unittest.TestCase):
         final, _, _ = calib.fit(iprint=10,
                                     maxfun=100000, ftol=1e-8)
         ck = np.allclose(calib.model.params.values, self.params, \
-                            atol=1e-5, rtol=0.)
+                            atol=1e-3, rtol=0.)
         self.assertTrue(ck)
 
 
