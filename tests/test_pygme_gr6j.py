@@ -18,7 +18,7 @@ import testdata
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
-PROFILE = True
+PROFILE = False
 
 class GR6JTestCase(unittest.TestCase):
 
@@ -124,6 +124,7 @@ class GR6JTestCase(unittest.TestCase):
         warmup = 365*6
 
         for i in range(20):
+            print('Running GR6J initialisation test {0}/{1}'.format(i+1, 20))
             data = testdata.read('GR6J_timeseries_{0:02d}.csv'.format(i+1), \
                                     source='output', has_dates=False)
             inputs = np.ascontiguousarray(\
@@ -253,7 +254,7 @@ class GR6JTestCase(unittest.TestCase):
 
             noise = np.random.uniform(-1, 1, gr.outputs.shape[0]) * 1e-4
             sim0 = gr.outputs[:, 0].copy()
-            obs = sim0+noise
+            obs = np.maximum(sim0+noise, 0.)
 
             t0 = time.time()
 

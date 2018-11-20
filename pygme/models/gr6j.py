@@ -4,7 +4,7 @@ import pandas as pd
 
 from hydrodiy.stat import sutils
 from hydrodiy.data.containers import Vector
-from pygme.model import Model, ParamsVector, UH
+from pygme.model import Model, ParamsVector, UH, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 from pygme.models.gr4j import gr4j_X1_initial
 
@@ -54,7 +54,15 @@ class GR6J(Model):
                     [400, -1, 50, 0.5, 0., 10.], \
                     [1, -50, 1, 0.5, -50., 1e-1], \
                     [1e4, 50, 1e4, 1e2, 50., 1e3])
-        params = ParamsVector(vect)
+
+        # Rule to exclude certain parameters
+        def checkvalues(values):
+            X2, X3 = values[1:3]
+            if X3 < -X2:
+                raise ParameterCheckValueError(\
+                        'X3 ({0:0.2f}) < - X2 ({1:0.2f})'.format(X3, X2))
+
+        params = ParamsVector(vect, checkvalues=checkvalues)
 
         # UH
         params.add_uh('gr4j_ss1_daily', lambda params: params.X4)
@@ -83,11 +91,14 @@ class GR6J(Model):
             * Exponential store: using Equation 8 in Michel et al. (2003)
 
             Reference:
-            Le Moine, Nicolas. "Le bassin versant de surface vu par le souterrain: une voie
-            d'amélioration des performances et du réalisme des modèles pluie-débit?." PhD diss., Paris 6, 2008.
+            Le Moine, Nicolas. "Le bassin versant de surface vu par
+            le souterrain: une voie d'amelioration des performances et du
+            realisme des modeles pluie-debit?." PhD diss., Paris 6, 2008.
 
-            Michel, Claude, Charles Perrin, and Vazken Andréassian. "The exponential store: a correct formulation
-            for rainfall—runoff modelling." Hydrological Sciences Journal 48.1 (2003): 109-124.
+            Michel, Claude, Charles Perrin, and Vazken Andréassian.
+            "The exponential store: a correct formulation for
+            rainfall—runoff modelling." Hydrological Sciences
+            Journal 48.1 (2003): 109-124.
         '''
         X1 = self.params.values[0]
         X3 = self.params.values[2]
