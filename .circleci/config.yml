@@ -81,15 +81,15 @@ jobs:
             echo "Running GR4J tests"
             python -W ignore `which nosetests` tests/test_pygme_gr4j.py
             
-            #echo "Running GR6J tests"
-            #python -W ignore `which nosetests` tests/test_pygme_gr6j.py
+            echo "Running GR6J tests"
+            python -W ignore `which nosetests` tests/test_pygme_gr6j.py
 
             # coverage
-            echo "Running coverage"
-            coverage xml --rcfile=.coveragerc
+            #echo "Running coverage"
+            #coverage xml --rcfile=.coveragerc
 
             # Pylint
-            #pylint --rcfile pylintrc hydrodiy > pylint_results
+            #pylint --rcfile pylintrc pygme > pylint_results
 
             # Install hydrodiy
             echo "Installing pygme"
@@ -99,7 +99,7 @@ jobs:
             echo "Running examples"
             python -W ignore examples/run_all_examples.py
 
-          no_output_timeout: 50m
+          no_output_timeout: 30m
  
       - store_artifacts:
           path: test-reports
