@@ -9,6 +9,7 @@ import time
 
 import numpy as np
 
+from pygme.model import ParameterCheckValueError
 from pygme.calibration import ObjFunSSE
 from pygme.models.gr4j import GR4J, CalibrationGR4J
 from pygme.models.gr4j import compute_PmEm, gr4j_X1_initial
@@ -158,14 +159,14 @@ class GR4JTestCase(unittest.TestCase):
         gr.X2 = -50
         try:
             gr.X3 = 10
-        except ValueError as err:
+        except ParameterCheckValueError as err:
             self.assertTrue(str(err).startswith('X3 <'))
         else:
             raise ValueError('Problem with error trapping')
 
         try:
             gr.params.values = [100., -20, 10, 0.5]
-        except ValueError as err:
+        except ParameterCheckValueError as err:
             self.assertTrue(str(err).startswith('X3 <'))
         else:
             raise ValueError('Problem with error trapping')
@@ -405,21 +406,6 @@ class GR4JTestCase(unittest.TestCase):
 
         # Check the other one returns fixed parameters
         self.assertTrue(np.allclose(final2[[0, 3]], [1000, 10]))
-
-
-    def test_instability(self):
-        ''' Test GR4J instability '''
-        data = testdata.read('GR4J_instability.csv', \
-                                source='instability', has_dates=False)
-
-        inputs = np.ascontiguousarray(\
-                        data.loc[:200, ['P', 'PET']], \
-                        np.float64)
-
-        gr = GR4J()
-        gr.allocate(inputs, gr.noutputsmax)
-        gr.params.values = [14.8, -7.41, 2.7, 50.]
-        gr.run()
 
 if __name__ == "__main__":
     unittest.main()

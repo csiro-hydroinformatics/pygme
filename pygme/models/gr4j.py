@@ -7,7 +7,7 @@ from scipy.stats import norm
 from hydrodiy.data.containers import Vector
 from hydrodiy.stat import sutils
 
-from pygme.model import Model, ParamsVector, UH
+from pygme.model import Model, ParamsVector, UH, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
@@ -80,14 +80,16 @@ class GR4J(Model):
 
         # params vector
         vect = Vector(['X1', 'X2', 'X3', 'X4'], \
-                    [400, -1, 50, 0.5], \
-                    [1, -50, 1, 0.5], \
-                    [1e4, 50, 1e4, 50])
+                    defaults=[400, -1, 50, 0.5], \
+                    mins=[1, -50, 1, 0.5], \
+                    maxs=[1e4, 50, 1e4, 50])
 
         # Rule to exclude certain parameters
         def checkvalues(values):
-            if values[2] < -values[1]:
-                raise ValueError('X3 < -X2')
+            X2, X3 = values[1:3]
+            if X3 < -X2:
+                raise ParameterCheckValueError(\
+                        'X3 ({0:0.2f}) < - X2 ({1:0.2f})'.format(X3, X2))
 
         params = ParamsVector(vect, checkvalues=checkvalues)
 
