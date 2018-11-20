@@ -81,8 +81,8 @@ jobs:
             echo "Running GR4J tests"
             python -W ignore `which nosetests` tests/test_pygme_gr4j.py
             
-            echo "Running GR6J tests"
-            python -W ignore `which nosetests` tests/test_pygme_gr6j.py
+            #echo "Running GR6J tests"
+            #python -W ignore `which nosetests` tests/test_pygme_gr6j.py
 
             # coverage
             echo "Running coverage"
