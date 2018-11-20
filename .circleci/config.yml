@@ -85,15 +85,18 @@ jobs:
             python -W ignore `which nosetests` tests/test_pygme_gr6j.py
 
             # coverage
+            echo "Running coverage"
             coverage xml --rcfile=.coveragerc
 
             # Pylint
             #pylint --rcfile pylintrc hydrodiy > pylint_results
 
             # Install hydrodiy
+            echo "Installing pygme"
             python setup.py install
             
             # Running examples
+            echo "Running examples"
             python -W ignore examples/run_all_examples.py
 
           no_output_timeout: 50m
