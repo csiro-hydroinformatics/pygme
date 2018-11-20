@@ -764,8 +764,8 @@ class Calibration(object):
                 # (e.g. fixed)
                 best = self.model.params.values
 
-        raise_it = True if best is None else False
-        raise_it = True if not np.isfinite(ofun_min) else False
+        raise_it = True if (not np.isfinite(ofun_min)) or (best is None) \
+                                    else False
         if raise_it:
             raise ValueError('Could not identify a suitable' + \
                 '  parameter set by exploration')
