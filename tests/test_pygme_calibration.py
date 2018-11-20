@@ -252,6 +252,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_calibration_instance_print(self):
+        ''' Test printing of calibration object '''
         dum = Dummy()
         inputs = np.random.uniform(0, 1, (1000, 2))
         dum.allocate(inputs)
@@ -268,6 +269,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_calibration_errors(self):
+        ''' Test calibration errors '''
         inputs = np.random.uniform(0, 1, (1000, 2))
         obs = np.random.uniform(0, 1, 1000)
 
@@ -293,6 +295,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_explore(self):
+        ''' Test explore function '''
         inputs = np.random.uniform(0, 1, (1000, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -312,6 +315,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_explore_fit(self):
+        ''' Test explore and fit functions '''
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -336,6 +340,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_explore_fit_args(self):
+        ''' Test passing arguments to objective function '''
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -366,6 +371,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_explore_fit_fixed(self):
+        ''' Test calibration with fixed parameters '''
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -405,6 +411,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_workflow(self):
+        ''' Test calibration workflow (i.e. explore+fit) '''
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -434,6 +441,7 @@ class CalibrationTestCase(unittest.TestCase):
 
 
     def test_customised_objfun(self):
+        ''' Test customised objective function '''
         inputs = np.random.exponential(1, (100, 2))
         dum = Dummy()
         dum.allocate(inputs, 2)
@@ -476,7 +484,6 @@ class CalibrationTestCase(unittest.TestCase):
         params = calib.paramslib[0, :]+0.1
         dum.params.values = params
         dum.run()
-
         obs = dum.outputs[:, 0]
 
         calib = CalibrationDummy(objfun=ObjFunSSE(), \
