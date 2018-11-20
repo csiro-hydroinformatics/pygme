@@ -60,13 +60,28 @@ jobs:
             export PYTHONWARNINGS="ignore"
 
             # Running tests
+            echo "Running model tests"
             python -W ignore `which nosetests` tests/test_pygme_model.py
+            
+            echo "Running calibration tests"
             python -W ignore `which nosetests` tests/test_pygme_calibration.py
+            
+            echo "Running utils tests"
             python -W ignore `which nosetests` tests/test_pygme_utils.py
+            
+            echo "Running Turc-Mezentsev tests"
             python -W ignore `which nosetests` tests/test_pygme_turcmezentsev.py
+            
+            echo "Running GR2M tests"
             python -W ignore `which nosetests` tests/test_pygme_gr2m.py
+            
+            echo "Running Lagroute tests"
             python -W ignore `which nosetests` tests/test_pygme_lagroute.py
+            
+            echo "Running GR4J tests"
             python -W ignore `which nosetests` tests/test_pygme_gr4j.py
+            
+            echo "Running GR6J tests"
             python -W ignore `which nosetests` tests/test_pygme_gr6j.py
 
             # coverage
