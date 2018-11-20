@@ -404,51 +404,44 @@ class CalibrationTestCase(unittest.TestCase):
         calib = CalibrationDummy(warmup=10, objfun=objfun)
 
         # Check parameter are not close at the beginning
-        ck = ~np.allclose(calib.model.params.values, params)
+        ck = ~np.allclose(calib.model.params.values, self.params)
         self.assertTrue(ck)
 
         # Run calibration
-        ical = np.arange(10, obs.shape[0])
-        calib.workflow(obs, inputs, ical, iprint=0,
+        calib.workflow(self.obs, self.inputs, self.ical, iprint=0,
                 maxfun=100000, ftol=1e-8)
 
         # Test parameters at the end
-        ck = np.allclose(calib.model.params.values, params, atol=1e-3)
+        ck = np.allclose(calib.model.params.values, self.params, atol=1e-3)
         self.assertTrue(ck)
 
 
     def test_optimizers(self):
         ''' Test a range of optimizer from scipy '''
-        inputs = np.minimum(np.random.exponential(1, (100, 2)), 10)
-        dum = Dummy()
-        dum.allocate(inputs, 2)
-        dum.initialise()
-
-        calib = CalibrationDummy(warmup=10)
-        params = calib.paramslib[0, :]+0.1
-        dum.params.values = params
-        dum.run()
-        obs = dum.outputs[:, 0]
-
         calib = CalibrationDummy(objfun=ObjFunSSE(), \
                     warmup=10)
-        calib.allocate(obs, inputs)
-        ical = np.arange(10, obs.shape[0])
-        calib.ical = ical
-
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
         start, _, _ = calib.explore()
 
         for iopt, opt in enumerate([fmin, fmin_bfgs]):
-            final, _, _ = calib.fit(start=start, iprint=10, optimizer=opt)
-            ck = np.allclose(calib.model.params.values, params, \
+            if opt.__name__ in ['fmin', 'fmin_powell']:
+                kwargs = dict(maxfun=100000, ftol=1e-8)
+            else:
+                kwargs = dict(maxiter=100000, gtol=1e-8)
+
+            final, _, _ = calib.fit(start=start, iprint=10, optimizer=opt, \
+                                            **kwargs)
+            ck = np.allclose(calib.model.params.values, self.params, \
                     atol=5e-3, rtol=0.)
             if not ck:
                 print(('Failing optimizer test {0} '+\
                     'expected params={1}, got {2}').format(\
                         iopt+1, \
-                        ' '.join(list(np.round(params, 2).astype(str))), \
-                        ' '.join(list(\
-                        np.round(calib.model.params.values, 2).astype(str)))
+                        ' '.join(list(np.round(\
+                                self.params, 2).astype(str))), \
+                        ' '.join(list(np.round(\
+                                calib.model.params.values, 2).astype(str)))
                 ))
 
             self.assertTrue(ck)
