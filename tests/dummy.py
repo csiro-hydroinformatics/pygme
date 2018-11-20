@@ -24,7 +24,7 @@ class ObjFunSSEargs(ObjFun):
 
 class Dummy(Model):
 
-    def __init__(self):
+    def __init__(self, checkvalues=None):
 
         # Config vector
         config = Vector(['continuous'],\
@@ -34,7 +34,7 @@ class Dummy(Model):
         eps = 1e-7
         vect = Vector(['X1', 'X2'], \
                     [eps, 1], [eps]*2, [10, 10])
-        params = ParamsVector(vect)
+        params = ParamsVector(vect, checkvalues=checkvalues)
         params.add_uh('flat', lambda params: params.X1)
 
         # State vector
@@ -130,14 +130,15 @@ class CalibrationDummy(Calibration):
 
     def __init__(self, warmup, fixed=None, \
                 objfun=ObjFunSSE(), \
-                objfun_kwargs={},
-                nplib=2000):
+                objfun_kwargs={}, \
+                nplib=2000,\
+                checkvalues=None):
 
         # Calibration params
-        model = Dummy()
+        model = Dummy(checkvalues=checkvalues)
         cp = Vector(['tX1', 'tX2'], mins=[-10]*2, maxs=[10]*2, \
                 defaults=[1, 0])
-        calparams = CalibParamsVector(Dummy(), cp, \
+        calparams = CalibParamsVector(model, cp, \
                             trans2true='exp', \
                             fixed=fixed)
 

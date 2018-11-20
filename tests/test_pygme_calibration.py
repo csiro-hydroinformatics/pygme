@@ -15,7 +15,7 @@ from scipy.optimize import fmin, fmin_bfgs
 from hydrodiy.stat.transform import BoxCox2
 from hydrodiy.data.containers import Vector
 
-from pygme.model import Model
+from pygme.model import Model, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector
 from pygme.calibration import ObjFunSSE, ObjFunBCSSE, ObjFunKGE
 
@@ -161,7 +161,8 @@ class CalibParamsVectorTestCase(unittest.TestCase):
         try:
             calparams = CalibParamsVector(self.model, cp, fun1, fun2)
         except ValueError as err:
-            self.assertTrue(str(err).startswith('Problem with trans2true for'))
+            self.assertTrue(str(err).startswith(\
+                                'Problem with trans2true for'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -169,7 +170,8 @@ class CalibParamsVectorTestCase(unittest.TestCase):
         try:
             calparams = CalibParamsVector(self.model, cp, fun, fun)
         except ValueError as err:
-            self.assertTrue(str(err).startswith('Problem with trans2true for'))
+            self.assertTrue(str(err).startswith(\
+                                'Problem with trans2true for'))
         else:
             raise ValueError('Problem with error handling')
 
@@ -347,6 +349,20 @@ class CalibrationTestCase(unittest.TestCase):
                             atol=1e-3, rtol=0.)
 
         self.assertTrue(ck)
+
+    def test_checkvalues(self):
+        def fun(values):
+            if values[1] < 0.5:
+                raise ParameterCheckValueError
+
+        calib = CalibrationDummy(warmup=10, checkvalues=fun)
+        calib.allocate(self.obs, self.inputs)
+        calib.ical = self.ical
+
+        start, _, ofuns = calib.explore()
+
+        idx = calib.paramslib[:, 1] < 0.5
+        self.assertTrue(np.all(np.isinf(ofuns[idx])))
 
 
     def test_fixed(self):

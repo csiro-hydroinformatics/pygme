@@ -7,6 +7,8 @@ from scipy.optimize import fmin
 from hydrodiy.stat import transform, metrics
 from hydrodiy.data.containers import Vector
 
+from pygme.model import ParameterCheckValueError
+
 # Setup login
 LOGGER = logging.getLogger(__name__)
 
@@ -257,7 +259,7 @@ class CalibParamsVector(Vector):
         params.values = truev
 
         # Set fixed
-        fixe = self.fixed
+        fixed = self.fixed
         if not fixed is None:
             for pname, pvalue in fixed.items():
                 params[pname] = pvalue
@@ -349,10 +351,15 @@ def fitfun(values, calib, use_transformed_parameters):
 
     # Set model parameters
     # (note that parameters are passed to model within calparams object)
-    if use_transformed_parameters:
-        calparams.values = values
-    else:
-        calparams.truevalues = values
+    try:
+        if use_transformed_parameters:
+            calparams.values = values
+        else:
+            calparams.truevalues = values
+
+    except ParameterCheckValueError:
+        # Return np.inf if setting parameters
+        return np.inf
 
     # Exit objectif function if parameters hit bounds
     if model.params.hitbounds and calib.hitbounds:

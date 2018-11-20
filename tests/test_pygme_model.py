@@ -264,7 +264,7 @@ class ParamsVectorTestCases(unittest.TestCase):
         else:
             raise ValueError('Problem with error trapping')
 
-        # Problem with cehckvalues function
+        # Problem with checkvalues function
         def fun(values):
             pass
 
@@ -474,7 +474,8 @@ class ModelTestCases(unittest.TestCase):
             dum.iend = nval+1
         except Exception as err:
             self.assertTrue(\
-                str(err).startswith('model dummy: Expected iend in [0, 999], got 1001'))
+                str(err).startswith(\
+                    'model dummy: Expected iend in [0, 999], got 1001'))
         else:
             raise Exception('Problem with error generation')
 
