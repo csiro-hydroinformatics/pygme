@@ -9,7 +9,8 @@ import numpy as np
 np.seterr(all='print')
 
 from hydrodiy.data.containers import Vector
-from pygme.model import Model, NORDMAXMAX, UH, UHNAMES, ParamsVector
+from pygme.model import Model, NORDMAXMAX, UH, UHNAMES, ParamsVector, \
+                            ParameterCheckValueError
 from dummy import Dummy, MassiveDummy
 
 
@@ -233,7 +234,8 @@ class ParamsVectorTestCases(unittest.TestCase):
         vect = Vector(['X{0}'.format(k) for k in range(10)])
         def fun(values):
             if np.any(values < -10):
-                raise ValueError('One parameter value is < -10')
+                raise ParameterCheckValueError('One parameter value'+\
+                                ' is < -10')
 
         pv = ParamsVector(vect, checkvalues=fun)
 
@@ -244,7 +246,7 @@ class ParamsVectorTestCases(unittest.TestCase):
         # Set params (error)
         try:
             pv.X1 = -11
-        except ValueError as err:
+        except ParameterCheckValueError as err:
             self.assertTrue(str(err).startswith('One parameter'))
         else:
             raise ValueError('Problem with error trapping')
@@ -257,10 +259,22 @@ class ParamsVectorTestCases(unittest.TestCase):
         values[0] = -11.
         try:
             pv.values = values
-        except ValueError as err:
+        except ParameterCheckValueError as err:
             self.assertTrue(str(err).startswith('One parameter'))
         else:
             raise ValueError('Problem with error trapping')
+
+        # Problem with cehckvalues function
+        def fun(values):
+            pass
+
+        try:
+            pv = ParamsVector(vect, checkvalues=fun)
+        except ValueError as err:
+            self.assertTrue(str(err).startswith('checkvalues function'))
+        else:
+            raise ValueError('Problem with error trapping')
+
 
 
 

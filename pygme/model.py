@@ -14,6 +14,11 @@ UHNAMES = ['gr4j_ss1_daily', 'gr4j_ss2_daily', \
             'gr4j_ss1_hourly', 'gr4j_ss2_hourly', \
             'lag', 'triangle', 'flat']
 
+class ParameterCheckValueError(Exception):
+    ''' Error raised by a checkvalues function in ParamsVector '''
+    pass
+
+
 class UH(object):
 
     def __init__(self, name, nordmax=NORDMAXMAX):
@@ -166,15 +171,16 @@ class ParamsVector(Vector):
         Parameters
         -----------
         params : hydrodiy.data.containers.Vector
-            Vector of parameters including names, default values, min and max.
+            Vector of parameters including names, default values, min
+            and max.
         checkvalues : function
             Function assessing if the parameter combination is valid. The
             function must have the following signature:
 
-            def suitable(values)
+            def checkvalues(values)
 
-            It must return a ValueError if the values are considered
-            invalid
+            It must return a ParameterCheckValueError if the values are
+            considered invalid
 
         '''
         # check_hitbounds is turned on
@@ -196,15 +202,24 @@ class ParamsVector(Vector):
             # this should fail and return a ValueError
             try:
                 checkvalues(params.mins-1)
-            except ValueError:
+            except ParameterCheckValueError:
                 pass
             else:
-                raise ValueError('checkvalues error does not '+\
-                    'generate a ValueError when run '+\
+                raise ValueError('checkvalues function does not '+\
+                    'generate a ParameterCheckValuesError when run '+\
                     'with params.mins-1')
 
-
             self._checkvalues = checkvalues
+
+    def _set_values(self):
+        # Check if the values suitable
+        if not self._checkvalues is None:
+            self._checkvalues(self.values)
+
+        # Set UH parameter if needed
+        if self.nuh>0:
+            for iuh, (set_timebase, uh) in enumerate(self.uhs):
+                uh.timebase = set_timebase(self)
 
 
     def __setattr__(self, name, value):
@@ -216,15 +231,8 @@ class ParamsVector(Vector):
             return
 
         if name in self.names:
-            # Check if the values are suitable
-            if not self._checkvalues is None:
-                self._checkvalues(self.values)
+            self._set_values()
 
-            if self.nuh>0:
-                # If uh parameter set, run set_timebase
-                # to change uh ordinates
-                for iuh, (set_timebase, uh) in enumerate(self.uhs):
-                    uh.timebase = set_timebase(self)
 
     @property
     def checkvalues(self):
@@ -254,14 +262,8 @@ class ParamsVector(Vector):
         # Run the vector value setter
         Vector.values.fset(self, val)
 
-        # Check if the values suitable
-        if not self._checkvalues is None:
-            self._checkvalues(self.values)
-
-        # Set UH parameter if needed
-        if self.nuh>0:
-            for iuh, (set_timebase, uh) in enumerate(self.uhs):
-                uh.timebase = set_timebase(self)
+        # Set additional elements
+        self._set_values()
 
 
     def add_uh(self, uh_name, set_timebase, nuhmax=NORDMAXMAX):
