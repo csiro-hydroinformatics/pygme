@@ -160,14 +160,14 @@ class GR4JTestCase(unittest.TestCase):
         try:
             gr.X3 = 10
         except ParameterCheckValueError as err:
-            self.assertTrue(str(err).startswith('X3 <'))
+            self.assertTrue(str(err).startswith('X3 ('))
         else:
             raise ValueError('Problem with error trapping')
 
         try:
             gr.params.values = [100., -20, 10, 0.5]
         except ParameterCheckValueError as err:
-            self.assertTrue(str(err).startswith('X3 <'))
+            self.assertTrue(str(err).startswith('X3 ('))
         else:
             raise ValueError('Problem with error trapping')
 
