@@ -130,7 +130,8 @@ class CalibrationDummy(Calibration):
 
     def __init__(self, warmup, fixed=None, \
                 objfun=ObjFunSSE(), \
-                objfun_kwargs={}):
+                objfun_kwargs={},
+                nplib=2000):
 
         # Calibration params
         model = Dummy()
@@ -151,7 +152,7 @@ class CalibrationDummy(Calibration):
         params = model.params
         plib = np.random.multivariate_normal(mean=params.defaults, \
                     cov=np.diag((params.maxs-params.mins)/2), \
-                    size=5000)
+                    size=nplib)
         plib = np.clip(plib, params.mins, params.maxs)
         self.paramslib = plib
 
