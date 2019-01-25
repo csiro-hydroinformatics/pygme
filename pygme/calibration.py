@@ -706,6 +706,8 @@ class Calibration(object):
         ical = np.arange(nval)
         ical = ical[(ical >= self.warmup) & np.all(~np.isnan(obs), axis=1)]
         self.ical = ical
+        LOGGER.info('Allocating ical with a default value, '+\
+                            'ncal={0}'.format(len(ical)))
 
         LOGGER.info('Calibration data allocated')
 
