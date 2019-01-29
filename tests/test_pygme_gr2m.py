@@ -148,12 +148,13 @@ class GR2MTestCase(unittest.TestCase):
                                         maxfun=100000, ftol=1e-8)
 
             # Test
-            err = np.abs(final-expected)/np.abs(expected)
-            ck = np.max(err) < 1e-2
+            err = np.abs(final-expected)
+            imax = np.argmax(err)
+            ck = np.allclose(expected, final, rtol=1e-3, atol=1e-3)
 
-            print('\t\tsample '+\
-                        '{0:02d} : max err = {1:3.3e} ofun = {2}'.format(i,
-                        np.max(err), ofun))
+            print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
+                        ' err[X{2}] = {3:3.3e}').format(\
+                        i+1, str(ck), imax+1, err[imax]))
 
             self.assertTrue(ck)
 
