@@ -355,11 +355,13 @@ class GR4JTestCase(unittest.TestCase):
 
             # Test error on parameters
             err = np.abs(final-params)
-            ck = np.max(err) < 1e-2
+            imax = np.argmax(err)
+            ck = np.allclose(params, final, rtol=1e-3, atol=1e-3)
 
-            print(('\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}'+\
-                    ' dt={2:3.3e} sec/yr').format(\
-                        i+1, np.max(err), dt))
+            print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
+                        ' err[X{2}] = {3:3.3e}'+\
+                        ' dt={4:3.3e} sec/yr').format(\
+                        i+1, str(ck), imax+1, err[imax], dt))
 
             self.assertTrue(ck)
 
