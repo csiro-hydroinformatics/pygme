@@ -1,15 +1,19 @@
 import os
 import re
 import unittest
+from itertools import product as prod
 
 from timeit import Timer
 import time
 
 import numpy as np
 
-from pygme.models.turcmezentsev import TurcMezentsev, CalibrationTurcMezentsev
+from pygme.models.turcmezentsev import TurcMezentsev, \
+                                    turcm_forward, \
+                                    turcm_backward, \
+                                    CalibrationTurcMezentsev
 
-class TurcMezentsevTestCases(unittest.TestCase):
+class TurcMezentsevTestCase(unittest.TestCase):
 
     def setUp(self):
         print('\t=> TurcMezentsevTestCase')
@@ -17,11 +21,13 @@ class TurcMezentsevTestCases(unittest.TestCase):
         self.FOUT = FTEST
 
     def test_print(self):
+        ''' Test printing function '''
         tm = TurcMezentsev()
         str_tm = '%s' % tm
 
 
     def test_run(self):
+        ''' Test model run '''
         tm = TurcMezentsev()
 
         P = np.linspace(700, 1200, 20)
@@ -35,7 +41,22 @@ class TurcMezentsevTestCases(unittest.TestCase):
         self.assertTrue(np.allclose(Q1, Q2))
 
 
+    def test_backward(self):
+        ''' Test backward function '''
+
+        aas = np.linspace(0.05, 2., 20)
+        ns = np.linspace(0.1, 4., 20)
+        P = 100
+        for a, nini in prod(aas, ns):
+            E = P/a
+            Q = turcm_forward(P, E, nini)
+            r = Q/P
+            nback, niter = turcm_backward(Q, P, E)
+            self.assertTrue(np.isclose(nini, nback, rtol=0., atol=5e-3))
+
+
     def test_calibrate(self):
+        ''' Test the calibration process '''
 
         Q = [85.5, \
                 331.7, \
