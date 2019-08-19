@@ -17,8 +17,11 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
 
+import testdata
 
-class LagRouteTestCases(unittest.TestCase):
+np.random.seed(0)
+
+class LagRouteTestCase(unittest.TestCase):
 
 
     def setUp(self):
@@ -33,7 +36,6 @@ class LagRouteTestCases(unittest.TestCase):
 
 
     def test_run(self):
-
         ierr_id = ''
         lr = LagRoute()
 
@@ -159,10 +161,12 @@ class LagRouteTestCases(unittest.TestCase):
                 self.assertTrue(ck)
 
             dta /= (len(UU) * len(aa))
-            print('\t\ttheta2={0} - Average runtime = {1:.5f} ms/yr'.format( \
-                theta2, dta))
+            print(('\t\ttheta2={0} - Average runtime'+\
+                    ' = {1:.5f} ms/yr').format( \
+                        theta2, dta))
 
     def test_lagroute_lag(self):
+        ''' Test lagroute with pure lag '''
         nval = 1000
         q1 = np.exp(np.random.normal(0, 2, size=nval))
         inputs = np.ascontiguousarray(q1[:,None])
@@ -189,6 +193,51 @@ class LagRouteTestCases(unittest.TestCase):
 
             ck = np.max(err) < 1e-10
             self.assertTrue(ck)
+
+
+    def test_calibrate_against_itself(self):
+        ''' Calibrate lag route against a simulation
+            with known parameters '''
+        lr = LagRoute()
+        warmup = 100
+
+        for i in range(16):
+            # Get data
+            data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
+                                    source='output', has_dates=False)
+            inputs = np.ascontiguousarray(\
+                            data.loc[-1000:, ['Qsim']], \
+                            np.float64)
+
+            params = np.random.uniform(0, 1, size=2)
+            params[0] *= 5
+
+            # Run lagroute first
+            lr.allocate(inputs, 1)
+            lr.params.values = params
+            lr.initialise()
+            lr.run()
+
+            # Add error to outputs
+            err = np.random.uniform(-1, 1, lr.outputs.shape[0]) * 1e-4
+            obs = lr.outputs[:,0].copy()+err
+
+            # Wrapper function for profiling
+            calib = CalibrationLagRoute()
+            final, ofun, _, _ = calib.workflow(obs, inputs, \
+                                        maxfun=100000, ftol=1e-8)
+
+            # Test error on parameters
+            err = np.abs(final-params)
+            imax = np.argmax(err)
+            ck = np.allclose(params, final, rtol=1e-3, atol=1e-3)
+
+            print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
+                        ' err[X{2}] = {3:3.3e}').format(\
+                        i+1, str(ck), imax+1, err[imax]))
+
+            self.assertTrue(ck)
+
 
 
 if __name__ == "__main__":

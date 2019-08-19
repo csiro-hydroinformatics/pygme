@@ -1,4 +1,4 @@
-
+import math
 import numpy as np
 import pandas as pd
 
@@ -8,6 +8,13 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 import c_pygme_models_utils
+
+# Transformation functions for lagroute parameters
+def lagroute_trans2true(x):
+    return x
+
+def lagroute_true2trans(x):
+    return x
 
 
 class LagRoute(Model):
@@ -105,8 +112,8 @@ class CalibrationLagRoute(Calibration):
 
         # no parameter transformation
         calparams = CalibParamsVector(model, cp, \
-            trans2true=trans2true,\
-            true2trans=true2trans,\
+            trans2true=lagroute_trans2true,\
+            true2trans=lagroute_true2trans,\
             fixed=fixed)
 
         # Instanciate calibration
@@ -119,8 +126,9 @@ class CalibrationLagRoute(Calibration):
         # Build parameter library from
         # systematic exploration of parameter space
         nn = int(math.sqrt(nparamslib))
-        uu , aa = np.mesh_grid(np.linspace(0.1, 3, nn), \
+        uu , aa = np.meshgrid(np.linspace(0.1, 3, nn), \
                         np.linspace(0, 1, nn))
         plib = np.column_stack([uu.ravel(), aa.ravel()])
+
         self.paramslib = plib
 
