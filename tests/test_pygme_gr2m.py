@@ -150,8 +150,7 @@ class GR2MTestCase(unittest.TestCase):
             # Test
             err = np.abs(final-expected)
             imax = np.argmax(err)
-            ck = np.allclose(expected, final, rtol=5e-3, atol=1e-3)
-
+            ck = np.allclose(expected, final, rtol=5e-2, atol=1e-3)
             print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
                         ' err[X{2}] = {3:3.3e}').format(\
                         i+1, str(ck), imax+1, err[imax]))
