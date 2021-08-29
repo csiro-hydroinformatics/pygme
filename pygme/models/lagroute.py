@@ -6,8 +6,10 @@ from hydrodiy.data.containers import Vector
 from pygme.model import Model, ParamsVector
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
-import c_pygme_models_hydromodels
-import c_pygme_models_utils
+from pygme import has_c_module
+if has_c_module("models_hydromodels"):
+    import c_pygme_models_hydromodels
+    import c_pygme_models_utils
 
 # Transformation functions for lagroute parameters
 def lagroute_trans2true(x):
@@ -22,14 +24,14 @@ class LagRoute(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(['timestep', 'length', \
-                            'flowref', 'storage_expon'], \
+        config = Vector(["timestep", "length", \
+                            "flowref", "storage_expon"], \
                     defaults=[86400, 1e5, 1, 1], \
                     mins=[1, 1, 1e-6, 1], \
                     maxs=[np.inf, np.inf, np.inf, 2])
 
         # params vector
-        vect = Vector(['U', 'alpha'], \
+        vect = Vector(["U", "alpha"], \
                     defaults=[1., 0.5], \
                     mins=[0.01, 0.], \
                     maxs=[20., 1.])
@@ -50,29 +52,30 @@ class LagRoute(Model):
             delta = np.float64(delta)
 
             if np.isnan(delta):
-                raise ValueError('Expected non nan value for delta. '+\
-                    'length={0}, timestep={1}, U={2}, alpha={3}'.format(\
+                raise ValueError("Expected non nan value for delta. "+\
+                    "length={0}, timestep={1}, U={2}, alpha={3}".format(\
                         config.length, config.timestep, params.U, \
                         params.alpha))
 
             return delta
 
-        params.add_uh('lag', compute_delta)
+        params.add_uh("lag", compute_delta)
 
         # State vector
-        states = Vector(['S'])
+        states = Vector(["S"])
 
         # Model
-        super(LagRoute, self).__init__('LagRoute',
+        super(LagRoute, self).__init__("LagRoute",
             config, params, states, \
             ninputs=1, \
             noutputsmax=4)
 
-        self.outputs_names = ['Q', 'Q1lag', \
-                    'VR', 'V1']
+        self.outputs_names = ["Q", "Q1lag", \
+                    "VR", "V1"]
 
 
     def run(self):
+        has_c_module("models_hydromodels")
 
         # Get uh object (not set_timebase function, see ParamsVector class)
         _, uh = self.params.uhs[0]
@@ -88,8 +91,8 @@ class LagRoute(Model):
             self.outputs)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_hydromodels.' + \
-                'lagroute_run returns {0}').format(ierr))
+            raise ValueError(("c_pygme_models_hydromodels." + \
+                "lagroute_run returns {0}").format(ierr))
 
 
 class CalibrationLagRoute(Calibration):
@@ -105,7 +108,7 @@ class CalibrationLagRoute(Calibration):
         model = LagRoute()
         params = model.params
 
-        cp = Vector(['tU', 'talpha'], \
+        cp = Vector(["tU", "talpha"], \
                 mins=params.mins,
                 maxs=params.maxs,
                 defaults=params.defaults)

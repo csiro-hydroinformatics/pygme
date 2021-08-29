@@ -11,12 +11,12 @@ from pygme.calibration import Calibration, CalibParamsVector
 
 
 def turcm_forward(rain, evap, nparam):
-    ''' Turc-Mezentsev forward model '''
+    """ Turc-Mezentsev forward model """
     return rain*(1.-1./np.power(1.+np.power(rain/evap, nparam), (1./nparam)))
 
 
 def turcm_iterfun(x, rc, ar):
-    ''' Function used in Halley's iteration '''
+    """ Function used in Halley"s iteration """
     ax = np.power(ar, x)
     return x*np.log(1-rc)+np.log(1+ax), \
             np.log(1-rc)+np.log(ar)*ax/(1+ax), \
@@ -24,16 +24,16 @@ def turcm_iterfun(x, rc, ar):
 
 
 def turcm_backward(runoff, rain, evap, nitermax=20, tol=1e-3):
-    ''' Turc-Mezentsev inverse model.
+    """ Turc-Mezentsev inverse model.
         Compute the parameter n from runoff, rain and evap data
-    '''
+    """
     # Dimensionless variables
     rc = runoff/rain
     ar = rain/evap
 
     if np.any(ar > 2.):
-        raise ValueError('Expected aridity index < 2, got '+\
-            '{:0.2f}'.format(np.max(ar)))
+        raise ValueError("Expected aridity index < 2, got "+\
+            "{:0.2f}".format(np.max(ar)))
 
     # First approximation
     nparam0 = -lambertw(np.log(ar)/np.log(1-rc))/np.log(ar)
@@ -46,7 +46,7 @@ def turcm_backward(runoff, rain, evap, nitermax=20, tol=1e-3):
     niter = 0
     err = 1e10
     errprev = 1e10
-    if hasattr(nparam0, 'data'):
+    if hasattr(nparam0, "data"):
         nparam = nparam0.copy()
     else:
         nparam = nparam0
@@ -79,23 +79,23 @@ class TurcMezentsev(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(['continuous'],\
+        config = Vector(["continuous"],\
                     [0], [0], [1])
 
         # params vector
-        vect = Vector(['n'], [2.3],  [0.5], [5])
+        vect = Vector(["n"], [2.3],  [0.5], [5])
         params = ParamsVector(vect)
 
         # State vector
-        states = Vector(['S'])
+        states = Vector(["S"])
 
         # Model
-        super(TurcMezentsev, self).__init__('TurcMezentsev',
+        super(TurcMezentsev, self).__init__("TurcMezentsev",
             config, params, states, \
             ninputs=2, \
             noutputsmax=2)
 
-        self.outputs_names = ['Q', 'E']
+        self.outputs_names = ["Q", "E"]
 
 
     def run(self):

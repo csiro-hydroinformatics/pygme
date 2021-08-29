@@ -4,11 +4,14 @@ import pandas as pd
 
 from hydrodiy.stat import sutils
 from hydrodiy.data.containers import Vector
+
 from pygme.model import Model, ParamsVector, UH, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 from pygme.models.gr4j import gr4j_X1_initial
 
-import c_pygme_models_hydromodels
+from pygme import has_c_module
+if has_c_module("models_hydromodels"):
+    import c_pygme_models_hydromodels
 
 # Mean and covariance of transformed parameters
 GR6J_TMEAN = np.array([5.3, -0.37, 2.5, 0.32, 0.11, 1.5])
@@ -47,10 +50,10 @@ class GR6J(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(['version'], [0])
+        config = Vector(["version"], [0])
 
         # params vector
-        vect = Vector(['X1', 'X2', 'X3', 'X4', 'X5', 'X6'], \
+        vect = Vector(["X1", "X2", "X3", "X4", "X5", "X6"], \
                     [400, -1, 50, 0.5, 0., 10.], \
                     [1, -50, 1, 0.5, -50., 1e-1], \
                     [1e4, 50, 1e4, 1e2, 50., 1e3])
@@ -60,31 +63,31 @@ class GR6J(Model):
             X2, X3 = values[1:3]
             if X3 < -X2:
                 raise ParameterCheckValueError(\
-                        'X3 ({0:0.2f}) < - X2 ({1:0.2f})'.format(X3, X2))
+                        "X3 ({0:0.2f}) < - X2 ({1:0.2f})".format(X3, X2))
 
         params = ParamsVector(vect, checkvalues=checkvalues)
 
         # UH
-        params.add_uh('gr4j_ss1_daily', lambda params: params.X4)
-        params.add_uh('gr4j_ss2_daily', lambda params: params.X4)
+        params.add_uh("gr4j_ss1_daily", lambda params: params.X4)
+        params.add_uh("gr4j_ss2_daily", lambda params: params.X4)
 
         # State vector
         # Set default state vector to -100 for exponential reservoir
-        states = Vector(['S', 'R', 'A'], [0., 0., -100], \
+        states = Vector(["S", "R", "A"], [0., 0., -100], \
                                 check_bounds=False)
 
         # Model
-        super(GR6J, self).__init__('GR6J',
+        super(GR6J, self).__init__("GR6J",
             config, params, states, \
             ninputs=2, \
             noutputsmax=13)
 
-        self.outputs_names = ['Q', 'S', 'R', 'A', 'ECH', 'AE', \
-                    'PR', 'QD', 'QR', 'PERC', 'QExp', 'Q1', 'Q9']
+        self.outputs_names = ["Q", "S", "R", "A", "ECH", "AE", \
+                    "PR", "QD", "QR", "PERC", "QExp", "Q1", "Q9"]
 
 
     def initialise_fromdata(self, Pm=0., Em=0., Q0=1e-3):
-        ''' Initialisation of GR6J using
+        """ Initialisation of GR6J using
             * Production store: steady state solution from Le Moine
               (2008, Page 212)
             * Routing store: 30% filling level
@@ -92,14 +95,14 @@ class GR6J(Model):
 
             Reference:
             Le Moine, Nicolas. "Le bassin versant de surface vu par
-            le souterrain: une voie d'amelioration des performances et du
+            le souterrain: une voie d"amelioration des performances et du
             realisme des modeles pluie-debit?." PhD diss., Paris 6, 2008.
 
             Michel, Claude, Charles Perrin, and Vazken Andréassian.
             "The exponential store: a correct formulation for
             rainfall—runoff modelling." Hydrological Sciences
             Journal 48.1 (2003): 109-124.
-        '''
+        """
         X1 = self.params.values[0]
         X3 = self.params.values[2]
         X6 = self.params.values[5]
@@ -123,6 +126,8 @@ class GR6J(Model):
 
 
     def run(self):
+        has_c_module("models_hydromodels")
+
         # Get version
         version = np.int32(self.config.version)
 
@@ -145,8 +150,8 @@ class GR6J(Model):
             self.outputs)
 
         if ierr > 0:
-            raise ValueError(('c_pygme_models_hydromodels.gr6j_run' +
-                ' returns {0}').format(ierr))
+            raise ValueError(("c_pygme_models_hydromodels.gr6j_run" +
+                " returns {0}").format(ierr))
 
 
 class CalibrationGR6J(Calibration):
@@ -165,13 +170,13 @@ class CalibrationGR6J(Calibration):
 
         # initialisation of states
         if Pm < 0 or Em < 0 :
-            raise ValueError('Expected Pm and Em >0, '+\
-                'got Pm={0}, Em={1}'.format(Pm, Em))
+            raise ValueError("Expected Pm and Em >0, "+\
+                "got Pm={0}, Em={1}".format(Pm, Em))
 
-        initial_kwargs = {'Pm':Pm, 'Em':Em}
+        initial_kwargs = {"Pm":Pm, "Em":Em}
 
         # Build calib vector
-        cp = Vector(['tX1', 'tX2', 'tX3', 'tX4', 'tX5', 'tX6'], \
+        cp = Vector(["tX1", "tX2", "tX3", "tX4", "tX5", "tX6"], \
                 mins=gr6j_true2trans(params.mins),
                 maxs=gr6j_true2trans(params.maxs),
                 defaults=gr6j_true2trans(params.defaults))

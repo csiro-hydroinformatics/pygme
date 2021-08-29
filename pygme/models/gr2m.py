@@ -6,10 +6,13 @@ import pandas as pd
 from hydrodiy.data.containers import Vector
 
 from hydrodiy.stat import sutils
+
 from pygme.model import Model, ParamsVector
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
-import c_pygme_models_hydromodels
+from pygme import has_c_module
+if has_c_module("models_hydromodels"):
+    import c_pygme_models_hydromodels
 
 # Transformation functions for gr4j parameters
 def gr2m_trans2true(x):
@@ -24,31 +27,31 @@ class GR2M(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(['catcharea'], [0], [0])
+        config = Vector(["catcharea"], [0], [0])
 
         # params vector
-        vect = Vector(['X1', 'X2'], \
+        vect = Vector(["X1", "X2"], \
                     [400, 0.8], [10., 0.1], [1e4, 3])
         params = ParamsVector(vect)
 
         # State vector
-        states = Vector(['S', 'R'])
+        states = Vector(["S", "R"])
 
         # Model
-        super(GR2M, self).__init__('GR2M',
+        super(GR2M, self).__init__("GR2M",
             config, params, states, \
             ninputs=2, \
             noutputsmax=10)
 
-        self.outputs_names = ['Q', 'S', 'R', 'F', 'P1', 'P2', 'P3', \
-                            'R1', 'R2', 'AE']
+        self.outputs_names = ["Q", "S", "R", "F", "P1", "P2", "P3", \
+                            "R1", "R2", "AE"]
 
 
     def initialise_fromdata(self):
-        ''' Initialisation of GR2M using
+        """ Initialisation of GR2M using
             * Production store: 50% filling level
             * Routing store: 30% filling level
-        '''
+        """
         X1 = self.params.X1
 
         # Production store
@@ -62,6 +65,8 @@ class GR2M(Model):
 
 
     def run(self):
+        has_c_module("models_hydromodels")
+
         ierr = c_pygme_models_hydromodels.gr2m_run(self.istart, self.iend,
             self.params.values, \
             self.inputs, \
@@ -69,8 +74,8 @@ class GR2M(Model):
             self.outputs)
 
         if ierr > 0:
-            raise ValueError(('Model gr2m, c_pygme_models_hydromodels.gr2m_run' + \
-                    'returns {0}').format(ierr))
+            raise ValueError(("Model gr2m, c_pygme_models_hydromodels.gr2m_run" + \
+                    "returns {0}").format(ierr))
 
 
 
@@ -87,7 +92,7 @@ class CalibrationGR2M(Calibration):
         model = GR2M()
         params = model.params
 
-        cp = Vector(['tX1', 'tX2'], \
+        cp = Vector(["tX1", "tX2"], \
                 mins=gr2m_true2trans(params.mins),
                 maxs=gr2m_true2trans(params.maxs),
                 defaults=gr2m_true2trans(params.defaults))
