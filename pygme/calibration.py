@@ -628,10 +628,9 @@ class Calibration(object):
             values = np.atleast_1d(values)
 
             if values.dtype == np.dtype("bool"):
-                if values.shape[0] != nval:
-                    raise ValueError("Expected boolean ical of "+\
-                            "length {0}, got {1}".format(nval, \
-                                values.shape[0]))
+                errmsg = "Expected boolean ical of "+\
+                            f"length {nval}, got {values.shape[0]}."
+                assert values.shape[0] == nval, errmsg
 
                 # Convert boolean to index
                 ical = np.where(values)[0]
@@ -639,26 +638,30 @@ class Calibration(object):
             else:
                 ical = np.sort(values.astype(int))
 
+        if len(ical) == 0:
+            errmsg = "ical is of 0 length, nothing to calibrate against."
+            raise ValueError(errmsg)
+
         # check value is within obs indexes
         iout = (ical<0) | (ical>=nval)
         if np.sum(iout)>0:
             out = ical[iout]
-            raise ValueError("Expected all values in ical to be "+
-                "in [0, {0}], got {1} (first five only)".format(nval-1,\
-                out[:5]))
+            errmsg = "Expected all values in ical to be "+\
+                f"in [0, {nval-1}], got {out[:5]} (first five only)."
+            raise ValueError(errmsg)
 
         # check obs[ical] are not nan
         isnan = np.isnan(self.obs[ical])
         if np.any(isnan):
             nval_nan = np.sum(isnan)
-            raise ValueError("Expected no nan in obs[ical], "+\
-                        "got {0} nan values (len(obs)={1})".format(\
-                            nval_nan, nval))
+            errmsg = "Expected no nan in obs[ical], "+\
+                        f"got {nval_nan} nan values (len(obs)={nval})."
+            raise ValueError(errmsg)
 
         # Check value leaves enough data for warmup
         if ical[0] < self.warmup:
-            raise ValueError("Expected ical[0]>{1}, got {0}".format(\
-                    ical[0], self.warmup))
+            errmsg = f"Expected ical[0]>{self.warmup}, got {ical[0]}."
+            raise ValueError(errmsg)
 
         self._ical = ical
 
