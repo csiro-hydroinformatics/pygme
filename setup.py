@@ -38,7 +38,8 @@ else:
             'pygme/models/c_lagroute.c',
             'pygme/models/c_gr2m.c',
             'pygme/models/c_gr4j.c',
-            'pygme/models/c_gr6j.c'
+            'pygme/models/c_gr6j.c',
+            'pygme/models/c_sac15.c'
         ],
         extra_cflags=['-O3'],
         extra_compile_args=['-ffast-math'],
@@ -78,7 +79,6 @@ setup(
     ],
     cmdclass=cmdclass,
     ext_modules=ext_modules,
-    tests_suite="nose.collector",
     classifiers=[
         'Operating System :: OS Independent',
         'Intended Audience :: Developers',
