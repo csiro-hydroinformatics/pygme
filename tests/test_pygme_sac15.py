@@ -51,22 +51,13 @@ class SAC15TestCases(unittest.TestCase):
     def test_uh(self):
         sa = SAC15()
         sa.allocate(np.zeros((10, 2)))
-        sa.reset('params')
-        params0 = sa.params.copy()
 
         for Lag in np.linspace(0, 50, 100):
+            sa.params.reset()
+            sa.params.Lag = Lag
 
-            params = params0.copy()
-            params[10] = Lag
-            sa.params = params
-
-            ck = abs(np.sum(sa.uh)-1) < UHEPS * 1
-            self.assertTrue(ck)
-
-            k = math.floor(Lag)
-            d1 = 1-Lag+k
-            d2 = Lag-k
-            ck = np.allclose(sa.uh[k:k+2], [d1, d2])
+            ordu = sa.params.uhs[0][1].ord
+            ck = abs(np.sum(ordu)-1) < UHEPS * 1
             self.assertTrue(ck)
 
 
@@ -80,7 +71,7 @@ class SAC15TestCases(unittest.TestCase):
         inputs = np.array([p, pe]).T
         sa.allocate(inputs, 6)
         sa.initialise()
-        sa.reset('params')
+        sa.params.reset()
         sa.run()
 
         out = sa.outputs

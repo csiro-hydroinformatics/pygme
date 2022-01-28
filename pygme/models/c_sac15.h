@@ -18,7 +18,7 @@
 #define SAC15_NSTATES 6
 
 /* Number of outputs returned by SAC15 run */
-#define SAC15_NOUTPUTS 20
+#define SAC15_NOUTPUTS 11
 
 int sac15_runtimestep(int nparams,
     int nuh, int ninputs,
@@ -43,4 +43,5 @@ int c_sac15_run(int nval,
     double * statesuhini,
 	double * statesini,
     double * outputs);
+
 

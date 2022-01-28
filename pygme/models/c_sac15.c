@@ -532,24 +532,55 @@ int sac15_runtimestep(int nparams,
 
     outputs[0] = runoff;
 	if(noutputs>1)
-        states[1] 	=   baseflow;
+        outputs[1] 	=   Uztwc;
     else
 	    return ierr;
 
 	if(noutputs>2)
-        states[2] 	=   E3+E5;
+        outputs[2] 	=   Uzfwc;
     else
 	    return ierr;
 
 	if(noutputs>3)
-        states[3] 	=   EvapUztw+EvapUzfw;
+        outputs[3] 	=   Lztwc;
     else
 	    return ierr;
 
-	if(noutputs>3)
-        states[3] 	=   HydrographStore;
+	if(noutputs>4)
+        outputs[4] 	=   Lzfsc;
     else
 	    return ierr;
+
+    if(noutputs>5)
+        outputs[5] 	=   Lzfpc;
+    else
+	    return ierr;
+
+    if(noutputs>6)
+        outputs[6] 	=   Adimc;
+    else
+	    return ierr;
+
+    if(noutputs>7)
+        outputs[7] 	=   baseflow;
+    else
+	    return ierr;
+
+	if(noutputs>8)
+        outputs[8] 	=   E3+E5;
+    else
+	    return ierr;
+
+	if(noutputs>9)
+        outputs[9] 	=   EvapUztw+EvapUzfw;
+    else
+	    return ierr;
+
+	if(noutputs>10)
+        outputs[10] 	=   HydrographStore;
+    else
+	    return ierr;
+
 
 	return ierr;
 }
