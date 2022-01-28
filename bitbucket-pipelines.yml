@@ -1,0 +1,28 @@
+image: continuumio/miniconda3:latest
+
+pipelines:
+  branches:
+    '{master,cleanup}':
+        - step:
+            caches:
+              - pip
+              - conda
+            script: # Build env and run tests
+              - apt-get update && apt-get -y install build-essential
+              - conda env update -n diyenv --file  env.yml
+              - source activate diyenv
+              - python setup.py develop
+              
+              # Running tests
+              - pytest --junitxml=junit/test-results.xml --cov=pygme --cov-config=.coveragerc --cov-report=xml pygme
+
+              # Pylint
+              #pylint --rcfile pylintrc hydrodiy > pylint_results
+
+            artifacts: 
+              - cov_html_gridverif/**
+
+definitions:
+  caches:
+    conda:  ~/.conda/envs/diyenv
+
