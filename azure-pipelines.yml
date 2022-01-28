@@ -51,7 +51,7 @@ steps:
 
 - script: |
     source activate $(CONDA_ENV)
-    pytest --junitxml=junit/test-results.xml --cov=pygme --cov-config=.coveragerc --cov-report=xml pygme 
+    pytest --junitxml=junit/test-results.xml --cov=pygme --cov-config=.coveragerc --cov-report=xml tests
   displayName: test
 
 - task: PublishTestResults@2
