@@ -19,27 +19,34 @@ if has_c_module("models_hydromodels"):
 SAC15_TMEAN = np.ones(15)
 SAC15_TCOV = np.eye(15)
 
+def logit_fwd(x):
+    u = max(1e-8, min(1-1e-8, x))
+    return math.log(u/(1-u))
+
+def logit_inv(tx):
+    return 1/(1+math.exp(-tx))
+
 # Transformation functions for sac parameters
 def sac15_trans2true(tx):
     x = np.exp(tx)
     x[0] = tx[0]                   # ADIMP
-    x[3] = 1./(1.+math.exp(-tx[3]))# LZPK
-    x[4] = 1./(1.+math.exp(-tx[4]))# LZSK
+    x[3] = logit_inv(tx[3])        # LZPK
+    x[4] = logit_inv(tx[4])        # LZSK
     x[6] = (9.99+tx[6])/19.98      # PFREE
     x[8] = tx[8]                   # SARVA
     x[9] = math.sinh((5+tx[9])/10.)# SIDE
-    x[12] = 1./(1.+math.exp(-tx[12]))# UZK
+    x[12] = logit_inv(tx[12])        # UZK
     return x
 
 def sac15_true2trans(x):
     tx = np.log(np.maximum(1e-10, x))
     tx[0] = x[0]                    # ADIMP
-    tx[3] = math.log(x[3]/(1-x[3])) # LZPK
-    tx[4] = math.log(x[4]/(1-x[4])) # LZSK
+    tx[3] = logit_fwd(x[3])         # LZPK
+    tx[4] = logit_fwd(x[4])         # LZSK
     tx[6] = x[6]*19.98-9.99         # PFREE
     tx[8] = x[8]                    # SARVA
     tx[9] = 10.*math.asinh(x[9])-5. # SIDE
-    tx[12] = math.log(x[12]/(1-x[12])) # UZK
+    tx[12] = logit_fwd(x[12])       # UZK
 
     return tx
 
@@ -58,7 +65,7 @@ class SAC15(Model):
                     mins=[1e-5, 1e-2, 1e-2, 1e-3, 1e-3, 10.,
                             1e-2, 1., 0., -0.2, 0, 1e-1, 1e-5, 1., 1e-2], \
                     maxs=[0.9, 5e2, 5e2, 0.9, 0.9, 1e3, 0.5,
-                            6., 0.5, 0.5, 100., 1e3, 1-1e-10, 1e3, 1e3])
+                            6., 0.5, 0.5, 10., 1e3, 1-1e-10, 1e3, 1e3])
         params = ParamsVector(vect)
 
         # UH
