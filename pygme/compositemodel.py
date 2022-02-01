@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from pygme.model import Model
-from pygme.data import Matrix, Vector
+from hydrodiy.data.containers import Vector
 
 # Maximum outputs from a composite models (can be updated when loading package)
 NOUTPUTSMAX = 100
