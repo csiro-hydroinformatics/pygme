@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from hydrodiy.io import csv, iutils
+from hydrodiy.io import csv, iutils, hyruns
 from hydrodiy.stat import metrics
 
 from datasets import Dataset
@@ -65,7 +65,7 @@ overwrite = args.overwrite
 warmup = int(10*365.25)
 
 # Large params lib
-nparamslib = 200
+nparamslib = 20000
 
 #----------------------------------------------------------------------
 # Folders
@@ -97,7 +97,7 @@ if not sitepattern == "":
     sites = sites_all.loc[idx, :]
 else:
     if ibatch >=0:
-        idx = iutils.get_ibatch(sites_all.shape[0], nbatch, ibatch)
+        idx = hyruns.get_batch(sites_all.shape[0], nbatch, ibatch)
         sites = sites_all.iloc[idx, :]
 
 #----------------------------------------------------------------------
@@ -133,7 +133,7 @@ for i, (siteid, row) in tbar:
     date_end = dates[end]
     obs = obs[start:end]
     inputs = np.ascontiguousarray(inputs[start:end])
-    ical = np.where(~np.isnan(obs))[0]
+    ical = np.where(~np.isnan(obs) & (np.arange(len(obs))>warmup))[0]
 
     if len(ical) < 365*10:
         LOGGER.error(f"Record too short ({len(ical)} days). Skip")

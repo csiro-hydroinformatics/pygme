@@ -5,8 +5,8 @@
 #SBATCH --time=2:00:00
 #SBATCH --ntasks=1
 #SBATCH --mem=10gb
-#SBATCH --output=logs/calsac/calsac_TASK%a_JOB%A.out
-#SBATCH --error=logs/calsac/calsac_TASK%a_JOB%A.err
+#SBATCH --output=paramslib/ogs/calsac/calsac_TASK%a_JOB%A.out
+#SBATCH --error=paramslib/logs/calsac/calsac_TASK%a_JOB%A.err
 #SBATCH --mail-type=end # send email when job ends
 #SBATCH --mail-user=julien.lerat@csiro.au
 
