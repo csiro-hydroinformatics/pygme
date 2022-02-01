@@ -1,8 +1,9 @@
-
+import math
 import numpy as np
 import pandas as pd
 
 from hydrodiy.data.containers import Vector
+from hydrodiy.stat import sutils
 
 from pygme.model import Model, ParamsVector
 from pygme.calibration import Calibration, \
@@ -105,7 +106,7 @@ class SAC15(Model):
 
 class CalibrationSAC15(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.2), \
+    def __init__(self, objfun=ObjFunBCSSE(0.5), \
                     warmup=5*365, \
                     timeit=False, \
                     fixed=None, \
