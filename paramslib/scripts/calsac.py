@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from hydrodiy.io import csv, iutils, hyruns
-from hydrodiy.stat import metrics
+from hydrodiy.stat import metrics, sutils
 
 from datasets import Dataset
 
@@ -72,7 +72,7 @@ nparamslib = 20000
 #----------------------------------------------------------------------
 source_file = Path(__file__).resolve()
 froot = source_file.parent.parent
-fout = froot / "outputs" / "calsac"
+fout = froot / "outputs" / f"calsac_v{version}"
 fout.mkdir(exist_ok=True, parents=True)
 
 flogs = froot / "logs" / "calsac"
@@ -104,12 +104,42 @@ else:
 # Process
 #----------------------------------------------------------------------
 
-## TODO -> load params lib from previous versions
+#load params lib from previous versions
+model = sac15.SAC15()
+if version == 1:
+    LOGGER.info(f"Retrieve parameter library from package")
+    means = sac15.SAC15_TMEAN
+    cov = sac15.SAC15_TCOV
+else:
+    LOGGER.info(f"Retrieve parameter library from version {version-1}")
+    flib = fout.parent / f"calsac_v{version-1}"
+    lf = list(flib.glob(f"sacparams*v{version-1}.json"))
+    nf = len(lf)
+    tplib = np.zeros((nf, model.params.nval))
+    #perf = np.zeros((nf, 2))
+    tbar = tqdm(enumerate(lf), desc="Loading params", \
+                    total=nf, disable=not progress)
+    for i, f in tbar:
+        with f.open("r") as fo:
+            p = json.load(fo)
+        pv = np.array([p["params"][n] for n in model.params.names])
+        tplib[i, :] = sac15.sac15_true2trans(pv)
+        #perf[i, :] = [p["nse"], p["bias"]]
 
+    means = np.mean(tplib, axis=0)
+    cov = np.cov(tplib.T)
 
-##
+# Build parameter library from
+# MVT norm in transform space using latin hypercube
+tplib = sutils.lhs_norm(nparamslib, means, cov)
 
+# Back transform
+plib = tplib * 0.
+for i in range(len(plib)):
+    plib[i, :] = sac15.sac15_trans2true(tplib[i, :])
+plib = np.clip(plib, model.params.mins, model.params.maxs)
 
+# Run calibration
 tbar = tqdm(enumerate(sites.iterrows()), total=len(sites), \
                 desc="Sac", disable=not progress)
 for i, (siteid, row) in tbar:
@@ -141,16 +171,20 @@ for i, (siteid, row) in tbar:
 
     # Calibrate on whole period
     cal = sac15.CalibrationSAC15(warmup=warmup, nparamslib=nparamslib)
+
+    # Set paramslib
+    cal.paramslib = plib
+
+    # Calibrate
     final, _, _, _ = cal.workflow(obs, inputs, ical=ical)
 
-    params = {n:round(v, 3) for n, v in zip(cal.model.params.names, final)}
-
-    # NSE / bias
+    # Compute simple perfs NSE / bias
     o, s = obs[ical], cal.model.outputs[ical, 0]
     nse = metrics.nse(o, s)
     bias = metrics.bias(o, s)
 
     # Store
+    params = {n:round(v, 3) for n, v in zip(cal.model.params.names, final)}
     dd = {
         "siteid": siteid, \
         "version": version, \
