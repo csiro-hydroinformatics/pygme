@@ -1,0 +1,50 @@
+#!/bin/bash -l
+
+#SBATCH --job-name=calsac
+#SBATCH --array=0-511%100
+#SBATCH --time=5:00:00
+#SBATCH --ntasks=1
+#SBATCH --mem=10gb
+#SBATCH --output=logs/calsac/calsac_TASK%a_JOB%A.out
+#SBATCH --error=logs/calsac/calsac_TASK%a_JOB%A.err
+#SBATCH --mail-type=end # send email when job ends
+#SBATCH --mail-user=julien.lerat@csiro.au
+
+# ----- VARIABLES TO SET ----------
+# VERSION: e.g. 1
+#
+
+#set -xv
+conda activate envcool
+
+echo --- System info ---
+echo whoami  : `whoami`
+echo date    : `date -u`
+echo hostname: `hostname -f`
+echo uname   : `uname -a`
+echo issue   : `cat /etc/issue`
+echo release : `lsb_release -a` 
+echo python  : `which python`
+
+
+BASE=calsac
+PYSCRIPT=$NAWRA_WORK/pymge/paramslib/scripts/$BASE.py
+FLOG=$NAWRA_WORK/pygme/logs/calsac
+
+## WARNING !
+## Don't forget to export ALL as well otherwise the script won't load the
+## the python env
+## e.g. sbatch --export=ALL,VERSION=1 calsac.job
+
+# Extract IDs
+jobid=$SLURM_ARRAY_JOB_ID
+taskid=$SLURM_ARRAY_TASK_ID
+
+# Run job
+echo
+echo --- Job info ---
+echo calsac - taskid=$taskid 
+
+ferr=logs/calsac/calsac_TASK${taskid}_JOB${jobid}.err
+srun --ntasks=1 --error=$ferr python $PYSCRIPT -i $taskid -v $VERSION 
+

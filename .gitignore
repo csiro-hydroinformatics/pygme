@@ -20,3 +20,5 @@ nosetests.xml
 tests/matrix.hdf5
 tests/vector.json
 tests/input_data/*.csv
+paramslib/logs
+paramslib/outputs
