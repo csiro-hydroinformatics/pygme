@@ -65,7 +65,7 @@ overwrite = args.overwrite
 warmup = int(10*365.25)
 
 # Large params lib
-nparamslib = 20000
+nparamslib = 30000
 
 #----------------------------------------------------------------------
 # Folders
