@@ -40,6 +40,7 @@ parser.add_argument("-o", "--overwrite", help="Overwrite existing param data",\
 args = parser.parse_args()
 
 progress = args.progress
+overwrite = args.overwrite
 
 #----------------------------------------------------------------------
 # Folders
@@ -59,7 +60,9 @@ LOGGER = iutils.get_logger(basename)
 #----------------------------------------------------------------------
 fconcat = fout / "calsac_params.csv"
 
-if not fconcat.exists():
+if fconcat.exists() and not overwrite:
+    params, _ = csv.read_csv(fconcat)
+else:
     lf = list(fout.glob("**/sacparams*.json"))
     nf = len(lf)
     tbar = tqdm(enumerate(lf), desc="Loading params", \
@@ -81,8 +84,6 @@ if not fconcat.exists():
     csv.write_csv(params, fconcat, \
         "SAC params", source_file, \
         compress=False)
-else:
-    params, _ = csv.read_csv(fconcat)
 
 #----------------------------------------------------------------------
 # Process
@@ -118,7 +119,6 @@ with f.open("w") as fo:
         txt += "\t[" + line + "],\n"
     fo.write("Transformed covariances: \n[" + txt + "]\n\n")
 
-
 # Plot
 plt.close("all")
 fig, axs = plt.subplots(nrows=3, ncols=6,\
@@ -132,10 +132,15 @@ for iplot, (ax, cn) in enumerate(zip(axs.flat, cols)):
     df = pd.pivot_table(params.loc[:, [cn, "siteid", "version"]], \
                     columns="version", index="siteid", \
                     values=cn)
+    if cn == "bias":
+        df = np.abs(df)
+
     putils.ecdfplot(ax, df)
 
     if cn == "nse":
-        ax.set_xlim((0, 1))
+        ax.set_xlim((0.2, 0.9))
+    elif cn == "bias":
+        ax.set_xlim((0, 0.3))
     elif cn == "Lag":
         ax.set_xlim((0, 10))
 
