@@ -57,15 +57,73 @@ class SAC15(Model):
         config = Vector(["nodata"], [0], [0], [1])
 
         # Param vector
+        #defaults = [0.1, 82., 32., 0.04, 0.24, 179.,
+        #                    0.4, 1.81, 0.01, 0., 0., 49., 0.4, 76., 60.], \
+        #mins = [1e-5, 1e-2, 1e-2, 1e-3, 1e-3, 10.,
+        #                    1e-2, 1., 0., -0.5, 0, 1e-1, 1e-5, 1., 1e-2], \
+        #maxs = [0.9, 1e3, 1e3, 0.9, 0.9, 1e3, 0.5,
+        #                    10., 0.2, 0.5, 10., 2e3, 1-1e-10, 6e2, 2e3]
+
+        defaults = [
+        		0.25, #Adimp
+        		142.69, #Lzfpm
+        		107.39, #Lzfsm
+        		0.14, #Lzpk
+        		0.14, #Lzsk
+        		201.60, #Lztwm
+        		0.32, #Pfree
+        		2.64, #Rexp
+        		0.00, #Sarva
+        		0.26, #Side
+        		1.20, #Lag
+        		179.03, #Uzfwm
+        		0.24, #Uzk
+        		46.78, #Uztwm
+        		328.37 #Zperc
+        ]
+
+        mins = [
+        		0.00, #Adimp
+        		0.01, #Lzfpm
+        		0.23, #Lzfsm
+        		0.00, #Lzpk
+        		0.00, #Lzsk
+        		10.00, #Lztwm
+        		0.01, #Pfree
+        		1.00, #Rexp
+        		0.00, #Sarva
+        		-0.50, #Side
+        		0.00, #Lag
+        		4.26, #Uzfwm
+        		0.00, #Uzk
+        		1.00, #Uztwm
+        		0.14 #Zperc
+        ]
+
+        maxs = [
+        		0.90, #Adimp
+        		1500.00, #Lzfpm
+        		1500.00, #Lzfsm
+        		0.90, #Lzpk
+        		0.90, #Lzsk
+        		1500.00, #Lztwm
+        		0.50, #Pfree
+        		7.00, #Rexp
+        		0.05, #Sarva
+        		0.50, #Side
+        		10.00, #Lag
+        		2000.00, #Uzfwm
+        		1.00, #Uzk
+        		400.00, #Uztwm
+        		2000.00 #Zperc
+        ]
+
         vect = Vector(['Adimp', 'Lzfpm', 'Lzfsm', 'Lzpk', \
                     'Lzsk', 'Lztwm', 'Pfree', 'Rexp', 'Sarva', \
                     'Side', 'Lag', 'Uzfwm', 'Uzk', 'Uztwm', 'Zperc'], \
-                    defaults=[0.1, 82., 32., 0.04, 0.24, 179.,
-                            0.4, 1.81, 0.01, 0., 0., 49., 0.4, 76., 60.], \
-                    mins=[1e-5, 1e-2, 1e-2, 1e-3, 1e-3, 10.,
-                            1e-2, 1., 0., -0.5, 0, 1e-1, 1e-5, 1., 1e-2], \
-                    maxs=[0.9, 1e3, 1e3, 0.9, 0.9, 1e3, 0.5,
-                            6., 0.5, 0.5, 10., 2e3, 1-1e-10, 6e2, 1e3])
+                    defaults=defaults,
+                    mins=mins, \
+                    maxs=maxs)
         params = ParamsVector(vect)
 
         # UH

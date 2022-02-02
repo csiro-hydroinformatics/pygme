@@ -33,19 +33,19 @@ int sac15_minmaxparams(int nparams, double * params)
 	double Zperc = params[14];
 
 	Adimp = c_minmax(1e-5,0.9,Adimp);
-	Lzfpm = c_minmax(1e-2,1e3,Lzfpm);
-	Lzfsm = c_minmax(1e-2,1e3,Lzfsm);
+	Lzfpm = c_minmax(1e-2,2e3,Lzfpm);
+	Lzfsm = c_minmax(1e-2,2e3,Lzfsm);
 	Lzpk  = c_minmax(1e-3,0.9,Lzpk);
 	Lzsk  = c_minmax(1e-3,0.9,Lzsk);
-	Lztwm = c_minmax(10.0,1e3,Lztwm);
+	Lztwm = c_minmax(10.0,2e3,Lztwm);
 	Pfree = c_minmax(0.01,0.5,Pfree);
-	Rexp  = c_minmax(1.0,6.0,Rexp);
+	Rexp  = c_minmax(1.0, 10.0,Rexp);
 	Sarva = c_minmax(0.0,0.5,Sarva);
 	Side  = c_minmax(-1.0,1.0,Side);
 	Uzfwm = c_minmax(1e-1,2e3,Uzfwm);
 	Uzk = c_minmax(1e-5,1-1e-10,Uzk);
-	Uztwm= c_minmax(1.0,6e2,Uztwm);
-	Zperc= c_minmax(1e-2,2e3,Zperc);
+	Uztwm= c_minmax(1.0,1e3,Uztwm);
+	Zperc= c_minmax(1e-2,3e3,Zperc);
 	Lag= c_minmax(0.0,100.0,Lag);
 
 	// Final parameter values
