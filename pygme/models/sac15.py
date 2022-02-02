@@ -118,7 +118,7 @@ class CalibrationSAC15(Calibration):
                     timeit=False, \
                     fixed=None, \
                     objfun_kwargs={}, \
-                    nparamslib=2000):
+                    nparamslib=20000):
 
         # Input objects for Calibration class
         model = SAC15()
