@@ -107,8 +107,28 @@ f = fout / "sacparamslib.txt"
 with f.open("w") as fo:
     fo.write(f"--- Paramslib version {version} ---\n\n")
 
-    txt = " ".join([f"{pn:s}" for pn in pnames])
-    fo.write("Parameters: \n" + txt + "\n\n")
+    txt = " ".join([f"{pn}" for pn in pnames])
+    fo.write("Parameter names: \n" + txt + "\n\n")
+
+
+    defaults = plib.mean(axis=0)
+    txt = "\n\t\t".join([f"{v:0.2f}, #{pn}" \
+                    for v, pn in zip(defaults, pnames)])
+    txt = re.sub(", #Zperc", " #Zperc", txt)
+    fo.write("Default values: \n[\n\t\t" + txt + "\t\n]\n\n")
+
+    mins = plib.min(axis=0)
+    txt = "\n\t\t".join([f"{v:0.2f}, #{pn}" \
+                    for v, pn in zip(mins, pnames)])
+    txt = re.sub(", #Zperc", " #Zperc", txt)
+    fo.write("Min values: \n[\n\t\t" + txt + "\t\n]\n\n")
+
+    maxs = plib.max(axis=0)
+    txt = "\n\t\t".join([f"{v:0.2f}, #{pn}" \
+                    for v, pn in zip(maxs, pnames)])
+    txt = re.sub(", #Zperc", " #Zperc", txt)
+    fo.write("Max values: \n[\n\t\t" + txt + "\t\n]\n\n")
+
 
     txt = ", ".join([f"{v:0.2f}" for v in means.values])
     fo.write("Transformed means: \n[" + txt + "]\n\n")
