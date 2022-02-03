@@ -33,13 +33,10 @@ parser = argparse.ArgumentParser(\
     description="A script", \
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument("-p", "--progress", help="Show progress", \
-                    action="store_true", default=False)
 parser.add_argument("-o", "--overwrite", help="Overwrite existing param data",\
                     action="store_true", default=False)
 args = parser.parse_args()
 
-progress = args.progress
 overwrite = args.overwrite
 
 #----------------------------------------------------------------------
@@ -66,7 +63,7 @@ else:
     lf = list(fout.glob("**/sacparams*.json"))
     nf = len(lf)
     tbar = tqdm(enumerate(lf), desc="Loading params", \
-                    total=nf, disable=not progress)
+                    total=nf)
     params = []
     for i, f in tbar:
         with f.open("r") as fo:
@@ -102,6 +99,11 @@ for i, p in plib.iterrows():
 
 means = tplib.mean()
 cov = tplib.cov()
+# Careful, Sarva is very small
+sarva = cov.Sarva.copy().round(5)
+cov = cov.round(2)
+cov.loc[:, "Sarva"] = sarva
+np.linalg.cholesky(cov)
 
 f = fout / "sacparamslib.txt"
 with f.open("w") as fo:
@@ -135,7 +137,7 @@ with f.open("w") as fo:
 
     txt = ""
     for co in cov.values:
-        line = ", ".join([f"{v:0.2f}" for v in co])
+        line = ", ".join([f"{v}" for v in co])
         txt += "\t[" + line + "],\n"
     fo.write("Transformed covariances: \n[" + txt + "]\n\n")
 
