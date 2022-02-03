@@ -93,7 +93,6 @@ def test_run2():
         sa.params.Lag = 1-sa.params.Lag
 
         sa.initialise()
-        sa.run_as_block = True
         sa.run()
 
         qsim1 = sa.outputs[:,0].copy()
@@ -120,43 +119,50 @@ def test_run2():
 
 
 def test_calibrate():
-    return
     sa = SAC15()
     warmup = 365*6
 
     calib = CalibrationSAC15()
-
+    sa = SAC15()
 
     fp = FHERE / "sac15" / "SAC15_params.csv"
-    params = np.loadtxt(fp, delimiter=",")
+    params = pd.read_csv(fp, index_col="id")
+    params = params.sort_index()
 
-    for i in range(params.shape[0]):
+    for i, param in params.iterrows():
+        fts = FHERE / "sac15" / f"SAC15_timeseries_{i:02d}.csv"
+        data = pd.read_csv(fts)
+        inputs = np.ascontiguousarray(data.iloc[:, [1, 2]], np.float64)
+        nval = inputs.shape[0]
 
-        fts = FHERE / "data" / f"SAC15_timeseries_{i+1:02d}.csv"
-        data = np.loadtxt(fts, delimiter=",")
-        inputs = Matrix.from_data("inputs",
-                np.ascontiguousarray(data[:, [1, 2]], np.float64))
+        # Run sac15 to define obs
+        sa.allocate(inputs)
+        t0 = time.time()
+        expected = []
+        for nm, value in param.items():
+            if nm in sa.params.names:
+                sa.params[nm] = value
+                expected.append(value)
+        expected = np.array(expected)
 
-        # Run sa first
-        params_expected = params[i, [2, 0, 1, 3]]
-        sa = calib.model
-        sa.allocate(inputs, 1)
-        sa.params = params_expected
+        sa.params.Lag = 1-sa.params.Lag
         sa.initialise()
         sa.run()
-        obs = Matrix.from_data("obs", sa.outputs[:,0].copy())
+        nval = sa.outputs.shape[0]
+        err = np.random.uniform(-1, 1, nval)*1e-4
+        obs = np.maximum(0, sa.outputs[:, 0]+err)
+        ical = np.arange(nval)>warmup
 
         # Calibrate
-        calib.setup(obs, inputs)
+        final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \
+                               maxfun=100000, ftol=1e-8)
 
-        start, explo, explo_ofun = calib.explore()
-        ieval1 = calib.ieval
-
-        final, _, _ = calib.fit(start, ftol=1e-8)
-        ieval2 = calib.ieval - ieval1
-
-        err = np.abs(calib.model.params - params_expected)
+        err = np.abs(calib.model.params.values - expected)
         ck = np.max(err) < 1e-7
+
+        err = calib.model.outputs[ical, 0]-obs[ical]
+        import pdb; pdb.set_trace()
+
 
         print(("\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}" +
                 " neval= {2} + {3}").format( \
