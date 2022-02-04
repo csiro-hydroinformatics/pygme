@@ -45,10 +45,6 @@ def test_run(allclose):
     wp = WAPABA()
 
     for i in range(20):
-        if i in [2, 9, 14]:
-            warnings.warn("Skipping test {0} for GR2m".format(i+1))
-            continue
-
         data = testdata.read("GR2M_timeseries_{0:02d}.csv".format(i+1), \
                                 source="output", has_dates=False)
         params = [2., 2., 0.5, 100, 0.5]
