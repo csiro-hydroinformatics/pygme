@@ -8,9 +8,14 @@ from hydrodiy.data.containers import Vector
 from hydrodiy.stat import sutils
 
 from pygme.model import Model, ParamsVector
-from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBiasBCSSE
 
-import c_pynonstat
+from pygme import has_c_module
+if has_c_module("models_hydromodels"):
+    import c_pygme_models_hydromodels
+
+WAPABA_TMEAN = np.log(np.array([2., 2., 0.5, 100, 0.5]))
+WAPABA_TCOV = np.eye(5)
 
 # Transformation functions for gr4j parameters
 def wapaba_trans2true(x):
@@ -22,23 +27,15 @@ def wapaba_true2trans(x):
 # Model
 class WAPABA(Model):
 
-    def __init__(self, version):
+    def __init__(self):
         # Config vector
-        version = int(version)
-        config = Vector(["version"], \
-                            [version], \
-                            [version-1e-10], \
-                            [version+1e-10])
+        config = Vector(["nodata"], [0], [0], [1])
 
         # params vector
-        if version == 0:
-            vect = Vector(["ALPHA1", "ALPHA2", "BETA", "SMAX", "INVK"], \
-                    defaults=[2., 2., 0.5, 100., 0.5], \
-                    mins=[1.01, 1.01, 1e-3, 1., 1e-3], \
-                    maxs=[10., 10., 1., 5000., 1.0])
-        else:
-            raise ValueError(f"Expected version to be 0, got {version}.")
-
+        vect = Vector(["ALPHA1", "ALPHA2", "BETA", "SMAX", "INVK"], \
+                defaults=[2., 2., 0.5, 100., 0.5], \
+                mins=[1.01, 1.01, 1e-3, 1., 1e-3], \
+                maxs=[10., 10., 1., 5000., 1.0])
         params = ParamsVector(vect)
 
         # State vector
@@ -48,15 +45,11 @@ class WAPABA(Model):
         # 3 inputs : P, E and days in month
         super(WAPABA, self).__init__("WAPABA",
             config, params, states, \
-            ninputs=3, \
+            ninputs=2, \
             noutputsmax=10)
 
         self.outputs_names = ["Q", "S", "G", "ET", "F1", "F2", "R", \
                             "Qb", "Qs", "W"]
-
-    @property
-    def version(self):
-        return np.int32(self.config.version)
 
 
     def initialise_fromdata(self):
@@ -76,30 +69,29 @@ class WAPABA(Model):
 
 
     def run(self):
-        ierr = c_pynonstat.wapaba_run(self.istart, self.iend,
-            self.config.values, \
-            self.params.values, \
-            self.inputs, \
-            self.states.values, \
-            self.outputs)
+        ierr = c_pygme_models_hydromodels.wapaba_run(self.istart, self.iend,
+                        self.params.values, \
+                        self.inputs, \
+                        self.states.values, \
+                        self.outputs)
 
-        if ierr > 0:
-            raise ValueError("Model wapaba,"+\
-                    f" c_pynonstat.wapaba_run returns {ierr}")
+        errmsg = "Model wapaba,"+\
+                    f" c_pygme_models_hydromodels.wapaba_run returns {ierr}"
+        assert ierr==0, errmsg
 
 
 
 class CalibrationWAPABA(Calibration):
 
-    def __init__(self, version, objfun=ObjFunBCSSE(0.2), \
+    def __init__(self, objfun=ObjFunBiasBCSSE(0.5), \
             warmup=36, \
             timeit=False,\
             fixed=None, \
-            nparamslib=500, \
+            nparamslib=5000, \
             objfun_kwargs={}):
 
         # Input objects for Calibration class
-        model = WAPABA(version)
+        model = WAPABA()
         params = model.params
 
         pnames =["tALPHA1", "tALPHA2", "tBETA", "tSMAX", "tINVK"]
@@ -127,8 +119,7 @@ class CalibrationWAPABA(Calibration):
 
         # Sample parameter library from latin hyper-cube
         mean = params.defaults
-        cov = np.diag((params.maxs-params.mins)/2)
-        plib = sutils.lhs_norm(nparamslib, mean, cov)
+        plib = sutils.lhs_norm(nparamslib, WAPABA_TMEAN, WAPABA_TCOV)
         plib = np.clip(plib, params.mins, params.maxs)
         self.paramslib = plib
 

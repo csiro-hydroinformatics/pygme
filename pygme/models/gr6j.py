@@ -6,7 +6,7 @@ from hydrodiy.stat import sutils
 from hydrodiy.data.containers import Vector
 
 from pygme.model import Model, ParamsVector, UH, ParameterCheckValueError
-from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBiasBCSSE
 from pygme.models.gr4j import gr4j_X1_initial
 
 from pygme import has_c_module
@@ -156,7 +156,7 @@ class GR6J(Model):
 
 class CalibrationGR6J(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.2), \
+    def __init__(self, objfun=ObjFunBiasBCSSE(0.5), \
                     warmup=5*365, \
                     timeit=False, \
                     fixed=None, \

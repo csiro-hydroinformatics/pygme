@@ -48,7 +48,7 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     /* inputs */
     P = c_max(0, inputs[0]);
     E = c_max(0, inputs[1]);
-    Dmth = (int)c_minmax(1., 31., inputs[2]);
+    Dmth = 30; // Fixed to 30 instead of input
 
     /* states */
     S = c_minmax(0, SMAX, states[0]);

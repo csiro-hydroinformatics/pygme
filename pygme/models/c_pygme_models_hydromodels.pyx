@@ -367,8 +367,8 @@ def wapaba_run(int start, int end,
     if inputs.shape[0] != outputs.shape[0]:
         raise ValueError('inputs.shape[0] != outputs.shape[0]')
 
-    if inputs.shape[1] != 3:
-        raise ValueError('inputs.shape[1] != 3')
+    if inputs.shape[1] != 2:
+        raise ValueError('inputs.shape[1] != 2')
 
     ierr = c_wapaba_run(inputs.shape[0], \
             params.shape[0], \
