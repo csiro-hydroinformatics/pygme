@@ -1,8 +1,8 @@
 #!/bin/bash -l
 
 #SBATCH --job-name=calmodel
-#SBATCH --array=0-39
-#SBATCH --time=3:00:00
+#SBATCH --array=0-59
+#SBATCH --time=10:00:00
 #SBATCH --ntasks=1
 #SBATCH --mem=10gb
 #SBATCH --output=paramslib/logs/calmodel/calmodel_TASK%a_JOB%A.out
@@ -45,6 +45,7 @@ echo
 echo --- Job info ---
 echo calsac - taskid=$taskid 
 
-ferr=$FLOG/calsac_TASK${taskid}_JOB${jobid}.err
-srun --ntasks=1 --error=$ferr python $PYSCRIPT -i $taskid -v $VERSION 
+ferr=$FLOG/calmodel_TASK${taskid}_JOB${jobid}.err
+srun --ntasks=1 --error=$ferr python $PYSCRIPT -t $taskid -v $VERSION 
+
 

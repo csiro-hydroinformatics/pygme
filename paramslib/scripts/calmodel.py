@@ -18,7 +18,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import fmin_bfgs
+from scipy.optimize import fmin_bfgs, fmin
 
 from hydrodiy.io import csv, iutils
 from hydrodiy.io.hyruns import get_batch, OptionManager
@@ -27,8 +27,10 @@ from hydrodiy.stat import metrics, sutils, transform
 from datasets import Dataset
 
 from pygme.models import sac15, wapaba, gr6j
+from pygme import calibration
 
 import importlib
+importlib.reload(calibration)
 importlib.reload(sac15)
 importlib.reload(wapaba)
 importlib.reload(gr6j)
@@ -62,7 +64,7 @@ overwrite = args.overwrite
 nbatch = args.nbatch
 
 # Large params lib
-nparamslib = 30000
+nparamslib = 20000
 
 # Get option manager
 opm = OptionManager()
@@ -86,8 +88,8 @@ fout.mkdir(exist_ok=True, parents=True)
 flogs = froot / "logs" / "calmodel"
 flogs.mkdir(exist_ok=True, parents=True)
 basename = source_file.stem
-flog = flogs / f"calsac_TASK{taskid}_V{version}_M{model_name}_B{batch}.log"
-LOGGER = iutils.get_logger(basename, flog=flog)
+flog = flogs / f"calmodel_TASK{taskid}_V{version}_M{model_name}_B{batch}.log"
+LOGGER = iutils.get_logger("pygme.calibration", flog=flog)
 
 LOGGER.info(f"taskid: {taskid}")
 LOGGER.info(f"model: {model_name}")
@@ -151,16 +153,21 @@ else:
     flib = fout.parent / f"calmodel_m{model_name}_v{version-1}"
     lf = list(flib.glob(f"params_*_m{model_name}_v{version-1}.json"))
     nf = len(lf)
-    tplib = np.zeros((nf, model.params.nval))
-    #perf = np.zeros((nf, 2))
+    tplib = []
     tbar = tqdm(enumerate(lf), desc="Loading params", \
                     total=nf, disable=not progress)
     for i, f in tbar:
         with f.open("r") as fo:
             p = json.load(fo)
-        pv = np.array([p["params"][n] for n in model.params.names])
-        tplib[i, :] = true2trans(pv)
+        nse = p["nse"]
+        bias = p["bias"]
 
+        # Discard parameter with very low perf
+        if nse>0 and abs(bias)<0.5:
+            pv = np.array([p["params"][n] for n in model.params.names])
+            tplib.append(true2trans(pv))
+
+    tplib = np.array(tplib)
     means = np.mean(tplib, axis=0)
     cov = np.cov(tplib.T)
 
@@ -213,7 +220,12 @@ for i, (siteid, row) in tbar:
 
     # Calibrate
     final, _, _, _ = cal.workflow(obs, inputs, ical=ical, \
-                                    optimizer=fmin_bfgs)
+                                    optimizer=fmin)
+
+    #cal.allocate(obs, inputs)
+    #cal.ical = ical
+    #start, _, ofuns = cal.explore(iprint=500)
+    #final, _, _ = cal.fit(iprint=10)
 
     # Compute simple perfs NSE / bias
     o, s = obs[ical], cal.model.outputs[ical, 0]
