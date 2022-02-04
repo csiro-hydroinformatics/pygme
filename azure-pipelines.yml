@@ -53,6 +53,7 @@ steps:
     source activate $(CONDA_ENV)
     pytest --junitxml=junit/test-results.xml --cov=pygme --cov-config=.coveragerc --cov-report=xml tests
   displayName: test
+  timeoutInMinutes: 120
 
 - task: PublishTestResults@2
   condition: succeededOrFailed()
