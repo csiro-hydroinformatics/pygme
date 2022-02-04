@@ -9,7 +9,7 @@ import time
 
 import numpy as np
 
-from pynonstat.wapaba import WAPABA, CalibrationWAPABA
+from pygme.models.wapaba import WAPABA, CalibrationWAPABA
 from pygme.calibration import ObjFunSSE
 
 import warnings
@@ -17,17 +17,16 @@ import warnings
 import testdata
 
 def test_print():
-    wp = WAPABA(0)
+    wp = WAPABA()
     s = f"{wp}"
 
 def test_wapaba_dumb():
-    wp = WAPABA(0)
+    wp = WAPABA()
 
     nval = 100
     p = np.exp(np.random.normal(0, 2, size=nval))
     pe = np.ones(nval) * 5.
-    d = np.ones(nval) * 30.
-    inputs = np.column_stack([p, pe, d])
+    inputs = np.column_stack([p, pe])
     wp.allocate(inputs, 9)
 
     wp.ALPHA1 = 2.
@@ -43,7 +42,7 @@ def test_wapaba_dumb():
 def test_run(allclose):
     """ Compare GR2M simulation with test data """
     warmup = 12 * 12
-    wp = WAPABA(0)
+    wp = WAPABA()
 
     for i in range(20):
         if i in [2, 9, 14]:
@@ -58,7 +57,6 @@ def test_run(allclose):
                         data.loc[:, ["Precip", "PotEvap"]], \
                         np.float64)
         nval = len(inputs)
-        inputs = np.column_stack([inputs, np.ones(nval)])
 
         # Run gr2m
         wp.allocate(inputs, 10)
@@ -79,13 +77,11 @@ def test_wapaba_calib(allclose):
                     data.loc[:, ["Precip", "PotEvap"]], \
                     np.float64)
     nval = len(inputs)
-    inputs = np.column_stack([inputs, 30*np.ones(nval)])
-    version = 0
-    wp = WAPABA(version)
+    wp = WAPABA()
     wp.allocate(inputs)
 
     # Calibration object
-    calib = CalibrationWAPABA(version, objfun=ObjFunSSE(), \
+    calib = CalibrationWAPABA(objfun=ObjFunSSE(), \
                                     warmup=120, \
                                     nparamslib=10000)
     # Sample parameters

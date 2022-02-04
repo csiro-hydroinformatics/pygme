@@ -17,7 +17,8 @@ from hydrodiy.data.containers import Vector
 
 from pygme.model import Model, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector
-from pygme.calibration import ObjFunSSE, ObjFunBCSSE, ObjFunKGE
+from pygme.calibration import ObjFunSSE, ObjFunBCSSE, \
+                                ObjFunKGE, ObjFunBiasBCSSE
 from pygme.calibration import CalibrationExplorationError
 
 from dummy import Dummy, CalibrationDummy, ObjFunSSEargs
@@ -104,13 +105,36 @@ class ObjFunTestCase(unittest.TestCase):
 
             BC.lam = lam
             BC.nu = nu
-            err = BC.forward(self.obs)-BC.forward(self.sim)
+            err = BC.forward(obs)-BC.forward(sim)
             expected = np.nansum(err*err)
 
             self.assertTrue(np.isclose(value, expected))
 
             value = of.compute(obs, sim)
             self.assertTrue(np.isnan(value))
+
+
+    def test_BiasBCSSE(self):
+        ''' test the BiasBCSSE objfun '''
+        obs, sim = self.obs, self.sim
+        idx = (~np.isnan(obs)) & (~np.isnan(sim))
+        mo = obs[idx].mean()
+        ms = sim[idx].mean()
+
+        for lam, nu in prod([0.1, 0.5, 1., 2], [1e-4, 1e-2, 1]):
+            of = ObjFunBiasBCSSE(lam, nu)
+            value = of.compute(obs[idx], sim[idx])
+
+            BC.lam = lam
+            BC.nu = nu
+            err = BC.forward(obs)-BC.forward(sim)
+
+            expected = np.nansum(err*err)*(1+abs(ms-mo)/mo)
+            self.assertTrue(np.isclose(value, expected))
+
+            value = of.compute(obs, sim)
+            self.assertTrue(np.isnan(value))
+
 
 
 class CalibParamsVectorTestCase(unittest.TestCase):

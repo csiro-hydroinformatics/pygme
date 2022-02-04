@@ -1,15 +1,16 @@
-import os
-import re
+import os, sys, re
 import pytest
 from pathlib import Path
+import logging
 
 import time
 import math
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import fmin_bfgs
 
-from pygme import calibration
+from pygme.calibration import ObjFunSSE, LOGGER
 from pygme.models.sac15 import SAC15, CalibrationSAC15
 
 import c_pygme_models_utils
@@ -18,9 +19,16 @@ UHEPS = c_pygme_models_utils.uh_getuheps()
 filename = Path(__file__).resolve()
 FHERE = filename.parent
 
+LOGGER.setLevel(logging.INFO)
+fmt="%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+ft = logging.Formatter(fmt)
+sh = logging.StreamHandler(sys.stdout)
+sh.setFormatter(ft)
+LOGGER.addHandler(sh)
+
 def test_print():
     sa = SAC15()
-    print(sa)
+    LOGGER.info(str(sa))
 
 
 def test_error1():
@@ -122,7 +130,8 @@ def test_calibrate():
     sa = SAC15()
     warmup = 365*6
 
-    calib = CalibrationSAC15()
+    calib = CalibrationSAC15(objfun=ObjFunSSE())
+    calib.iprint = 100
     sa = SAC15()
 
     fp = FHERE / "sac15" / "SAC15_params.csv"
@@ -138,12 +147,10 @@ def test_calibrate():
         # Run sac15 to define obs
         sa.allocate(inputs)
         t0 = time.time()
-        expected = []
         for nm, value in param.items():
             if nm in sa.params.names:
                 sa.params[nm] = value
-                expected.append(value)
-        expected = np.array(expected)
+        expected = sa.params.values.copy()
 
         sa.params.Lag = 1-sa.params.Lag
         sa.initialise()
@@ -154,13 +161,30 @@ def test_calibrate():
         ical = np.arange(nval)>warmup
 
         # Calibrate
-        final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \
-                               maxfun=100000, ftol=1e-8)
+        #final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \
+        #                       maxfun=100000, ftol=1e-8)
+        calib.allocate(obs, inputs)
+        calib.ical = ical
+
+        start, _, ofun_explore = calib.explore(iprint=500)
+        calib.calparams.truevalues = start
+        tstart = calib.calparams.values
+        final, ofun_final, outputs_final = calib.fit(tstart, \
+                                    iprint=50, \
+                                    optimizer=fmin_bfgs) #, \
+                                    #maxfun=100000) #, ftol=1e-8)
 
         err = np.abs(calib.model.params.values - expected)
         ck = np.max(err) < 1e-7
 
-        err = calib.model.outputs[ical, 0]-obs[ical]
+        sim = calib.model.outputs[:, 0]
+        err = sim[ical]-obs[ical]
+
+        import matplotlib.pyplot as plt
+        plt.close("all")
+        plt.plot(obs)
+        plt.plot(sim)
+        plt.show()
         import pdb; pdb.set_trace()
 
 
