@@ -1,4 +1,3 @@
-
 #ifndef __UTILS__
 #define __UTILS__
 
@@ -18,6 +17,7 @@
 #define GR6J_ERROR 22000
 #define HBV_ERROR 23000
 #define SAC15_ERROR 24000
+#define WAPABA_ERROR 25000
 
 #define LAGROUTE_ERROR 30000
 
@@ -29,6 +29,8 @@
 
 /* utility functions */
 double c_minmax(double min,double max,double input);
+double c_min(double x, double x0);
+double c_max(double x, double x0);
 
 
 double c_tanh(double x);

@@ -1,13 +1,5 @@
 #include "c_sac15.h"
 
-double mini(double x, double y){
-    return x<y ? x : y;
-}
-
-double maxi(double x, double y){
-    return x>y ? x : y;
-}
-
 int sac15_minmaxparams(int nparams, double * params)
 {
     if(nparams<15)
@@ -441,7 +433,7 @@ int sac15_runtimestep(int nparams,
 	            {
 	                ratlp = 1.0 - Alzfpc / Alzfpm;
 	                ratls = 1.0 - Alzfsc / Alzfsm;
-	                percs = mini( Alzfsm - Alzfsc,
+	                percs = c_min( Alzfsm - Alzfsc,
 	                                  percfw * ( 1.0 - hpl * ( 2.0 * ratlp ) / ( ratlp + ratls ) ) );
 	                Alzfsc = Alzfsc + percs;
 
@@ -513,10 +505,10 @@ int sac15_runtimestep(int nparams,
 	    ratioBaseflow = Flwbf / totalBeforeChannelLosses;
 
 	//! Subtract losses from the total channel flow ( going to the subsurface discharge )
-	ChannelFlow = maxi( 0.0, ( Flwbf + Flwsf - Ssout ) );
+	ChannelFlow = c_max( 0.0, ( Flwbf + Flwsf - Ssout ) );
 
 	//! following was e4
-	EvaporationChannelWater = mini( evapt * Sarva, ChannelFlow );
+	EvaporationChannelWater = c_min( evapt * Sarva, ChannelFlow );
 
 	runoff = ChannelFlow - EvaporationChannelWater;
 	baseflow = runoff * ratioBaseflow;

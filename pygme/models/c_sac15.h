@@ -1,3 +1,5 @@
+#ifndef __SAC15__
+#define __SAC15__
 
 #include <math.h>
 #include <stdlib.h>
@@ -43,5 +45,7 @@ int c_sac15_run(int nval,
     double * statesuhini,
 	double * statesini,
     double * outputs);
+
+#endif
 
 

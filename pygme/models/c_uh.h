@@ -1,3 +1,5 @@
+#ifndef __UH__
+#define __UH__
 
 #include <math.h>
 #include <stdlib.h>
@@ -39,3 +41,4 @@ int uh_runtimestep(int nuh,
         double * states,
         double * outputs);
 
+#endif

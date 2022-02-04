@@ -1,3 +1,5 @@
+#ifndef __GR4J__
+#define __GR4J__
 
 #include <math.h>
 #include <stdlib.h>
@@ -65,3 +67,4 @@ int c_gr4j_run(int nval,
 	double * statesini,
     double * outputs);
 
+#endif

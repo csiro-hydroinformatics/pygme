@@ -1,3 +1,5 @@
+#ifndef __GR2M__
+#define __GR2M__
 
 #include <math.h>
 #include <stdlib.h>
@@ -27,3 +29,4 @@ int c_gr2m_run(int nval, int nparams, int ninputs,
 	double * statesini,
     double * outputs);
 
+#endif

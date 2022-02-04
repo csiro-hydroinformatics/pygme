@@ -7,6 +7,16 @@ double c_minmax(double min, double max, double input)
             input > max ? max : input;
 }
 
+double c_min(double x, double x0)
+{
+    return x<x0 ? x : x0;
+}
+
+double c_max(double x, double x0)
+{
+    return x<x0 ? x0 : x;
+}
+
 double c_tanh(double x)
 {
     double a, b, xsq;

@@ -15,7 +15,6 @@ cdef extern from 'c_gr2m.h':
             double * outputs)
 
 cdef extern from 'c_gr4j.h':
-
     int c_compute_PmEm(int nval,double * rain, double * evap, double* PmEm)
 
     int c_gr4j_X1_initial(double Pm, double Em, double X1, double * solution)
@@ -77,6 +76,16 @@ cdef extern from 'c_sac15.h':
             double * inputs,
             double * statesuh,
             double * states,
+            double * outputs)
+
+cdef extern from 'c_wapaba.h':
+    int c_wapaba_run(int nval, int nparams,
+            int ninputs,
+            int nstates, int noutputs,
+            int start, int end,
+    	    double * params,
+    	    double * inputs,
+    	    double * statesini,
             double * outputs)
 
 
@@ -335,6 +344,41 @@ def sac15_run(int nuh,
             <double*> np.PyArray_DATA(inputs), \
             <double*> np.PyArray_DATA(statesuh), \
             <double*> np.PyArray_DATA(states), \
+            <double*> np.PyArray_DATA(outputs))
+
+    return ierr
+
+
+def wapaba_run(int start, int end,
+        np.ndarray[double, ndim=1, mode='c'] params not None,
+        np.ndarray[double, ndim=2, mode='c'] inputs not None,
+        np.ndarray[double, ndim=1, mode='c'] statesini not None,
+        np.ndarray[double, ndim=2, mode='c'] outputs not None):
+
+    cdef int ierr
+
+    # check dimensions
+    if params.shape[0] > 10:
+        raise ValueError('params.shape[0] > 10')
+
+    if statesini.shape[0] != 2:
+        raise ValueError('statesini.shape[0] < 2')
+
+    if inputs.shape[0] != outputs.shape[0]:
+        raise ValueError('inputs.shape[0] != outputs.shape[0]')
+
+    if inputs.shape[1] != 3:
+        raise ValueError('inputs.shape[1] != 3')
+
+    ierr = c_wapaba_run(inputs.shape[0], \
+            params.shape[0], \
+            inputs.shape[1], \
+            statesini.shape[0], \
+            outputs.shape[1], \
+            start, end, \
+            <double*> np.PyArray_DATA(params), \
+            <double*> np.PyArray_DATA(inputs), \
+            <double*> np.PyArray_DATA(statesini), \
             <double*> np.PyArray_DATA(outputs))
 
     return ierr

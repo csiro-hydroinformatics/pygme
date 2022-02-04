@@ -1,3 +1,5 @@
+#ifndef __GR6J__
+#define __GR6J__
 
 #include <math.h>
 #include <stdlib.h>
@@ -51,3 +53,4 @@ int c_gr6j_run(int version,
 	double * statesini,
     double * outputs);
 
+#endif

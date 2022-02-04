@@ -1,3 +1,5 @@
+#ifndef __LAGROUTE__
+#define __LAGROUTE__
 
 #include <math.h>
 #include <stdlib.h>
@@ -35,3 +37,4 @@ int c_lagroute_run(int nval,
 	double * states,
         double * outputs);
 
+#endif
