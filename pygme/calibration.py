@@ -102,6 +102,22 @@ class ObjFunBCSSE(ObjFun):
         return np.sum(err*err)
 
 
+class ObjFunBiasBCSSE(ObjFunBCSSE):
+    """ Sum of squared error objective function
+        for BC transformed flows times bias.
+    """
+
+    def __init__(self, lam=0.5, nu=0.):
+        super(ObjFunBiasBCSSE, self).__init__(lam, nu)
+        self.name = "BiasBCSSE"
+
+    def compute(self, obs, sim, **kwargs):
+        of = super(ObjFunBiasBCSSE, self).compute(obs, sim)
+        mo = obs.mean()
+        ms = sim.mean()
+        return of*(1+abs(ms-mo)/mo)
+
+
 def check_vector(x, nval):
     """ Check vector value """
     if not isinstance(x, np.ndarray):
