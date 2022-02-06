@@ -168,8 +168,8 @@ if version == 1:
     LOGGER.info(f"Retrieve parameter library from package")
 else:
     LOGGER.info(f"Retrieve parameter library from version {version-1}")
-    flib = fout.parent / f"calmodel_{model_name}_o{objfun_name}_v{version-1}"
-    lf = list(flib.glob(f"params_*{model_name}_o_{objfun_name}_v{version-1}.json"))
+    flib = fout.parent / f"calmodel_{model_name}_v{version-1}"
+    lf = list(flib.glob(f"params_*{model_name}_*_v{version-1}.json"))
     nf = len(lf)
     tplib = []
     tbar = tqdm(enumerate(lf), desc="Loading params", \
@@ -190,6 +190,10 @@ else:
     tplib = np.array(tplib)
     means = np.mean(tplib, axis=0)
     cov = np.cov(tplib.T)
+
+    if "Sarva" in model.params.names:
+        isarva = np.where(model.params.names == "Sarva")[0]
+        cov[isarva, isarva] = 0.1
 
 # Build parameter library from
 # MVT norm in transform space using latin hypercube
