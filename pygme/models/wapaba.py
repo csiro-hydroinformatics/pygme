@@ -14,8 +14,15 @@ from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
-WAPABA_TMEAN = np.log(np.array([2., 2., 0.5, 100, 0.5]))
-WAPABA_TCOV = np.eye(5)
+WAPABA_TMEAN = np.array([1.12, 0.57, -0.77, 5.65, -3.07])
+
+WAPABA_TCOV = np.array(\
+        [	[0.09, -0.0, -0.01, -0.09, 0.1],
+        	[-0.0, 0.1, 0.01, -0.04, -0.0],
+        	[-0.01, 0.01, 0.53, 0.07, 0.2],
+        	[-0.09, -0.04, 0.07, 0.51, -0.1],
+        	[0.08, -0.02, 0.19, -0.06, 1.4],
+        ])
 
 # Transformation functions for gr4j parameters
 def wapaba_trans2true(x):
@@ -32,17 +39,39 @@ class WAPABA(Model):
         config = Vector(["nodata"], [0], [0], [1])
 
         # params vector
+        defaults =[
+        		3.21, #ALPHA1
+        		1.91, #ALPHA2
+        		0.56, #BETA
+        		445.81, #SMAX
+        		0.10, #INVK
+        ]
+
+        mins = [
+        		1.26, #ALPHA1
+        		1.01, #ALPHA2
+        		0.001, #BETA
+        		20., #SMAX
+        		0.001, #INVK
+        ]
+
+        maxs = [
+        		10.00, #ALPHA1
+        		10.00, #ALPHA2
+        		1.00, #BETA
+        		5000.00, #SMAX
+        		1.00, #INVK
+        ]
         vect = Vector(["ALPHA1", "ALPHA2", "BETA", "SMAX", "INVK"], \
-                defaults=[2., 2., 0.5, 100., 0.5], \
-                mins=[1.01, 1.01, 1e-3, 1., 1e-3], \
-                maxs=[10., 10., 1., 5000., 1.0])
+                defaults=defaults, \
+                mins=mins, maxs=maxs)
         params = ParamsVector(vect)
 
         # State vector
         states = Vector(["S", "G"])
 
         # Model
-        # 3 inputs : P, E and days in month
+        # 2 inputs : P, E
         super(WAPABA, self).__init__("WAPABA",
             config, params, states, \
             ninputs=2, \
