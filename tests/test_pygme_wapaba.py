@@ -64,9 +64,8 @@ def test_run(allclose):
 
 def test_wapaba_calib(allclose):
     """ Test gr2m calibration """
-    i = 0
-
     # Get data
+    i = 0
     data = testdata.read("GR2M_timeseries_{0:02d}.csv".format(i+1), \
                             source="output", has_dates=False)
 

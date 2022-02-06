@@ -93,7 +93,6 @@ def test_run2():
 
         # Run sac15 [block]
         sa.allocate(inputs)
-        t0 = time.time()
         for nm, value in param.items():
             if nm in sa.params.names:
                 sa.params[nm] = value
@@ -102,11 +101,7 @@ def test_run2():
 
         sa.initialise()
         sa.run()
-
         qsim1 = sa.outputs[:,0].copy()
-        t1 = time.time()
-        dta1 = 1000 * (t1-t0)
-        dta1 /= len(qsim1)/365.25
 
         # Compare
         expected = data.loc[:, "sac15[mm/d]"].values
@@ -117,12 +112,8 @@ def test_run2():
         expected = expected[idx]
 
         err = np.abs(qsim1 - expected)
-        rerr = err/(1e-2+expected)*100
-        ck = np.max(rerr) < rerr_thresh
-        if not ck:
-            import pdb; pdb.set_trace()
-
-
+        rerr = err/(1e-1+expected)*100
+        ck = rerr.max() < rerr_thresh
         failmsg = f"TEST {i+1} : max abs rerr = " +\
             f"{rerr.max():0.5f} < {rerr_thresh:0.5f}"
         assert ck, failmsg
