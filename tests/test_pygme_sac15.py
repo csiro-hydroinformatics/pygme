@@ -119,6 +119,9 @@ def test_run2():
         err = np.abs(qsim1 - expected)
         rerr = err/(1e-2+expected)*100
         ck = np.max(rerr) < rerr_thresh
+        if not ck:
+            import pdb; pdb.set_trace()
+
 
         failmsg = f"TEST {i+1} : max abs rerr = " +\
             f"{rerr.max():0.5f} < {rerr_thresh:0.5f}"

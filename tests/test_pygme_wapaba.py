@@ -61,6 +61,7 @@ def test_run(allclose):
         wp.run()
 
 
+
 def test_wapaba_calib(allclose):
     """ Test gr2m calibration """
     i = 0
