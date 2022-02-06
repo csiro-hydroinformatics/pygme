@@ -63,19 +63,22 @@ progress = args.progress
 overwrite = args.overwrite
 nbatch = args.nbatch
 
-# Large params lib
-nparamslib = 20000
-
 # Get option manager
 opm = OptionManager()
 models = ["sac15", "gr6j", "wapaba"]
+objfuns = ["bc0.2", "biasbc0.2", "bc0.5", "biasbc0.5", \
+                                "bc1.0", "biasbc1.0"]
 batches = np.arange(nbatch)
-opm.from_cartesian_product(model=models, batch=batches)
+opm.from_cartesian_product(model=models, objfun=objfuns, batch=batches)
 
 # Get task
 task = opm.get_task(taskid)
 model_name = task.model
 batch = task.batch
+objfun_name = task.objfun
+
+# Large params lib
+nparamslib = 20000 if model_name == "sac15" else 5000
 
 #----------------------------------------------------------------------
 # Folders
@@ -91,9 +94,10 @@ basename = source_file.stem
 flog = flogs / f"calmodel_TASK{taskid}_V{version}_M{model_name}_B{batch}.log"
 LOGGER = iutils.get_logger("pygme.calibration", flog=flog)
 
+LOGGER.info(f"version: {version}")
 LOGGER.info(f"taskid: {taskid}")
 LOGGER.info(f"model: {model_name}")
-LOGGER.info(f"version: {version}")
+LOGGER.info(f"objfun: {objfun_name}")
 LOGGER.info(f"batch:  {batch}")
 
 #----------------------------------------------------------------------
@@ -138,7 +142,21 @@ elif model_name == "wapaba":
     trans2true = wapaba.wapaba_trans2true
     timestep = "MS"
 
-# Reciprocal transform
+# Objective function
+if objfun_name == "bc0.2":
+    objfun = calibration.ObjFunBCSSE(0.2)
+elif objfun_name == "biasbc0.2":
+    objfun = calibration.ObjFunBiasBCSSE(0.2)
+elif objfun_name == "bc0.5":
+    objfun = calibration.ObjFunBCSSE(0.5)
+elif objfun_name == "biasbc0.5":
+    objfun = calibration.ObjFunBiasBCSSE(0.5)
+elif objfun_name == "bc1.0":
+    objfun = calibration.ObjFunBCSSE(1.0)
+elif objfun_name == "biasbc1.0":
+    objfun = calibration.ObjFunBiasBCSSE(1.0)
+
+# Reciprocal transform for NSE reciprocal
 trans_recip = transform.Reciprocal()
 trans_recip.nu = 1e-1 if timestep=="MS" else 1e-3
 
@@ -150,17 +168,19 @@ if version == 1:
     LOGGER.info(f"Retrieve parameter library from package")
 else:
     LOGGER.info(f"Retrieve parameter library from version {version-1}")
-    flib = fout.parent / f"calmodel_m{model_name}_v{version-1}"
-    lf = list(flib.glob(f"params_*_m{model_name}_v{version-1}.json"))
+    flib = fout.parent / f"calmodel_{model_name}_o{objfun_name}_v{version-1}"
+    lf = list(flib.glob(f"params_*{model_name}_o_{objfun_name}_v{version-1}.json"))
     nf = len(lf)
     tplib = []
     tbar = tqdm(enumerate(lf), desc="Loading params", \
                     total=nf, disable=not progress)
+    perfs = []
     for i, f in tbar:
         with f.open("r") as fo:
             p = json.load(fo)
         nse = p["nse"]
         bias = p["bias"]
+        perfs.append([nse, abs(bias)])
 
         # Discard parameter with very low perf
         if nse>0 and abs(bias)<0.5:
@@ -189,7 +209,7 @@ for i, (siteid, row) in tbar:
         LOGGER.info("dealing with {0} ({1}/{2})".format( \
             siteid, i, len(sites)))
 
-    fparams = fout / f"params_{siteid}_m{model_name}_v{version}.json"
+    fparams = fout / f"params_{siteid}_{model_name}_o{objfun_name}_v{version}.json"
     if fparams.exists() and not overwrite:
         continue
 
@@ -197,14 +217,24 @@ for i, (siteid, row) in tbar:
     data, _ = dset.get(siteid, "rainfall_runoff", timestep)
     dates = data.index
     obs = data.filter(regex="^runoff\[", axis=1).values.squeeze()
-    inputs = data.filter(regex="^(evap|rain)\[", axis=1).values.squeeze()
+    obs[obs<0] = np.nan
 
+    df = pd.concat([data.filter(regex="^rain\[+", axis=1),
+                    data.filter(regex="^evap\[+", axis=1)], axis=1)
+    inputs = df.values
+
+    # Select data with available flow + warmup
+    nval = len(data)
     start = max(0, np.where(~np.isnan(obs))[0].min()-warmup)
-    end = min(len(data)-1, np.where(~np.isnan(obs))[0].max())
+    end = min(nval-1, np.where(~np.isnan(obs) & ~np.isnan(inputs[:, 0]))[0].max())
     date_start = dates[start]
     date_end = dates[end]
     obs = obs[start:end]
     inputs = np.ascontiguousarray(inputs[start:end])
+
+    # Set calibration period with warmup
+    obs[:warmup] = np.nan
+    nval = len(obs)
     ical = np.where(~np.isnan(obs) & (np.arange(len(obs))>warmup))[0]
 
     min_length = 3650 if timestep == "D" else 120
@@ -213,7 +243,8 @@ for i, (siteid, row) in tbar:
         continue
 
     # Calibrate on whole period
-    cal = CalibrationObject(warmup=warmup, nparamslib=nparamslib)
+    cal = CalibrationObject(warmup=warmup, nparamslib=nparamslib, \
+                                objfun=objfun)
 
     # Set paramslib
     cal.paramslib = plib
@@ -222,6 +253,7 @@ for i, (siteid, row) in tbar:
     final, _, _, _ = cal.workflow(obs, inputs, ical=ical, \
                                     optimizer=fmin)
 
+    # Detailed calib process
     #cal.allocate(obs, inputs)
     #cal.ical = ical
     #start, _, ofuns = cal.explore(iprint=500)
@@ -239,6 +271,7 @@ for i, (siteid, row) in tbar:
         "siteid": siteid, \
         "version": version, \
         "model": model_name, \
+        "objfun": objfun_name, \
         "warmup": warmup, \
         "nparamslib": nparamslib, \
         "nse": round(nse, 3), \
