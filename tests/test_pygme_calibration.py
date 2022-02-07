@@ -101,6 +101,8 @@ class ObjFunTestCase(unittest.TestCase):
 
         for lam, nu in prod([0.1, 0.5, 1., 2], [1e-4, 1e-2, 1]):
             of = ObjFunBCSSE(lam, nu)
+            assert of.name == f"BCSSE{lam:0.1f}"
+
             value = of.compute(obs[idx], sim[idx])
 
             BC.lam = lam
@@ -123,6 +125,8 @@ class ObjFunTestCase(unittest.TestCase):
 
         for lam, nu in prod([0.1, 0.5, 1., 2], [1e-4, 1e-2, 1]):
             of = ObjFunBiasBCSSE(lam, nu)
+            assert of.name == f"BiasBCSSE{lam:0.1f}"
+
             value = of.compute(obs[idx], sim[idx])
 
             BC.lam = lam

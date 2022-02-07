@@ -83,7 +83,7 @@ class ObjFunBCSSE(ObjFun):
     """
 
     def __init__(self, lam=0.5, nu=0.):
-        super(ObjFunBCSSE, self).__init__("BCSSE", 1)
+        super(ObjFunBCSSE, self).__init__(f"BCSSE{lam:0.1f}", 1)
 
         # Set Transform
         BC.lam = float(lam)
@@ -109,7 +109,7 @@ class ObjFunBiasBCSSE(ObjFunBCSSE):
 
     def __init__(self, lam=0.5, nu=0.):
         super(ObjFunBiasBCSSE, self).__init__(lam, nu)
-        self.name = "BiasBCSSE"
+        self.name = f"BiasBCSSE{lam:0.1f}"
 
     def compute(self, obs, sim, **kwargs):
         of = super(ObjFunBiasBCSSE, self).compute(obs, sim)
