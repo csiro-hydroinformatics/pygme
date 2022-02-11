@@ -68,7 +68,7 @@ class WAPABA(Model):
         params = ParamsVector(vect)
 
         # State vector
-        states = Vector(["S", "G"])
+        states = Vector(["S", "G"], check_bounds=False)
 
         # Model
         # 2 inputs : P, E
