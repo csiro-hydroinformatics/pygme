@@ -385,6 +385,26 @@ class Model(object):
             super(Model, self).__setattr__(name, value)
 
 
+    def __getitem__(self, name):
+        if name in self._params.names or \
+                name in self._config.names or \
+                name in self._states.names:
+            return getattr(self, name)
+        else:
+            raise ValueError(f"model {self.name}: '{name}' cannot be obtained from"+\
+                        " the model attributes")
+
+
+    def __setitem__(self, name, value):
+        if name in self._params.names or \
+                name in self._config.names or \
+                name in self._states.names:
+            return setattr(self, name, value)
+        else:
+            raise ValueError(f"model {self.name}: '{name}' cannot be set as a"+\
+                        " model attributes")
+
+
     def __str__(self):
         str = ("\n{0} model implementation\n"+\
                 "\tConfig: {1}\n\tParams: {2}\n\tStates: {3}"+\

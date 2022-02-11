@@ -287,8 +287,33 @@ def test_set_params_attributes(allclose):
     assert allclose(dum.params.values, params)
 
 
-def test_set_get_items():
-    pass
+def test_set_get_items(allclose):
+    dum = Dummy()
+    dum.X1 = 0.5
+    dum.X2 = 8
+
+    for name in ["X1", "X2", "continuous", "S1", "S2"]:
+        v = dum[name]
+        dum[name] = v+1
+
+    msg = "model dummy: 'bidule' cannot be obtained"
+    with pytest.raises(ValueError, match=msg):
+        dum["bidule"]
+
+    msg = "model dummy: 'bidule' cannot be set"
+    with pytest.raises(ValueError, match=msg):
+        dum["bidule"] = 10
+
+    assert allclose(dum.continuous, 1)
+    assert allclose(dum.S1, 1)
+    assert allclose(dum.S2, 1)
+    assert allclose(dum.X1, 1.5)
+    assert allclose(dum.X2, 9)
+
+    # Set above max
+    dum["X1"] = 100
+    assert allclose(dum.X1, 10)
+
 
 
 def test_initialise_states(allclose):
