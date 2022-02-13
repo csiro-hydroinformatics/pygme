@@ -1,5 +1,22 @@
 #include "c_wapaba.h"
 
+int wapaba_minmaxparams(int nparams, double * params)
+{
+    if(nparams != WAPABA_NPARAMS)
+    {
+        return WAPABA_ERROR + __LINE__;
+    }
+
+	params[0] = c_minmax(1.01, 10., params[0]); 	// ALPPHA1
+	params[1] = c_minmax(1.01, 10., params[1]); 	// ALPPHA2
+	params[2] = c_minmax(1e-5, 1., params[2]); 	    // BETA
+	params[3] = c_minmax(1e1, 5000., params[3]); 	// SMAX
+	params[4] = c_minmax(1e-3, 1., params[4]);	// INVK
+
+	return 0;
+}
+
+
 /*******************************************************************************
 * Run time step code for the WAPABA rainfall-runoff model
 *
@@ -55,7 +72,7 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     G = c_max(0, states[1]);
 
     /* Catchment water consumption */
-	X0 = c_max(0., E+(SMAX-S)); //    !(3)
+	X0 = c_max(0., E+SMAX-S); //    !(3)
     // !(1) Where P = Supply and X0 = demand
 	F1 = 1.+P/X0-pow(1.+pow(P/X0, ALPHA1), (1./ALPHA1));
 	X = X0*F1; // !(2)
@@ -96,7 +113,7 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     R = BETA*Y;  //             !(8)
 
     // !Surface discharge
-    Qs = c_max(0., Y-R); //     !(9)
+    Qs = (1-BETA)*Y;
 
     //!Stage 4
     //!Groundwater storage and baseflow estimation(10)
@@ -192,6 +209,9 @@ int c_wapaba_run(int nval,
 
     if(end >=nval)
         return WAPABA_ERROR + __LINE__;
+
+    /* Check parameters */
+    ierr = wapaba_minmaxparams(nparams, params);
 
     /* Run timeseries */
     for(i = start; i <= end; i++)
