@@ -11,7 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from pygme.models.lagroute import LagRoute, CalibrationLagRoute
-from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunSSE
 
 
 import c_pygme_models_utils
@@ -200,6 +200,7 @@ class LagRouteTestCase(unittest.TestCase):
             with known parameters '''
         lr = LagRoute()
         warmup = 100
+        objfun = ObjFunSSE()
 
         for i in range(16):
             # Get data
@@ -223,7 +224,8 @@ class LagRouteTestCase(unittest.TestCase):
             obs = lr.outputs[:,0].copy()+err
 
             # Wrapper function for profiling
-            calib = CalibrationLagRoute()
+
+            calib = CalibrationLagRoute(objfun=objfun)
             final, ofun, _, _ = calib.workflow(obs, inputs, \
                                         maxfun=100000, ftol=1e-8)
 
