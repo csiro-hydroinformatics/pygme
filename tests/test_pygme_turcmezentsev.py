@@ -8,6 +8,8 @@ import time
 
 import numpy as np
 
+from pygme.calibration import ObjFunSSE
+
 from pygme.models.turcmezentsev import TurcMezentsev, \
                                     turcm_forward, \
                                     turcm_backward, \
@@ -129,11 +131,12 @@ class TurcMezentsevTestCase(unittest.TestCase):
 
         inputs = np.array([P, E]).T
         obs = np.array(Q)
-        calib = CalibrationTurcMezentsev()
+        objfun = ObjFunSSE()
+        calib = CalibrationTurcMezentsev(objfun=objfun)
         calib.workflow(obs, inputs)
 
         tm = calib.model
-        ck = np.allclose(tm.params['n'], 1.753469, atol=1e-3)
+        ck = np.allclose(tm.params['n'], 1.7190228, atol=1e-3)
         if not ck:
             print('tm.trueparams = {0}'.format(tm.params['n']))
 
