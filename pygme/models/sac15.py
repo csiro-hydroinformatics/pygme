@@ -8,7 +8,7 @@ from hydrodiy.stat import sutils
 from pygme.model import Model, ParamsVector
 from pygme.calibration import Calibration, \
                     CalibParamsVector, \
-                    ObjFunBiasBCSSE
+                    ObjFunBCSSE
 
 from pygme import has_c_module
 if has_c_module("models_hydromodels"):
@@ -188,7 +188,7 @@ class SAC15(Model):
 
 class CalibrationSAC15(Calibration):
     # Fix Sarva to 0 because it seems useless
-    def __init__(self, objfun=ObjFunBiasBCSSE(0.5), \
+    def __init__(self, objfun=ObjFunBCSSE(0.5), \
                     warmup=5*365, \
                     timeit=False, \
                     fixed={"Sarva": 0.}, \

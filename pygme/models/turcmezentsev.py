@@ -7,7 +7,7 @@ from scipy.special import lambertw
 from hydrodiy.data.containers import Vector
 
 from pygme.model import Model, ParamsVector
-from pygme.calibration import Calibration, CalibParamsVector
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 
 def turcm_forward(rain, evap, nparam):
@@ -116,17 +116,20 @@ class TurcMezentsev(Model):
 
 class CalibrationTurcMezentsev(Calibration):
 
-    def __init__(self, nparamslib=500, timeit=False,\
-                    objfun_kwargs={}):
+    def __init__(self, objfun=ObjFunBCSSE(0.5), \
+                    warmup=2, \
+                    objfun_kwargs={}, \
+                    nparamslib=500):
 
         # Input objects for Calibration class
         model = TurcMezentsev()
         params = model.params
-
         calparams = CalibParamsVector(model)
 
         # Instanciate calibration
         super(CalibrationTurcMezentsev, self).__init__(calparams, \
+            objfun=objfun, \
+            warmup=warmup, \
             objfun_kwargs=objfun_kwargs)
 
         # Parameter library

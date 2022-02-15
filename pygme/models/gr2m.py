@@ -8,7 +8,7 @@ from hydrodiy.data.containers import Vector
 from hydrodiy.stat import sutils
 
 from pygme.model import Model, ParamsVector
-from pygme.calibration import Calibration, CalibParamsVector, ObjFunBiasBCSSE
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 from pygme import has_c_module
 if has_c_module("models_hydromodels"):
@@ -81,7 +81,7 @@ class GR2M(Model):
 
 class CalibrationGR2M(Calibration):
 
-    def __init__(self, objfun=ObjFunBiasBCSSE(0.5), \
+    def __init__(self, objfun=ObjFunBCSSE(0.5), \
             warmup=36, \
             timeit=False,\
             fixed=None, \
