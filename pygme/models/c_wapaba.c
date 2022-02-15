@@ -72,7 +72,10 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     G = c_max(0, states[1]);
 
     /* Catchment water consumption */
-	X0 = c_max(0., E+SMAX-S); //    !(3)
+	//X0 = c_max(0., E+SMAX-S); //    !(3)
+    // useless because S<SMAX
+	X0 = E+SMAX-S;
+
     // !(1) Where P = Supply and X0 = demand
 	F1 = 1.+P/X0-pow(1.+pow(P/X0, ALPHA1), (1./ALPHA1));
 	X = X0*F1; // !(2)
