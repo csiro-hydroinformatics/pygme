@@ -99,7 +99,10 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     	ET = c_min(E*F2, W);
     }
     else
+    {
+        F2 = 0;
     	ET = 0.;
+    }
 
     //!Water in the soil store from eqn. (7)
     S = W-ET;			//           !(7)
