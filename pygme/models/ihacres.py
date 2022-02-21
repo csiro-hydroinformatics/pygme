@@ -51,7 +51,7 @@ class IHACRES(Model):
 
         # params vector
         vect = Vector(["f", "d"], \
-                    [0.7, 200], [0.1, 1e1], [2., 1e3])
+                    [0.7, 200], [0.1, 1e1], [2., 2e3])
         params = ParamsVector(vect)
 
         # State vector

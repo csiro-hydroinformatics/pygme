@@ -17,7 +17,7 @@ int ihacres_minmaxparams(int nparams, double * params)
     }
 
 	params[0] = c_minmax(0.1, 2, params[0]); 	// f
-	params[1] = c_minmax(1e1, 1e3, params[1]);	// d
+	params[1] = c_minmax(1e1, 2e3, params[1]);	// d
 
 	return 0;
 }
@@ -37,7 +37,6 @@ int ihacres_minmaxparams(int nparams, double * params)
 * config		Model configuration. 1D Array
 * params		Model paramsameters. 1D Array
 *					params[0] = f
-*					params[1] = e
 *					params[1] = d
 *
 * inputs		Model inputs. 1D Array
