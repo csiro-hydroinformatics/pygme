@@ -26,7 +26,7 @@ from hydrodiy.stat import metrics, sutils, transform
 
 from datasets import Dataset
 
-from pygme.models import sac15, wapaba, gr6j
+from pygme.factory import sac15, wapaba, gr6j, ihacres
 from pygme import calibration
 
 import importlib
@@ -34,6 +34,7 @@ importlib.reload(calibration)
 importlib.reload(sac15)
 importlib.reload(wapaba)
 importlib.reload(gr6j)
+importlib.reload(ihacres)
 
 from tqdm import tqdm
 
@@ -65,7 +66,7 @@ nbatch = args.nbatch
 
 # Get option manager
 opm = OptionManager()
-models = ["sac15", "gr6j", "wapaba"]
+models = ["ihacres", "wapaba"] #["ihacres", "sac15", "gr6j", "wapaba"]
 objfuns = ["bc0.2", "biasbc0.2", "bc0.5", "biasbc0.5", \
                                 "bc1.0", "biasbc1.0"]
 batches = np.arange(nbatch)
@@ -141,6 +142,16 @@ elif model_name == "wapaba":
     true2trans = wapaba.wapaba_true2trans
     trans2true = wapaba.wapaba_trans2true
     timestep = "MS"
+
+elif model_name == "ihacres":
+    model = ihacres.IHACRES()
+    CalibrationObject = ihacres.CalibrationIHACRES
+    means = ihacres.IHACRES_TMEAN
+    cov = ihacres.IHACRES_TCOV
+    true2trans = ihacres.ihacres_true2trans
+    trans2true = ihacres.ihacres_trans2true
+    timestep = "MS"
+
 
 # Objective function
 if objfun_name == "bc0.2":
@@ -285,7 +296,6 @@ for i, (siteid, row) in tbar:
     }
     with fparams.open("w") as fo:
         json.dump(dd, fo, indent=4)
-
 
 LOGGER.info("Process completed")
 
