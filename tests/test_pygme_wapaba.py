@@ -9,8 +9,12 @@ import time
 
 import numpy as np
 
-from pygme.models.wapaba import WAPABA, CalibrationWAPABA
+from pygme.models.wapaba import WAPABA, CalibrationWAPABA, \
+                                WAPABA_TMEAN, WAPABA_TCOV, \
+                                wapaba_true2trans, wapaba_trans2true
+
 from pygme.calibration import ObjFunSSE
+from hydrodiy.stat import sutils
 
 import warnings
 
@@ -37,6 +41,18 @@ def test_wapaba_dumb():
     wp.initialise()
 
     wp.run()
+
+
+def test_params_transform(allclose):
+    nparamslib = 10000
+    tplib = sutils.lhs_norm(nparamslib, WAPABA_TMEAN, WAPABA_TCOV)
+    for tp in tplib:
+        p = wapaba_trans2true(tp)
+        tp2 = wapaba_true2trans(p)
+        assert allclose(tp, tp2)
+
+        p2 = wapaba_trans2true(tp2)
+        assert allclose(p, p2)
 
 
 def test_run(allclose):

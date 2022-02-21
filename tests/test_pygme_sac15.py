@@ -10,8 +10,12 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import fmin_bfgs
 
+from hydrodiy.stat import sutils
+
 from pygme.calibration import ObjFunSSE, LOGGER
-from pygme.models.sac15 import SAC15, CalibrationSAC15
+from pygme.models.sac15 import SAC15, CalibrationSAC15, \
+                            SAC15_TMEAN, SAC15_TCOV, \
+                            sac15_trans2true, sac15_true2trans
 
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
@@ -57,6 +61,19 @@ def test_uh():
 
         ordu = sa.params.uhs[0][1].ord
         assert abs(np.sum(ordu)-1) < UHEPS * 1
+
+
+def test_params_transform(allclose):
+    nparamslib = 10000
+    model = SAC15()
+    tplib = sutils.lhs_norm(nparamslib, SAC15_TMEAN, SAC15_TCOV)
+    tplib = tplib.clip(-17, 17)
+    for i, tp in enumerate(tplib):
+        p = sac15_trans2true(tp)
+        tp2 = sac15_true2trans(p)
+        assert allclose(tp, tp2)
+        p2 = sac15_trans2true(tp2)
+        assert allclose(p, p2)
 
 
 def test_run1():
