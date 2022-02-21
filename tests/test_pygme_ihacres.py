@@ -9,8 +9,13 @@ import time
 
 import numpy as np
 
-from pygme.models.ihacres import IHACRES, CalibrationIHACRES
+from pygme.models.ihacres import IHACRES, CalibrationIHACRES, \
+                                IHACRES_TMEAN, IHACRES_TCOV, \
+                                ihacres_trans2true, ihacres_true2trans
+
 from pygme.calibration import ObjFunSSE
+
+from hydrodiy.stat import sutils
 
 import warnings
 
@@ -30,10 +35,22 @@ def test_ihacres_dumb():
     ihc.allocate(inputs, 4)
 
     ihc.f = 0.7
-    ihc.e = 0.166
     ihc.d = 200
     ihc.initialise()
     ihc.run()
+
+
+def test_params_transform(allclose):
+    nparamslib = 10000
+    model = IHACRES()
+    tplib = sutils.lhs_norm(nparamslib, IHACRES_TMEAN, IHACRES_TCOV)
+    for i, tp in enumerate(tplib):
+        p = ihacres_trans2true(tp)
+        tp2 = ihacres_true2trans(p)
+        assert allclose(tp, tp2)
+
+        p2 = ihacres_trans2true(tp2)
+        assert allclose(p, p2)
 
 
 def test_run(allclose):
@@ -55,7 +72,8 @@ def test_run(allclose):
 
         # Run ihacres
         ihc.allocate(inputs, 4)
-        ihc.params.values = [params[n][0] for n in ihc.params.names]
+        ihc.f = params.f
+        ihc.d = params.d
         ihc.initialise_fromdata()
         ihc.run()
         outputs = ihc.outputs_dataframe().loc[:, ["Q", "M", "ET"]]
