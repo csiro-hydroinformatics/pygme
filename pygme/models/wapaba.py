@@ -146,10 +146,14 @@ class CalibrationWAPABA(Calibration):
             objfun_kwargs=objfun_kwargs, \
             initial_kwargs=initial_kwargs)
 
-        # Sample parameter library from latin hyper-cube
-        mean = params.defaults
-        plib = sutils.lhs_norm(nparamslib, WAPABA_TMEAN, WAPABA_TCOV)
-        plib = np.clip(plib, params.mins, params.maxs)
-        self.paramslib = plib
+        # Build parameter library from
+        # MVT norm in transform space using latin hypercube
+        tplib = sutils.lhs_norm(nparamslib, WAPABA_TMEAN, WAPABA_TCOV)
 
+        # Back transform
+        plib = tplib * 0.
+        for i in range(len(plib)):
+            plib[i, :] = wapaba_trans2true(tplib[i, :])
+        plib = np.clip(plib, model.params.mins, model.params.maxs)
+        self.paramslib = plib
 
