@@ -68,7 +68,7 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     /* model variables */
     double P, E;
     double M, Mf, M_prev;
-    double U, CMD, ET;
+    double U, ET;
 
     /* inputs */
     P = inputs[0] < 0 ? 0 : inputs[0];

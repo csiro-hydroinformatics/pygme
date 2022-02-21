@@ -46,7 +46,6 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
         double * outputs)
 {
     int ierr=0;
-    int newton_iter, newton_itermax=50;
 
     /* parameters */
     double ALPHA1 = params[0];  // Retention efficiency, i.e. a larger ALPHA1 value will
