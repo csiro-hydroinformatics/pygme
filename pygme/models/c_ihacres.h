@@ -10,13 +10,13 @@
 #include "c_utils.h"
 
 /* Number of inputs required by IHACRES run */
-#define IHACRES_NCONFIG 1
+#define IHACRES_NCONFIG 2
 
 /* Number of inputs required by IHACRES run */
 #define IHACRES_NINPUTS 2
 
 /* Number of params required by IHACRES run */
-#define IHACRES_NPARAMS 3
+#define IHACRES_NPARAMS 2
 
 /* Number of states returned by IHACRES run */
 #define IHACRES_NSTATES 1

@@ -14,7 +14,10 @@ from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
-# Transformation functions for gr4j parameters
+IHACRES_TMEAN = np.array([math.log(0.35/(1-0.35)), math.log(200)])
+IHACRES_TCOV = np.array([[2., 0.], [0., 1.]])
+
+# Transformation functions for ihacres parameters
 def logit_fwd(u, eps=1e-7):
     u = u.clip(eps, 1-eps)
     return np.log(u/(1-u))
@@ -23,13 +26,15 @@ def logit_inv(v):
     return np.exp(v)/(1+np.exp(v))
 
 def ihacres_trans2true(xt):
-    x = logit_inv(xt)
-    x[-1] = math.exp(xt[-1]) # d parameter
+    x = np.zeros(2)
+    x[0] = 2*logit_inv(xt[0]) # f parameter
+    x[1] = math.exp(xt[1]) # d parameter
     return x
 
 def ihacres_true2trans(x):
-    xt = logit_fwd(x)
-    xt[-1] = math.log(max(1e-2, x[-1])) # d parameter
+    xt = np.zeros(2)
+    xt[0] = logit_fwd(x[0]/2) # f parameter
+    xt[1] = math.log(max(1e-2, x[1])) # d parameter
     return xt
 
 
@@ -39,11 +44,14 @@ class IHACRES(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(["shape"], [0], [0], [10])
+        # e is normally an IHACRES parameter used if evap inputs are
+        # different from PET or if vegetation plays a big role in
+        # influencing evap.
+        config = Vector(["shape", "e"], [0., 1.], [0., 0.1], [10., 1.5])
 
         # params vector
-        vect = Vector(["f", "e", "d"], \
-                    [0.7, 0.16, 200], [0., 0., 1e-2], [1, 1, 2e3])
+        vect = Vector(["f", "d"], \
+                    [0.7, 200], [0.1, 1e1], [2., 1e3])
         params = ParamsVector(vect)
 
         # State vector
@@ -103,7 +111,7 @@ class CalibrationIHACRES(Calibration):
         model = IHACRES()
         params = model.params
 
-        cp = Vector(["tf", "te", "td"], \
+        cp = Vector(["tf", "td"], \
                 mins=ihacres_true2trans(params.mins),
                 maxs=ihacres_true2trans(params.maxs),
                 defaults=ihacres_true2trans(params.defaults))
@@ -123,12 +131,14 @@ class CalibrationIHACRES(Calibration):
             objfun_kwargs=objfun_kwargs, \
             initial_kwargs=initial_kwargs)
 
-        # Sample parameter library from latin hyper-cube
-        mean = params.defaults
-        cov = np.diag([0.2, 0.2, 100])**2
+        # Build parameter library from
+        # MVT norm in transform space using latin hypercube
+        tplib = sutils.lhs_norm(nparamslib, IHACRES_TMEAN, IHACRES_TCOV)
 
-        plib = sutils.lhs_norm(nparamslib, mean, cov)
-        plib = np.clip(plib, params.mins, params.maxs)
+        # Back transform
+        plib = tplib * 0.
+        for i in range(len(plib)):
+            plib[i, :] = ihacres_trans2true(tplib[i, :])
+        plib = np.clip(plib, model.params.mins, model.params.maxs)
         self.paramslib = plib
-
 

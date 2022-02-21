@@ -11,14 +11,13 @@
 
 int ihacres_minmaxparams(int nparams, double * params)
 {
-    if(nparams<3)
+    if(nparams<2)
     {
         return IHACRES_ERROR + __LINE__;
     }
 
-	params[0] = c_minmax(0, 1, params[0]); 	// f
-	params[1] = c_minmax(0, 1, params[1]);	    // e
-	params[2] = c_minmax(1e-2, 2e3, params[2]);	// d
+	params[0] = c_minmax(0.1, 2, params[0]); 	// f
+	params[1] = c_minmax(1e1, 1e3, params[1]);	// d
 
 	return 0;
 }
@@ -59,12 +58,12 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
 
     /* Shape config */
     double shape = config[0];
+    double param_e = config[1];
     double a;
 
     /* parameters */
     double param_f = params[0];
-    double param_e = params[1];
-    double param_d = params[2];
+    double param_d = params[1];
     double param_g = param_f*param_d;
 
     /* model variables */
