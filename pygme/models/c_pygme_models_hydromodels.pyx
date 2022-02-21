@@ -89,6 +89,20 @@ cdef extern from 'c_wapaba.h':
             double * outputs)
 
 
+cdef extern from 'c_ihacres.h':
+    int c_ihacres_run(int nval,
+        int nconfig,
+        int nparams,
+        int ninputs,
+        int nstates,
+        int noutputs,
+        int start, int end,
+        double * config,
+        double * params,
+        double * inputs,
+        double * statesini,
+        double * outputs)
+
 def __cinit__(self):
     pass
 
@@ -383,4 +397,32 @@ def wapaba_run(int start, int end,
 
     return ierr
 
+
+def ihacres_run(int start, int end, \
+        np.ndarray[double, ndim=1, mode='c'] config not None,
+        np.ndarray[double, ndim=1, mode='c'] params not None,
+        np.ndarray[double, ndim=2, mode='c'] inputs not None,
+        np.ndarray[double, ndim=1, mode='c'] statesini not None,
+        np.ndarray[double, ndim=2, mode='c'] outputs not None):
+
+    cdef int ierr
+
+    # check dimensions
+    if inputs.shape[0] != outputs.shape[0]:
+        raise ValueError('inputs.shape[0] != outputs.shape[0]')
+
+    ierr = c_ihacres_run(inputs.shape[0], \
+            config.shape[0], \
+            params.shape[0], \
+            inputs.shape[1], \
+            statesini.shape[0], \
+            outputs.shape[1], \
+            start, end, \
+            <double*> np.PyArray_DATA(config), \
+            <double*> np.PyArray_DATA(params), \
+            <double*> np.PyArray_DATA(inputs), \
+            <double*> np.PyArray_DATA(statesini), \
+            <double*> np.PyArray_DATA(outputs))
+
+    return ierr
 

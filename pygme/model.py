@@ -1,6 +1,7 @@
 import math, itertools
 import copy
 import random
+import pandas as pd
 import numpy as np
 
 from hydrodiy.data.containers import Vector
@@ -583,6 +584,12 @@ class Model(object):
                 self.name, noutputs, values.shape[1]))
 
         self._outputs = outputs
+
+
+    def outputs_dataframe(self):
+        """ Get model output in pandas dataframe format """
+        cols = self.outputs_names[:self.noutputs]
+        return pd.DataFrame(self.outputs, columns=cols)
 
 
     def allocate(self, inputs, noutputs=1):

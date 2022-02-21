@@ -40,7 +40,8 @@ else:
             'pygme/models/c_gr4j.c',
             'pygme/models/c_gr6j.c',
             'pygme/models/c_sac15.c',
-            'pygme/models/c_wapaba.c'
+            'pygme/models/c_wapaba.c',
+            'pygme/models/c_ihacres.c'
         ],
         extra_cflags=['-O3'],
         extra_compile_args=['-ffast-math'],
