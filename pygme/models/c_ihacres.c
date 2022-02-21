@@ -124,7 +124,7 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     // drainage (rainfall not accounted for in -dM)
     U = c_max(0, P - M_prev + Mf);
     // evapo-transpiration
-    ET = param_e * E * min(1, exp(2 * (1 - Mf / param_g)));
+    ET = param_e * E * c_min(1, exp(2 * (1 - Mf / param_g)));
     ET = c_max(0, ET);
     // mass balance
     M = c_max(0, M_prev - P + U + ET);

@@ -1,10 +1,10 @@
 """ Model objects factory """
 
 from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
-                    turcmezentsev, wapaba
+                    turcmezentsev, wapaba, ihacres
 
 MODEL_NAMES = ["gr2m", "g4j", "gr6j", "lagroute", "sac15", \
-                "turcmezentsev", "wapaba"]
+                "turcmezentsev", "wapaba", "ihacres"]
 
 
 def model_factory(name, *args, **kwargs):
@@ -40,6 +40,8 @@ def model_factory(name, *args, **kwargs):
         return turcmezentsev.TurcMezentsev(*args, **kwargs)
     elif name == "wapaba":
         return wapaba.WAPABA(*args, **kwargs)
+    elif name == "ihacres":
+        return ihacres.IHACRES(*args, **kwargs)
 
 
 def calibration_factory(name, *args, **kwargs):
@@ -75,4 +77,6 @@ def calibration_factory(name, *args, **kwargs):
         return turcmezentsev.CalibrationTurcMezentsev(*args, **kwargs)
     elif name == "wapaba":
         return wapaba.CalibrationWAPABA(*args, **kwargs)
+    elif name == "ihacres":
+        return ihacres.CalibrationIHACRES(*args, **kwargs)
 
