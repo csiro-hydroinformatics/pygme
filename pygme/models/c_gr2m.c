@@ -144,6 +144,11 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     else
         return ierr;
 
+    if(noutputs>10)
+        outputs[10] = S1;
+    else
+        return ierr;
+
 
     return ierr;
 }
@@ -164,13 +169,13 @@ int c_gr2m_run(int nval,
     int ierr, i;
 
     /* Check dimensions */
-    if(nparams < 2)
+    if(nparams != GR2M_NPARAMS)
         return GR2M_ERROR + __LINE__;
 
-    if(nstates < 2)
+    if(nstates != GR2M_NSTATES)
         return GR2M_ERROR + __LINE__;
 
-    if(ninputs < 2)
+    if(ninputs != GR2M_NINPUTS)
         return GR2M_ERROR + __LINE__;
 
     if(noutputs > GR2M_NOUTPUTS)

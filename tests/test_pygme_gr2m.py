@@ -33,13 +33,14 @@ class GR2MTestCase(unittest.TestCase):
         p = np.exp(np.random.normal(0, 2, size=nval))
         pe = np.ones(nval) * 5.
         inputs = np.concatenate([p[:,None], pe[:, None]], axis=1)
-        gr.allocate(inputs, 9)
+        gr.allocate(inputs, 11)
 
         gr.X1 = 400
         gr.X2 = 0.9
         gr.initialise()
 
         gr.run()
+        df = gr.outputs_dataframe()
 
 
     def test_run_against_data(self):
