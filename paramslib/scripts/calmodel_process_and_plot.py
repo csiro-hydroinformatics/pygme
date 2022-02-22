@@ -35,9 +35,12 @@ parser = argparse.ArgumentParser(\
 
 parser.add_argument("-o", "--overwrite", help="Overwrite existing param data",\
                     action="store_true", default=False)
+parser.add_argument("-p", "--pattern", help="Model pattern selection", \
+                    type=str, default="")
 args = parser.parse_args()
 
 overwrite = args.overwrite
+pattern = args.pattern
 
 #----------------------------------------------------------------------
 # Folders
@@ -54,7 +57,10 @@ fimg.mkdir(exist_ok=True)
 basename = source_file.stem
 LOGGER = iutils.get_logger(basename)
 
-for model_name in ["sac15", "gr6j", "wapaba"]:
+for model_name in ["sac15", "gr6j", "wapaba", "ihacres"]:
+    if pattern != "" and not re.search(pattern, model_name):
+        continue
+
     LOGGER.info(f"Processing {model_name}")
 
     #----------------------------------------------------------------------
