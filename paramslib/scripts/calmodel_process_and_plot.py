@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from hydrodiy.io import csv, iutils, hyruns
 from hydrodiy.plot import putils
 
-from pygme.models import sac15, gr6j, wapaba
+from pygme.models import sac15, gr6j, wapaba, ihacres
 
 from tqdm import tqdm
 
@@ -103,6 +103,9 @@ for model_name in ["sac15", "gr6j", "wapaba"]:
     elif model_name == "wapaba":
         model = wapaba.WAPABA()
         true2trans = wapaba.wapaba_true2trans
+    elif model_name == "ihacres":
+        model = ihacres.IHACRES()
+        true2trans = ihacres.ihacres_true2trans
 
     pnames = model.params.names
 
@@ -119,12 +122,18 @@ for model_name in ["sac15", "gr6j", "wapaba"]:
         cov.loc["Sarva", "Sarva"] = 0.1
 
     # Rounding. Careful with parameters having very small std
-    sigs = np.sqrt(np.diag(cov))
-    digits = {pn: -int(math.floor(math.log10(s))-1) for pn, s in zip(pnames, sigs)}
-    cov = cov.round(digits)
+    cov_raw = cov.values
+    cov = 0*cov_raw
+    digits = -np.floor(np.log10(np.diag(cov_raw))-1).astype(int)
+    # .. perform rounding starting from low precision to high
+    for d in np.unique(digits):
+        ii = np.where(digits==d)[0]
+        cov[:, ii] = cov_raw[:, ii].round(d)
+        cov[ii, :] = cov_raw[ii, :].round(d)
 
     # Check covar is semidef pos
     np.linalg.cholesky(cov)
+    assert np.allclose(cov, cov.T)
 
 
     f = flibs / f"paramslib_{model_name}.txt"
@@ -136,33 +145,33 @@ for model_name in ["sac15", "gr6j", "wapaba"]:
 
 
         defaults = plib.mean(axis=0)
-        txt = "\n\t\t".join([f"{v:0.2f}, #{pn}" \
+        txt = "\n        ".join([f"{v:0.2f}, #{pn}" \
                         for v, pn in zip(defaults, pnames)])
         parlast = pnames[-1]
         txt = re.sub(", "+parlast, " "+parlast, txt)
-        fo.write("Default values: \n[\n\t\t" + txt + "\t\n]\n\n")
+        fo.write("Default values: \n[\n        " + txt + "    \n]\n\n")
 
         mins = plib.min(axis=0)
-        txt = "\n\t\t".join([f"{v:0.2f}, #{pn}" \
+        txt = "\n        ".join([f"{v:0.2f}, #{pn}" \
                         for v, pn in zip(mins, pnames)])
         txt = re.sub(", "+parlast, " "+parlast, txt)
-        fo.write("Min values: \n[\n\t\t" + txt + "\t\n]\n\n")
+        fo.write("Min values: \n[\n        " + txt + "    \n]\n\n")
 
         maxs = plib.max(axis=0)
-        txt = "\n\t\t".join([f"{v:0.2f}, #{pn}" \
+        txt = "\n        ".join([f"{v:0.2f}, #{pn}" \
                         for v, pn in zip(maxs, pnames)])
         txt = re.sub(", "+parlast, " "+parlast, txt)
-        fo.write("Max values: \n[\n\t\t" + txt + "\t\n]\n\n")
+        fo.write("Max values: \n[\n        " + txt + "    \n]\n\n")
 
 
         txt = ", ".join([f"{v:0.2f}" for v in means.values])
         fo.write("Transformed means: \n[" + txt + "]\n\n")
 
         txt = ""
-        for co in cov.values:
+        for co in cov:
             line = ", ".join([f"{v}" for v in co])
-            txt += "\t[" + line + "],\n"
-        fo.write("Transformed covariances: \n[" + txt + "]\n\n")
+            txt += "    [" + line + "],\n"
+        fo.write("Transformed covariances: \n[\n" + txt + "\n]\n\n")
 
 
     # Plot
@@ -174,12 +183,14 @@ for model_name in ["sac15", "gr6j", "wapaba"]:
             nrows, ncols, figsize = 3, 4, (12, 10)
         elif model_name == "wapaba":
             nrows, ncols, figsize = 3, 3, (10, 10)
+        elif model_name == "ihacres":
+            nrows, ncols, figsize = 3, 3, (10, 10)
 
         fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, \
                             constrained_layout=True)
 
         # Select data to plot
-        pat = "|".join(pnames.tolist()) + "|^nse|bias"
+        pat = "|".join([f"^{n}$" for n in pnames]) + "|^nse|bias"
         icols = params.columns.str.findall(pat).astype(bool)
         cols = params.columns[icols]
 
