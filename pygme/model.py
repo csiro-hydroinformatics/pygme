@@ -586,10 +586,10 @@ class Model(object):
         self._outputs = outputs
 
 
-    def outputs_dataframe(self):
+    def outputs_dataframe(self, index=None):
         """ Get model output in pandas dataframe format """
         cols = self.outputs_names[:self.noutputs]
-        return pd.DataFrame(self.outputs, columns=cols)
+        return pd.DataFrame(self.outputs, columns=cols, index=index)
 
 
     def allocate(self, inputs, noutputs=1):
