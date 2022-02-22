@@ -33,7 +33,7 @@ class GR2MTestCase(unittest.TestCase):
         p = np.exp(np.random.normal(0, 2, size=nval))
         pe = np.ones(nval) * 5.
         inputs = np.concatenate([p[:,None], pe[:, None]], axis=1)
-        gr.allocate(inputs, 11)
+        gr.allocate(inputs, 12)
 
         gr.X1 = 400
         gr.X2 = 0.9

@@ -75,10 +75,10 @@ class WAPABA(Model):
         super(WAPABA, self).__init__("WAPABA",
             config, params, states, \
             ninputs=2, \
-            noutputsmax=10)
+            noutputsmax=13)
 
         self.outputs_names = ["Q", "S", "G", "ET", "F1", "F2", "R", \
-                            "Qb", "Qs", "W"]
+                            "Qb", "Qs", "W", "Y", "Yb", "Sb"]
 
 
     def initialise_fromdata(self):

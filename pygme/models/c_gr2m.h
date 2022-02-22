@@ -19,7 +19,7 @@
 #define GR2M_NSTATES 2
 
 /* Number of outputs returned by GR2M run */
-#define GR2M_NOUTPUTS 11
+#define GR2M_NOUTPUTS 12
 
 int c_gr2m_run(int nval, int nparams, int ninputs,
     int nstates, int noutputs,

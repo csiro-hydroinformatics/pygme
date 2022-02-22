@@ -149,6 +149,11 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     else
         return ierr;
 
+    if(noutputs>11)
+        outputs[11] = S2;
+    else
+        return ierr;
+
 
     return ierr;
 }

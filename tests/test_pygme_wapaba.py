@@ -31,7 +31,7 @@ def test_wapaba_dumb():
     p = np.exp(np.random.normal(0, 2, size=nval))
     pe = np.ones(nval) * 5.
     inputs = np.column_stack([p, pe])
-    wp.allocate(inputs, 9)
+    wp.allocate(inputs, 13)
 
     wp.ALPHA1 = 2.
     wp.ALPHA2 = 2.
@@ -41,6 +41,7 @@ def test_wapaba_dumb():
     wp.initialise()
 
     wp.run()
+    do = wp.outputs_dataframe()
 
 
 def test_params_transform(allclose):

@@ -19,7 +19,7 @@
 #define WAPABA_NSTATES 2
 
 /* Number of outputs returned by WAPABA run */
-#define WAPABA_NOUTPUTS 10
+#define WAPABA_NOUTPUTS 13
 
 int c_wapaba_run(int nval, int nparams, int ninputs,
     int nstates, int noutputs,

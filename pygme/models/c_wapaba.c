@@ -60,6 +60,7 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     double P, E, Dmth;
     double S, G;
     double omega, F1, F2, ET, Y, R, Qs, Qb, Q, X, W, X0;
+    double Yb, Sb;
 
     /* inputs */
     P = c_max(0, inputs[0]);
@@ -107,6 +108,8 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     S = W-ET;			//           !(7)
 
     //!Prevent S > SMAX(to resolve problem not described in original paper where st > SMAX)
+    Yb = Y;
+    Sb = S;
     if (S>SMAX)
     {
     	Y = Y-SMAX+S;
@@ -180,6 +183,20 @@ int c_wapaba_runtimestep(int nparams, int ninputs,
     else
         return ierr;
 
+    if(noutputs>10)
+        outputs[10] = Y;
+    else
+        return ierr;
+
+    if(noutputs>11)
+        outputs[11] = Yb;
+    else
+        return ierr;
+
+    if(noutputs>12)
+        outputs[12] = Sb;
+    else
+        return ierr;
 
     return ierr;
 }
@@ -200,13 +217,16 @@ int c_wapaba_run(int nval,
     int ierr, i;
 
     /* Check dimensions */
-    if(nparams < WAPABA_NPARAMS)
+    if(nparams != WAPABA_NPARAMS)
         return WAPABA_ERROR + __LINE__;
 
-    if(nstates < WAPABA_NSTATES)
+    if(nstates != WAPABA_NSTATES)
         return WAPABA_ERROR + __LINE__;
 
-    if(ninputs < WAPABA_NINPUTS)
+    if(ninputs != WAPABA_NINPUTS)
+        return WAPABA_ERROR + __LINE__;
+
+    if(noutputs > WAPABA_NOUTPUTS)
         return WAPABA_ERROR + __LINE__;
 
     if(start < 0)
