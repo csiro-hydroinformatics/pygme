@@ -3,7 +3,9 @@
 int sac15_minmaxparams(int nparams, double * params)
 {
     if(nparams<15)
+    {
         return SAC15_ERROR + __LINE__;
+    }
 
 	double Adimp = params[0];
 	double Lzfpm = params[1];
