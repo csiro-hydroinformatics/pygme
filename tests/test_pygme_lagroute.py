@@ -229,16 +229,23 @@ class LagRouteTestCase(unittest.TestCase):
             final, ofun, _, _ = calib.workflow(obs, inputs, \
                                         maxfun=100000, ftol=1e-8)
 
+            # Test if error on outputs
+            warmup = calib.warmup
+            sim = calib.model.outputs[:, 0]
+            rerr = np.abs(obs[warmup:]-sim[warmup:])/(1+obs[warmup:])*100
+            rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
+            self.assertTrue(rerrmax < 2e-2)
+
             # Test error on parameters
-            err = np.abs(final-params)
-            imax = np.argmax(err)
-            ck = np.allclose(params, final, rtol=1e-3, atol=1e-3)
+            #err = np.abs(final-params)
+            #imax = np.argmax(err)
+            #ck = np.allclose(params, final, rtol=1e-3, atol=1e-3)
 
-            print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
-                        ' err[X{2}] = {3:3.3e}').format(\
-                        i+1, str(ck), imax+1, err[imax]))
+            #print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
+            #            ' err[X{2}] = {3:3.3e}').format(\
+            #            i+1, str(ck), imax+1, err[imax]))
 
-            self.assertTrue(ck)
+            #self.assertTrue(ck)
 
 
 
