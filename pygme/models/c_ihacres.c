@@ -16,8 +16,8 @@ int ihacres_minmaxparams(int nparams, double * params)
         return IHACRES_ERROR + __LINE__;
     }
 
-	params[0] = c_minmax(0.1, 2, params[0]); 	// f
-	params[1] = c_minmax(1e1, 2e3, params[1]);	// d
+	params[0] = c_minmax(0.05, 3, params[0]); 	// f
+	params[1] = c_minmax(1e1, 3e3, params[1]);	// d
 
 	return 0;
 }

@@ -14,8 +14,8 @@ from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
-IHACRES_TMEAN = np.array([math.log(0.35/(1-0.35)), math.log(200)])
-IHACRES_TCOV = np.array([[2., 0.], [0., 1.]])
+IHACRES_TMEAN = np.array([-0.73, 6.47])
+IHACRES_TCOV = np.array([[0.73, -0.14], [-0.14, 0.52]])
 
 # Transformation functions for ihacres parameters
 def logit_fwd(u, eps=1e-7):
@@ -42,16 +42,29 @@ def ihacres_true2trans(x):
 class IHACRES(Model):
 
     def __init__(self):
+        defaults = [
+                0.64, #f
+                826.05 #d
+        ]
+
+        mins = [
+                0.10, #f
+                28.05, #d
+        ]
+
+        maxs = [
+                2.00, #f
+                2000.00, #d
+        ]
 
         # Config vector
         # e is normally an IHACRES parameter used if evap inputs are
         # different from PET or if vegetation plays a big role in
         # influencing evap.
-        config = Vector(["shape", "e"], [0., 1.], [0., 0.1], [10., 1.5])
+        config = Vector(["shape", "e"], [0, 1], [0, 0.1], [10, 1.5])
 
         # params vector
-        vect = Vector(["f", "d"], \
-                    [0.7, 200], [0.1, 1e1], [2., 2e3])
+        vect = Vector(["f", "d"], defaults, mins, maxs)
         params = ParamsVector(vect)
 
         # State vector

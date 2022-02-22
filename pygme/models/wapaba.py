@@ -16,13 +16,13 @@ if has_c_module("models_hydromodels"):
 
 WAPABA_TMEAN = np.array([1.12, 0.57, -0.77, 5.65, -3.07])
 
-WAPABA_TCOV = np.array(\
-        [	[0.09, -0.0, -0.01, -0.09, 0.1],
-        	[-0.0, 0.1, 0.01, -0.04, -0.0],
-        	[-0.01, 0.01, 0.53, 0.07, 0.2],
-        	[-0.09, -0.04, 0.07, 0.51, -0.1],
-        	[0.08, -0.02, 0.19, -0.06, 1.4],
-        ])
+WAPABA_TCOV = np.array([
+    [0.091, -0.003, -0.016, -0.099, 0.083],
+    [-0.003, 0.1, 0.01, -0.04, -0.03],
+    [-0.016, 0.01, 0.56, 0.07, 0.17],
+    [-0.099, -0.04, 0.07, 0.52, -0.05],
+    [0.083, -0.03, 0.17, -0.05, 1.4]
+])
 
 # Transformation functions for gr4j parameters
 def wapaba_trans2true(x):
@@ -40,27 +40,27 @@ class WAPABA(Model):
 
         # params vector
         defaults =[
-        		3.21, #ALPHA1
-        		1.91, #ALPHA2
-        		0.56, #BETA
-        		445.81, #SMAX
-        		0.10, #INVK
+            3.21, #ALPHA1
+            1.91, #ALPHA2
+            0.56, #BETA
+            445.81, #SMAX
+            0.10, #INVK
         ]
 
         mins = [
-        		1.26, #ALPHA1
-        		1.01, #ALPHA2
-        		0.001, #BETA
-        		20., #SMAX
-        		0.001, #INVK
+            1.26, #ALPHA1
+            1.01, #ALPHA2
+            0.001, #BETA
+            20., #SMAX
+            0.001, #INVK
         ]
 
         maxs = [
-        		10.00, #ALPHA1
-        		10.00, #ALPHA2
-        		1.00, #BETA
-        		5000.00, #SMAX
-        		1.00, #INVK
+            10.00, #ALPHA1
+            10.00, #ALPHA2
+            1.00, #BETA
+            5000.00, #SMAX
+            1.00, #INVK
         ]
         vect = Vector(["ALPHA1", "ALPHA2", "BETA", "SMAX", "INVK"], \
                 defaults=defaults, \
