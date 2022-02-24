@@ -234,7 +234,7 @@ class LagRouteTestCase(unittest.TestCase):
             sim = calib.model.outputs[:, 0]
             rerr = np.abs(obs[warmup:]-sim[warmup:])/(1+obs[warmup:])*100
             rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-            self.assertTrue(rerrmax < 2e-2)
+            self.assertTrue(rerrmax < 1e-1)
 
             # Test error on parameters
             #err = np.abs(final-params)
