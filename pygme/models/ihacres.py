@@ -74,11 +74,12 @@ class IHACRES(Model):
         super(IHACRES, self).__init__("IHACRES",
             config, params, states, \
             ninputs=2, \
-            noutputsmax=4)
+            noutputsmax=10)
 
         # Runoff outputs is named 'U' in ihacres code
         # we use 'Q' here to be compatible with other models
-        self.outputs_names = ["Q", "M", "Mf", "ET"]
+        self.outputs_names = ["Q", "M", "Mf", "ET", \
+                                "U0", "F", "M0", "R0", "L0", "L1"]
 
 
     def initialise_fromdata(self):

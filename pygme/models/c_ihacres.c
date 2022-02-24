@@ -60,6 +60,11 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     double param_e = config[1];
     double a;
 
+    /* Cannot have negative PET multiplier */
+    if(param_e<0){
+        return IHACRES_ERROR + __LINE__;
+    }
+
     /* parameters */
     double param_f = params[0];
     double param_d = params[1];
@@ -68,7 +73,7 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     /* model variables */
     double P, E;
     double M, Mf, M_prev;
-    double U, ET;
+    double U, U0, R0, ET, F, L0, L1, M0;
 
     /* inputs */
     P = inputs[0] < 0 ? 0 : inputs[0];
@@ -92,7 +97,7 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
             Mf = M_prev - P;
         }
     }
-    else if (abs(shape-1)<1e-10)
+    else if (fabs(shape-1)<1e-10)
     {
         // hyperbolic form: dU/dP = 1 - ??
         if (M_prev < param_d) {
@@ -120,12 +125,20 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     }
 
     // drainage (rainfall not accounted for in -dM)
-    U = c_max(0, P - M_prev + Mf);
+    U0 = P - M_prev + Mf;
+    U = c_max(0, U0);
+    L0 = U0-U;
+
     // evapo-transpiration
-    ET = param_e * E * c_min(1, exp(2 * (1 - Mf / param_g)));
-    ET = c_max(0, ET);
+    F = exp(2 * (1 - Mf / param_g));
+    ET = param_e * E * c_min(1, F);
+    // ET = c_max(0, ET); // Useless. exp and param_e are positive
+
     // mass balance
-    M = c_max(0, M_prev - P + U + ET);
+    R0 = M_prev-P+U;
+    M0 = R0+ET;
+    M = c_max(0, M0);
+    L1 = M0-M;
 
     /* states */
     states[0] = M;
@@ -143,6 +156,25 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
 
     if(noutputs>3)
         outputs[3] = ET;
+
+    if(noutputs>4)
+        outputs[4] = U0;
+
+    if(noutputs>5)
+        outputs[5] = F;
+
+    if(noutputs>6)
+        outputs[6] = M0;
+
+    if(noutputs>7)
+        outputs[7] = R0;
+
+    if(noutputs>8)
+        outputs[8] = L0;
+
+    if(noutputs>9)
+        outputs[9] = L1;
+
 
     return ierr;
 }

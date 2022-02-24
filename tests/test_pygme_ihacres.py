@@ -32,7 +32,7 @@ def test_ihacres_dumb():
     p = np.exp(np.random.normal(0, 2, size=nval))
     pe = np.ones(nval) * 5.
     inputs = np.column_stack([p, pe])
-    ihc.allocate(inputs, 4)
+    ihc.allocate(inputs, ihc.noutputsmax)
 
     ihc.f = 0.7
     ihc.d = 200
@@ -71,7 +71,7 @@ def test_run(allclose):
         nval = len(inputs)
 
         # Run ihacres
-        ihc.allocate(inputs, 4)
+        ihc.allocate(inputs, 10)
         ihc.f = params.f
         ihc.d = params.d
         ihc.initialise_fromdata()

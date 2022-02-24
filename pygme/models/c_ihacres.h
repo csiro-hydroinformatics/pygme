@@ -22,7 +22,7 @@
 #define IHACRES_NSTATES 1
 
 /* Number of outputs returned by IHACRES run */
-#define IHACRES_NOUTPUTS 4
+#define IHACRES_NOUTPUTS 10
 
 int c_ihacres_run(int nval,
     int nconfig,
