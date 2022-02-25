@@ -549,9 +549,8 @@ class Model(object):
     def outputs_names(self, values):
         """ Set outputs names """
         if len(values) != self.noutputsmax:
-            raise ValueError(("model {0}: Trying to set outputs names, "+\
-                "a vector of length {0} is expected, got {1}").format(\
-                    self.name, self.noutputsmax, len(values)))
+            raise ValueError(f"model {self.name}: Trying to set outputs names, "+\
+                f"a vector of length {self.noutputsmax} is expected, got {len(values)}")
 
         self._outputs_names = ["{0}".format(nm) for nm in values]
 
