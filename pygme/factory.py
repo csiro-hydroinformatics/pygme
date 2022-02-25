@@ -3,8 +3,8 @@
 from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
                     turcmezentsev, wapaba, ihacres
 
-MODEL_NAMES = ["gr2m", "g4j", "gr6j", "lagroute", "sac15", \
-                "turcmezentsev", "wapaba", "ihacres"]
+MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15", \
+                "TurcMezentsev", "WAPABA", "IHACRES"]
 
 
 def model_factory(name, *args, **kwargs):
@@ -26,21 +26,21 @@ def model_factory(name, *args, **kwargs):
     errmsg = f"Expected model name in {txt}, got {name}."
     assert name in MODEL_NAMES, errmsg
 
-    if name == "gr2m":
+    if name == "GR2M":
         return gr2m.GR2M(*args, **kwargs)
-    elif name == "gr4j":
+    elif name == "GR4J":
         return gr4j.GR4J(*args, **kwargs)
-    elif name == "gr6j":
+    elif name == "GR6J":
         return gr6j.GR6J(*args, **kwargs)
-    elif name == "lagroute":
+    elif name == "LagRoute":
         return lagroute.LagRoute(*args, **kwargs)
-    elif name == "sac15":
+    elif name == "SAC15":
         return sac15.SAC15(*args, **kwargs)
-    elif  name == "turcmezentsev":
+    elif  name == "TurcMezentsev":
         return turcmezentsev.TurcMezentsev(*args, **kwargs)
-    elif name == "wapaba":
+    elif name == "WAPABA":
         return wapaba.WAPABA(*args, **kwargs)
-    elif name == "ihacres":
+    elif name == "IHACRES":
         return ihacres.IHACRES(*args, **kwargs)
 
 
@@ -63,20 +63,20 @@ def calibration_factory(name, *args, **kwargs):
     errmsg = f"Expected model name in {txt}, got {name}."
     assert name in MODEL_NAMES, errmsg
 
-    if name == "gr2m":
+    if name == "GR2M":
         return gr2m.CalibrationGR2M(*args, **kwargs)
-    elif name == "gr4j":
+    elif name == "GR4J":
         return gr4j.CalibrationGR4J(*args, **kwargs)
-    elif name == "gr6j":
+    elif name == "GR6J":
         return gr6j.CalibrationGR6J(*args, **kwargs)
-    elif name == "lagroute":
+    elif name == "LagRoute":
         return lagroute.CalibrationLagRoute(*args, **kwargs)
-    elif name == "sac15":
+    elif name == "SAC15":
         return sac15.CalibrationSAC15(*args, **kwargs)
-    elif  name == "turcmezentsev":
+    elif  name == "TurcMezentsev":
         return turcmezentsev.CalibrationTurcMezentsev(*args, **kwargs)
-    elif name == "wapaba":
+    elif name == "WAPABA":
         return wapaba.CalibrationWAPABA(*args, **kwargs)
-    elif name == "ihacres":
+    elif name == "IHACRES":
         return ihacres.CalibrationIHACRES(*args, **kwargs)
 
