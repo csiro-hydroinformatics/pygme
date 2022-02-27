@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 np.seterr(all="print")
+import pandas as pd
 
 from hydrodiy.data.containers import Vector
 from pygme.model import Model, NORDMAXMAX, UH, UHNAMES, ParamsVector, \
@@ -465,5 +466,24 @@ def test_inisens():
     msg = "Warmup period"
     with pytest.raises(ValueError, match=msg):
         warmup, sim0, sim1 = dum.inisens([0]*2, [1]*2)
+
+
+def test_to_dataframe(allclose):
+    dum = MassiveDummy()
+    dum.params.values = 0.
+    inputs = np.random.uniform(0, 1, (1000, 2))
+    dum.allocate(inputs)
+    dum.initialise()
+    dum.run()
+
+    df = dum.to_dataframe()
+    assert df.columns.tolist() == ["input1", "input2", "output00"]
+    assert df.shape == (1000, 3)
+
+    idx = pd.date_range("1990-01-01", freq="D", periods=len(inputs))
+    df = dum.to_dataframe(idx)
+    assert allclose(df.index.values.astype(float), idx.values.astype(float))
+
+
 
 
