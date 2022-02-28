@@ -40,7 +40,7 @@ class GR2MTestCase(unittest.TestCase):
         gr.initialise()
 
         gr.run()
-        df = gr.outputs_dataframe()
+        df = gr.to_dataframe()
 
 
     def test_run_against_data(self):

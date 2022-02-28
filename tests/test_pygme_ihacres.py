@@ -76,7 +76,7 @@ def test_run(allclose):
         ihc.d = params.d
         ihc.initialise_fromdata()
         ihc.run()
-        outputs = ihc.outputs_dataframe().loc[:, ["Q", "M", "ET"]]
+        outputs = ihc.to_dataframe().loc[:, ["Q", "M", "ET"]]
 
         expected = data.loc[:, ["U", "CMD", "ET"]].iloc[:nval]
         assert np.allclose(outputs, expected)

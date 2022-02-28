@@ -41,7 +41,7 @@ def test_wapaba_dumb():
     wp.initialise()
 
     wp.run()
-    do = wp.outputs_dataframe()
+    do = wp.to_dataframe()
 
 
 def test_params_transform(allclose):
