@@ -585,13 +585,17 @@ class Model(object):
         self._outputs = outputs
 
 
-    def to_dataframe(self, index=None):
+    def to_dataframe(self, index=None, include_inputs=False):
         """ Get model output in pandas dataframe format """
-        cols = [f"input{i+1}" for i in range(self.ninputs)]
-        dfi = pd.DataFrame(self.inputs, columns=cols, index=index)
         cols = self.outputs_names[:self.noutputs]
         dfo = pd.DataFrame(self.outputs, columns=cols, index=index)
-        return pd.concat([dfi, dfo], axis=1)
+
+        if include_inputs:
+            cols = [f"input{i+1}" for i in range(self.ninputs)]
+            dfi = pd.DataFrame(self.inputs, columns=cols, index=index)
+            return pd.concat([dfi, dfo], axis=1)
+        else:
+            return dfo
 
 
     def allocate(self, inputs, noutputs=1):
