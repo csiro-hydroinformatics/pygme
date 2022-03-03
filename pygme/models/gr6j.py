@@ -108,6 +108,7 @@ class GR6J(Model):
             ninputs=2, \
             noutputsmax=13)
 
+        self.inputs_names = ["Rain", "PET"]
         self.outputs_names = ["Q", "S", "R", "A", "ECH", "AE", \
                     "PR", "QD", "QR", "PERC", "QExp", "Q1", "Q9"]
 

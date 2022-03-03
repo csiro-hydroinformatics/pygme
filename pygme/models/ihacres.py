@@ -76,6 +76,8 @@ class IHACRES(Model):
             ninputs=2, \
             noutputsmax=10)
 
+        self.inputs_names = ["Rain", "PET"]
+
         # Runoff outputs is named 'U' in ihacres code
         # we use 'Q' here to be compatible with other models
         self.outputs_names = ["Q", "M", "Mf", "ET", \

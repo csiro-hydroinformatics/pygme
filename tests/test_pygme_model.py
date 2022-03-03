@@ -477,11 +477,11 @@ def test_to_dataframe(allclose):
     dum.run()
 
     df = dum.to_dataframe()
-    assert df.columns.tolist() == ["output00"]
+    assert df.columns.tolist() == ["output01"]
     assert df.shape == (1000, 1)
 
     df = dum.to_dataframe(include_inputs=True)
-    assert df.columns.tolist() == ["input1", "input2", "output00"]
+    assert df.columns.tolist() == ["input01", "input02", "output01"]
     assert df.shape == (1000, 3)
 
     idx = pd.date_range("1990-01-01", freq="D", periods=len(inputs))

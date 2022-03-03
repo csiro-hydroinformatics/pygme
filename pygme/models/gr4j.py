@@ -109,6 +109,7 @@ class GR4J(Model):
             ninputs=2, \
             noutputsmax=11)
 
+        self.inputs_names = ["Rain", "PET"]
         self.outputs_names = ["Q", "S", "R", "ECH", "AE", \
                     "PR", "QD", "QR", "PERC", "Q1", "Q9"]
 

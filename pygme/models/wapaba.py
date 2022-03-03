@@ -77,6 +77,7 @@ class WAPABA(Model):
             ninputs=2, \
             noutputsmax=13)
 
+        self.inputs_names = ["Rain", "PET"]
         self.outputs_names = ["Q", "S", "G", "ET", "F1", "F2", "R", \
                             "Qb", "Qs", "W", "Y", "Yb", "Sb"]
 

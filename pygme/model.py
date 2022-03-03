@@ -337,9 +337,9 @@ class Model(object):
 
         # data
         self._inputs = None
+        self._inputs_names = [f"input{i+1:02d}" for i in range(self._ninputs)]
         self._outputs = None
-        self._outputs_names = ["output{0:02d}".format(i) \
-                                    for i in range(self._noutputsmax)]
+        self._outputs_names = [f"output{i+1:02d}" for i in range(self._noutputsmax)]
 
         # Start/end index
         self._istart = None
@@ -434,12 +434,6 @@ class Model(object):
 
 
     @property
-    def ninputs(self):
-        """ Get number of model input variables """
-        return self._ninputs
-
-
-    @property
     def ntimesteps(self):
         """ Get number of simulation timestep """
         if self._inputs is None:
@@ -514,6 +508,27 @@ class Model(object):
 
 
     @property
+    def ninputs(self):
+        """ Get number of model input variables """
+        return self._ninputs
+
+
+    @property
+    def inputs_names(self):
+        """ Get model inputs names """
+        return self._inputs_names
+
+    @inputs_names.setter
+    def inputs_names(self, values):
+        """ Set outputs names """
+        if len(values) != self.ninputs:
+            raise ValueError(f"model {self.name}: Trying to set inputs names, "+\
+                f"a vector of length {self.ninputs} is expected, got {len(values)}")
+
+        self._inputs_names = [str(nm) for nm in values]
+
+
+    @property
     def inputs(self):
         """ Get model input array """
         if self._inputs is None:
@@ -552,7 +567,7 @@ class Model(object):
             raise ValueError(f"model {self.name}: Trying to set outputs names, "+\
                 f"a vector of length {self.noutputsmax} is expected, got {len(values)}")
 
-        self._outputs_names = ["{0}".format(nm) for nm in values]
+        self._outputs_names = [str(nm) for nm in values]
 
 
     @property
@@ -591,7 +606,7 @@ class Model(object):
         dfo = pd.DataFrame(self.outputs, columns=cols, index=index)
 
         if include_inputs:
-            cols = [f"input{i+1}" for i in range(self.ninputs)]
+            cols = self.inputs_names
             dfi = pd.DataFrame(self.inputs, columns=cols, index=index)
             return pd.concat([dfi, dfo], axis=1)
         else:

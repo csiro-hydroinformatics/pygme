@@ -70,6 +70,7 @@ class LagRoute(Model):
             ninputs=1, \
             noutputsmax=4)
 
+        self.inputs_names = ["Inflow"]
         self.outputs_names = ["Q", "Q1lag", \
                     "VR", "V1"]
 

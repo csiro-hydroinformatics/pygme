@@ -95,6 +95,7 @@ class TurcMezentsev(Model):
             ninputs=2, \
             noutputsmax=2)
 
+        self.inputs_names = ["Rain", "PET"]
         self.outputs_names = ["Q", "E"]
 
 

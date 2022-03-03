@@ -43,6 +43,7 @@ class GR2M(Model):
             ninputs=2, \
             noutputsmax=12)
 
+        self.inputs_names = ["Rain", "PET"]
         self.outputs_names = ["Q", "S", "R", "F", "P1", "P2", "P3", \
                             "R1", "R2", "AE", "S1", "S2"]
 

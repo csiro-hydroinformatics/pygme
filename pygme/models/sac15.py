@@ -156,6 +156,12 @@ class SAC15(Model):
                 ninputs=2, \
                 noutputsmax=11)
 
+        self.inputs_names = ["Rain", "PET"]
+        self.outputs_names = ["Q", "Uzfwc", "Lztwc", "Lzfpc", "Adimc", \
+                            "baseflow", "E3+E5", \
+                            "EvapUztw+EvapUzfw", "HydrographStore"]
+
+
     def initialise_fromdata(self):
         # Initialise stores
         Lzfpm = self.params.Lzfpm
