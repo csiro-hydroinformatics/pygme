@@ -157,8 +157,8 @@ class SAC15(Model):
                 noutputsmax=11)
 
         self.inputs_names = ["Rain", "PET"]
-        self.outputs_names = ["Q", "Uzfwc", "Lztwc", "Lzfpc", "Adimc", \
-                            "baseflow", "E3+E5", \
+        self.outputs_names = ["Q", "Uztwc", "Uzfwc", "Lztwc", "Lzfsc", \
+                            "Lzfpc", "Adimc", "baseflow", "E3+E5", \
                             "EvapUztw+EvapUzfw", "HydrographStore"]
 
 

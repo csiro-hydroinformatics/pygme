@@ -525,6 +525,7 @@ int sac15_runtimestep(int nparams,
     states[5]   =   Adimc;
 
     outputs[0] = runoff;
+
 	if(noutputs>1)
         outputs[1] 	=   Uztwc;
     else
