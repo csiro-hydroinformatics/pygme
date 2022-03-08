@@ -12,9 +12,6 @@ from pygme.model import ParameterCheckValueError
 # Setup login
 LOGGER = logging.getLogger(__name__)
 
-# Setup box cox transform
-BC = transform.BoxCox2()
-
 class CalibrationExplorationError(Exception):
     """ Error raised by the exploration phase of a calibration task """
     pass
@@ -86,6 +83,7 @@ class ObjFunBCSSE(ObjFun):
         super(ObjFunBCSSE, self).__init__(f"BCSSE{lam:0.1f}", 1)
 
         # Set Transform
+        BC = transform.BoxCox2()
         BC.lam = float(lam)
         BC.nu = float(nu)
         self.trans = BC
