@@ -6,6 +6,11 @@ from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
 MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15", \
                 "TurcMezentsev", "WAPABA", "IHACRES"]
 
+def check_model(name):
+    txt = "/".join(MODEL_NAMES)
+    errmsg = f"Expected model name in {txt}, got {name}."
+    assert name in MODEL_NAMES, errmsg
+
 
 def model_factory(name, *args, **kwargs):
     """ Generate model objects.
@@ -22,9 +27,7 @@ def model_factory(name, *args, **kwargs):
         model : pygme.model.Model
             Model
     """
-    txt = "/".join(MODEL_NAMES)
-    errmsg = f"Expected model name in {txt}, got {name}."
-    assert name in MODEL_NAMES, errmsg
+    check_model(name)
 
     if name == "GR2M":
         return gr2m.GR2M(*args, **kwargs)
@@ -59,9 +62,7 @@ def calibration_factory(name, *args, **kwargs):
         calib : pygme.calibration.Calibration
             Calibration object.
     """
-    txt = "/".join(MODEL_NAMES)
-    errmsg = f"Expected model name in {txt}, got {name}."
-    assert name in MODEL_NAMES, errmsg
+    check_model(name)
 
     if name == "GR2M":
         return gr2m.CalibrationGR2M(*args, **kwargs)
@@ -79,4 +80,40 @@ def calibration_factory(name, *args, **kwargs):
         return wapaba.CalibrationWAPABA(*args, **kwargs)
     elif name == "IHACRES":
         return ihacres.CalibrationIHACRES(*args, **kwargs)
+
+
+def parameters_transform_factory(name):
+    """ Generate parameter transformation objects.
+
+        Parameters
+        ----------
+        name : str
+            Model name
+
+        Returns
+        -------
+        true2trans : function
+            Function to transform true parameters to transformed.
+        trans2true : function
+            Function to transform transformed parameters to true.
+    """
+    check_model(name)
+
+    if name == "GR2M":
+        return gr2m.gr2m_true2trans, gr2m.gr2m_trans2true
+    elif name == "GR4J":
+        return gr4j.gr4j_true2trans, gr4j.gr4j_trans2true
+    elif name == "GR6J":
+        return gr6j.gr6j_true2trans, gr6j.gr6j_trans2true
+    elif name == "LagRoute":
+        return lagroute.lagroute_true2trans, lagroute.lagroute_trans2true
+    elif name == "SAC15":
+        return sac15.sac15_true2trans, sac15.sac15_trans2true
+    elif  name == "TurcMezentsev":
+        raise ValueError("No transform available")
+    elif name == "WAPABA":
+        return wapaba.wapaba_true2trans, wapaba.wapaba_trans2true
+    elif name == "IHACRES":
+        return ihacres.ihacres_true2trans, ihacres.ihacres_trans2true
+
 
