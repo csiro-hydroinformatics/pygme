@@ -15,6 +15,11 @@ def turcm_forward(rain, evap, nparam):
     return rain*(1.-1./np.power(1.+np.power(rain/evap, nparam), (1./nparam)))
 
 
+def turcm_gradient(rain, evap, nparam):
+    """ Turc-Mezentsev gradient model """
+    return rain*(np.power(rain/evap, nparam-1)/np.power(1.+np.power(rain/evap, nparam), (1./nparam+1)))
+
+
 def turcm_iterfun(x, rc, ar):
     """ Function used in Halley"s iteration """
     ax = np.power(ar, x)
@@ -83,7 +88,7 @@ class TurcMezentsev(Model):
                     [0], [0], [1])
 
         # params vector
-        vect = Vector(["n"], [2.3],  [0.5], [5])
+        vect = Vector(["n"], [2.3],  [1.], [5])
         params = ParamsVector(vect)
 
         # State vector
