@@ -45,9 +45,7 @@ def model_factory(name, *args, **kwargs):
         return wapaba.WAPABA(*args, **kwargs)
     elif name.startswith("IHACRES"):
         if name != "IHACRES":
-            # Use a particular shape factor
-            shape = float(re.sub("^IHACRES", "", name))
-            kwargs["shape"] = shape
+            kwargs["shapefactor"] = ihacres.get_shapefactor(name)
         return ihacres.IHACRES(*args, **kwargs)
 
 
@@ -82,7 +80,9 @@ def calibration_factory(name, *args, **kwargs):
         return turcmezentsev.CalibrationTurcMezentsev(*args, **kwargs)
     elif name == "WAPABA":
         return wapaba.CalibrationWAPABA(*args, **kwargs)
-    elif name == "IHACRES":
+    elif name.startswith("IHACRES"):
+        if name != "IHACRES":
+            kwargs["shapefactor"] = ihacres.get_shapefactor(name)
         return ihacres.CalibrationIHACRES(*args, **kwargs)
 
 
@@ -117,7 +117,7 @@ def parameters_transform_factory(name):
         raise ValueError("No transform available")
     elif name == "WAPABA":
         return wapaba.wapaba_true2trans, wapaba.wapaba_trans2true
-    elif name == "IHACRES":
+    elif name.startswith("IHACRES"):
         return ihacres.ihacres_true2trans, ihacres.ihacres_trans2true
 
 

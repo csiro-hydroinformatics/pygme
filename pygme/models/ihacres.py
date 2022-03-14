@@ -1,5 +1,4 @@
-
-import math
+import math, re
 import numpy as np
 import pandas as pd
 
@@ -16,6 +15,9 @@ if has_c_module("models_hydromodels"):
 
 IHACRES_TMEAN = np.array([-0.73, 6.47])
 IHACRES_TCOV = np.array([[0.73, -0.14], [-0.14, 0.52]])
+
+def get_shapefactor(name):
+    return float(re.sub("^IHACRES", "", name))
 
 # Transformation functions for ihacres parameters
 def logit_fwd(u, eps=1e-7):
@@ -41,7 +43,7 @@ def ihacres_true2trans(x):
 # Model
 class IHACRES(Model):
 
-    def __init__(self, shape=0):
+    def __init__(self, shapefactor=0):
         defaults = [
                 0.64, #f
                 826.05 #d
@@ -61,7 +63,7 @@ class IHACRES(Model):
         # e is normally an IHACRES parameter used if evap inputs are
         # different from PET or if vegetation plays a big role in
         # influencing evap.
-        config = Vector(["shape", "e"], [shape, 1], [0, 0.1], [10, 1.5])
+        config = Vector(["shapefactor", "e"], [shapefactor, 1], [0, 0.1], [10, 1.5])
 
         # params vector
         vect = Vector(["f", "d"], defaults, mins, maxs)
@@ -116,7 +118,7 @@ class IHACRES(Model):
 
 class CalibrationIHACRES(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.5), \
+    def __init__(self, shapefactor=0, objfun=ObjFunBCSSE(0.5), \
             warmup=36, \
             timeit=False,\
             fixed=None, \
@@ -124,7 +126,7 @@ class CalibrationIHACRES(Calibration):
             objfun_kwargs={}):
 
         # Input objects for Calibration class
-        model = IHACRES()
+        model = IHACRES(shapefactor)
         params = model.params
 
         cp = Vector(["tf", "td"], \

@@ -10,15 +10,22 @@ def test_model_factory():
     for model_name in MODEL_NAMES:
         model = model_factory(model_name)
 
-def test_model_factory_IHACRES():
+def test_model_factory_ihacres():
     for shape in [0, 1, 2, 2.5]:
         model = model_factory(f"IHACRES{shape}")
-        assert model.shape == shape
+        assert model.shapefactor == shape
 
 
 def test_calibration_factory():
     for model_name in MODEL_NAMES:
         model = calibration_factory(model_name)
+
+
+def test_calibration_factory_ihacres():
+    for shape in [0, 1, 2, 2.5]:
+        calib = calibration_factory(f"IHACRES{shape}")
+        assert calib.model.shapefactor == shape
+
 
 def test_calibration_factory_argument():
     objfun = ObjFunBCSSE(0.2)
