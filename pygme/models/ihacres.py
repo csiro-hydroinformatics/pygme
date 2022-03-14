@@ -41,7 +41,7 @@ def ihacres_true2trans(x):
 # Model
 class IHACRES(Model):
 
-    def __init__(self):
+    def __init__(self, shape=0):
         defaults = [
                 0.64, #f
                 826.05 #d
@@ -61,7 +61,7 @@ class IHACRES(Model):
         # e is normally an IHACRES parameter used if evap inputs are
         # different from PET or if vegetation plays a big role in
         # influencing evap.
-        config = Vector(["shape", "e"], [0, 1], [0, 0.1], [10, 1.5])
+        config = Vector(["shape", "e"], [shape, 1], [0, 0.1], [10, 1.5])
 
         # params vector
         vect = Vector(["f", "d"], defaults, mins, maxs)

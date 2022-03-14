@@ -126,7 +126,7 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
 
     // drainage (rainfall not accounted for in -dM)
     U0 = P - M_prev + Mf;
-    U = c_max(0, U0);
+    U = c_max(0, U0); // Useful? should always be positive?
     L0 = U0-U;
 
     // evapo-transpiration

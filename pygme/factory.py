@@ -1,5 +1,5 @@
 """ Model objects factory """
-
+import re
 from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
                     turcmezentsev, wapaba, ihacres
 
@@ -9,7 +9,7 @@ MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15", \
 def check_model(name):
     txt = "/".join(MODEL_NAMES)
     errmsg = f"Expected model name in {txt}, got {name}."
-    assert name in MODEL_NAMES, errmsg
+    assert name in MODEL_NAMES or name.startswith("IHACRES"), errmsg
 
 
 def model_factory(name, *args, **kwargs):
@@ -43,7 +43,11 @@ def model_factory(name, *args, **kwargs):
         return turcmezentsev.TurcMezentsev(*args, **kwargs)
     elif name == "WAPABA":
         return wapaba.WAPABA(*args, **kwargs)
-    elif name == "IHACRES":
+    elif name.startswith("IHACRES"):
+        if name != "IHACRES":
+            # Use a particular shape factor
+            shape = float(re.sub("^IHACRES", "", name))
+            kwargs["shape"] = shape
         return ihacres.IHACRES(*args, **kwargs)
 
 

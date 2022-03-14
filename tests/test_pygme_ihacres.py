@@ -8,6 +8,7 @@ from timeit import Timer
 import time
 
 import numpy as np
+import pandas as pd
 
 from pygme.models.ihacres import IHACRES, CalibrationIHACRES, \
                                 IHACRES_TMEAN, IHACRES_TCOV, \
@@ -80,6 +81,39 @@ def test_run(allclose):
 
         expected = data.loc[:, ["U", "CMD", "ET"]].iloc[:nval]
         assert np.allclose(outputs, expected)
+
+
+#def test_run_shapes(allclose):
+#    """ Compare IHACRES simulation using different shapes """
+#    warmup = 12 * 12
+#
+#    ihcs = [IHACRES(sh) for sh in [0, 1, 1.5, 2, 5, 10]]
+#
+#    for i in range(20):
+#        data = testdata.read("IHACRES_timeseries_{0:02d}.csv".format(i+1), \
+#                                source="output", has_dates=False)
+#
+#        params = testdata.read('IHACRES_params_{0:02d}.csv'.format(i+1), \
+#                                source='output', has_dates=False)
+#
+#        inputs = np.ascontiguousarray(\
+#                        data.loc[:, ["P", "E"]], \
+#                        np.float64)
+#        nval = len(inputs)
+#
+#        # Run ihacres
+#        sims = {}
+#        for model in ihcs:
+#            model.allocate(inputs, model.noutputsmax)
+#            model.f = params.f
+#            model.d = params.d
+#            model.initialise_fromdata()
+#            model.run()
+#            sims[f"sh{model.shape:0.1f}"] = model.outputs[:, 0]
+#
+#        sims = pd.DataFrame(sims)
+#
+#        import pdb; pdb.set_trace()
 
 
 
