@@ -1,4 +1,4 @@
-
+import re
 import math
 import numpy as np
 import pandas as pd
@@ -14,6 +14,9 @@ from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
+def get_rcapacity(name):
+    return float(re.sub("^GR2M", "", name))
+
 # Transformation functions for gr4j parameters
 def gr2m_trans2true(x):
     return np.exp(x)
@@ -24,10 +27,10 @@ def gr2m_true2trans(x):
 # Model
 class GR2M(Model):
 
-    def __init__(self):
+    def __init__(self, Rcapacity=60):
 
         # Config vector
-        config = Vector(["catcharea"], [0], [0])
+        config = Vector(["Rcapacity"], [Rcapacity], [1], [2000])
 
         # params vector
         vect = Vector(["X1", "X2"], \
@@ -69,6 +72,7 @@ class GR2M(Model):
         has_c_module("models_hydromodels")
 
         ierr = c_pygme_models_hydromodels.gr2m_run(self.istart, self.iend,
+            self.config.values, \
             self.params.values, \
             self.inputs, \
             self.states.values, \
@@ -82,7 +86,7 @@ class GR2M(Model):
 
 class CalibrationGR2M(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.5), \
+    def __init__(self, Rcapacity=60, objfun=ObjFunBCSSE(0.5), \
             warmup=36, \
             timeit=False,\
             fixed=None, \
@@ -90,7 +94,7 @@ class CalibrationGR2M(Calibration):
             objfun_kwargs={}):
 
         # Input objects for Calibration class
-        model = GR2M()
+        model = GR2M(Rcapacity)
         params = model.params
 
         cp = Vector(["tX1", "tX2"], \

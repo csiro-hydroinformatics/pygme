@@ -16,6 +16,12 @@ def test_model_factory_ihacres():
         assert model.shapefactor == shape
 
 
+def test_model_factory_gr2m():
+    for r in [10, 60, 1000]:
+        model = model_factory(f"GR2M{r}")
+        assert model.Rcapacity == r
+
+
 def test_calibration_factory():
     for model_name in MODEL_NAMES:
         model = calibration_factory(model_name)
@@ -25,6 +31,12 @@ def test_calibration_factory_ihacres():
     for shape in [0, 1, 2, 2.5]:
         calib = calibration_factory(f"IHACRES{shape}")
         assert calib.model.shapefactor == shape
+
+
+def test_calibration_factory_gr2m():
+    for r in [10, 60, 1000]:
+        calib = calibration_factory(f"GR2M{r}")
+        assert calib.model.Rcapacity == r
 
 
 def test_calibration_factory_argument():

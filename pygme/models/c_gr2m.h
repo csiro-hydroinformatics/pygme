@@ -9,6 +9,9 @@
 
 #include "c_utils.h"
 
+/* Number of config required by GR2M run */
+#define GR2M_NCONFIG 1
+
 /* Number of inputs required by GR2M run */
 #define GR2M_NINPUTS 2
 
@@ -21,9 +24,10 @@
 /* Number of outputs returned by GR2M run */
 #define GR2M_NOUTPUTS 12
 
-int c_gr2m_run(int nval, int nparams, int ninputs,
+int c_gr2m_run(int nval, int nconfig, int nparams, int ninputs,
     int nstates, int noutputs,
     int start, int  end,
+	double * config,
 	double * params,
 	double * inputs,
 	double * statesini,

@@ -9,7 +9,8 @@ MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15", \
 def check_model(name):
     txt = "/".join(MODEL_NAMES)
     errmsg = f"Expected model name in {txt}, got {name}."
-    assert name in MODEL_NAMES or name.startswith("IHACRES"), errmsg
+    assert name in MODEL_NAMES or name.startswith("IHACRES") \
+                    or name.startswith("GR2M"), errmsg
 
 
 def model_factory(name, *args, **kwargs):
@@ -29,7 +30,9 @@ def model_factory(name, *args, **kwargs):
     """
     check_model(name)
 
-    if name == "GR2M":
+    if name.startswith("GR2M"):
+        if name != "GR2M":
+            kwargs["Rcapacity"] = gr2m.get_rcapacity(name)
         return gr2m.GR2M(*args, **kwargs)
     elif name == "GR4J":
         return gr4j.GR4J(*args, **kwargs)
@@ -66,7 +69,9 @@ def calibration_factory(name, *args, **kwargs):
     """
     check_model(name)
 
-    if name == "GR2M":
+    if name.startswith("GR2M"):
+        if name != "GR2M":
+            kwargs["Rcapacity"] = gr2m.get_rcapacity(name)
         return gr2m.CalibrationGR2M(*args, **kwargs)
     elif name == "GR4J":
         return gr4j.CalibrationGR4J(*args, **kwargs)
@@ -103,7 +108,7 @@ def parameters_transform_factory(name):
     """
     check_model(name)
 
-    if name == "GR2M":
+    if name.startswith("GR2M"):
         return gr2m.gr2m_true2trans, gr2m.gr2m_trans2true
     elif name == "GR4J":
         return gr4j.gr4j_true2trans, gr4j.gr4j_trans2true

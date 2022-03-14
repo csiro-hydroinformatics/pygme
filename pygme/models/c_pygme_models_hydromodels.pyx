@@ -6,9 +6,10 @@ np.import_array()
 # -- HEADERS --
 
 cdef extern from 'c_gr2m.h':
-    int c_gr2m_run(int nval, int nparams, int ninputs,
+    int c_gr2m_run(int nval, int nconfig, int nparams, int ninputs,
             int nstates, int noutputs,
             int start, int end,
+            double * config,
             double * params,
             double * inputs,
             double * statesini,
@@ -108,6 +109,7 @@ def __cinit__(self):
 
 
 def gr2m_run(int start, int end,
+        np.ndarray[double, ndim=1, mode='c'] config not None,
         np.ndarray[double, ndim=1, mode='c'] params not None,
         np.ndarray[double, ndim=2, mode='c'] inputs not None,
         np.ndarray[double, ndim=1, mode='c'] statesini not None,
@@ -115,25 +117,14 @@ def gr2m_run(int start, int end,
 
     cdef int ierr
 
-    # check dimensions
-    if params.shape[0] != 2:
-        raise ValueError('params.shape[0] != 2')
-
-    if statesini.shape[0] < 2:
-        raise ValueError('statesini.shape[0] < 2')
-
-    if inputs.shape[0] != outputs.shape[0]:
-        raise ValueError('inputs.shape[0] != outputs.shape[0]')
-
-    if inputs.shape[1] != 2:
-        raise ValueError('inputs.shape[1] != 2')
-
     ierr = c_gr2m_run(inputs.shape[0], \
+            config.shape[0], \
             params.shape[0], \
             inputs.shape[1], \
             statesini.shape[0], \
             outputs.shape[1], \
             start, end,
+            <double*> np.PyArray_DATA(config), \
             <double*> np.PyArray_DATA(params), \
             <double*> np.PyArray_DATA(inputs), \
             <double*> np.PyArray_DATA(statesini), \

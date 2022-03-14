@@ -40,9 +40,10 @@ int gr2m_minmaxparams(int nparams, double * params)
 *
 *******************************************************************************/
 
-int c_gr2m_runtimestep(int nparams, int ninputs,
+int c_gr2m_runtimestep(int nconfig, int nparams, int ninputs,
         int nstates, int noutputs,
-	double * params,
+	    double * config,
+	    double * params,
         double * inputs,
         double * states,
         double * outputs)
@@ -52,7 +53,7 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
     /* parameters */
     double Scapacity = params[0];
     double IGFcoef = params[1];
-    double Rcapacity = 60;
+    double Rcapacity = config[0];
 
     /* model variables */
     double P, E, WS;
@@ -161,11 +162,13 @@ int c_gr2m_runtimestep(int nparams, int ninputs,
 
 // --------- Component runner --------------------------------------------------
 int c_gr2m_run(int nval,
+    int nconfig,
     int nparams,
     int ninputs,
     int nstates,
     int noutputs,
     int start, int end,
+    double * config,
     double * params,
     double * inputs,
     double * statesini,
@@ -174,6 +177,9 @@ int c_gr2m_run(int nval,
     int ierr, i;
 
     /* Check dimensions */
+    if(nconfig != GR2M_NCONFIG)
+        return GR2M_ERROR + __LINE__;
+
     if(nparams != GR2M_NPARAMS)
         return GR2M_ERROR + __LINE__;
 
@@ -199,10 +205,11 @@ int c_gr2m_run(int nval,
     for(i = start; i <= end; i++)
     {
        /* Run timestep model and update states */
-    	ierr = c_gr2m_runtimestep(nparams,
+    	ierr = c_gr2m_runtimestep(nconfig, nparams,
                 ninputs,
                 nstates,
                 noutputs,
+                config,
     		    params,
                 &(inputs[ninputs*i]),
                 statesini,
