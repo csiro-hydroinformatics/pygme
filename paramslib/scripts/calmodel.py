@@ -26,15 +26,10 @@ from hydrodiy.stat import metrics, sutils, transform
 
 from datasets import Dataset
 
-from pygme.factory import sac15, wapaba, gr6j, ihacres
+from pygme.factory import calibration_factory, \
+                model_factory, parameters_transform_factory,\
+                objfun_factory
 from pygme import calibration
-
-import importlib
-importlib.reload(calibration)
-importlib.reload(sac15)
-importlib.reload(wapaba)
-importlib.reload(gr6j)
-importlib.reload(ihacres)
 
 from tqdm import tqdm
 
@@ -66,7 +61,7 @@ nbatch = args.nbatch
 
 # Get option manager
 opm = OptionManager()
-models = ["ihacres", "wapaba"] #["ihacres", "sac15", "gr6j", "wapaba"]
+models = ["IHACRES"] #["IHACRES", "SAC15", "GR6J", "WAPABA"]
 objfuns = ["bc0.2", "biasbc0.2", "bc0.5", "biasbc0.5", \
                                 "bc1.0", "biasbc1.0"]
 batches = np.arange(nbatch)
@@ -79,7 +74,7 @@ batch = task.batch
 objfun_name = task.objfun
 
 # Large params lib
-nparamslib = 20000 if model_name == "sac15" else 5000
+nparamslib = 20000 if model_name == "SAC15" else 5000
 
 #----------------------------------------------------------------------
 # Folders
@@ -92,8 +87,8 @@ fout.mkdir(exist_ok=True, parents=True)
 flogs = froot / "logs" / "calmodel"
 flogs.mkdir(exist_ok=True, parents=True)
 basename = source_file.stem
-flog = flogs / f"calmodel_TASK{taskid}_V{version}_M{model_name}_B{batch}.log"
-LOGGER = iutils.get_logger("pygme.calibration", flog=flog)
+flog = flogs / f"calmodel_TASK{taskid}_V{version}.log"
+LOGGER = iutils.get_logger(basename, console=False, flog=flog)
 
 LOGGER.info(f"version: {version}")
 LOGGER.info(f"taskid: {taskid}")
@@ -114,58 +109,10 @@ sites = sites.iloc[isites, :]
 #----------------------------------------------------------------------
 # Process
 #----------------------------------------------------------------------
+timestep = "D" if model_name in ["GR6J", "SAC15"] else "MS"
 
 # Load model objects
-if model_name == "sac15":
-    model = sac15.SAC15()
-    CalibrationObject = sac15.CalibrationSAC15
-    means = sac15.SAC15_TMEAN
-    cov = sac15.SAC15_TCOV
-    true2trans = sac15.sac15_true2trans
-    trans2true = sac15.sac15_trans2true
-    timestep = "D"
-
-elif model_name == "gr6j":
-    model = gr6j.GR6J()
-    CalibrationObject = gr6j.CalibrationGR6J
-    means = gr6j.GR6J_TMEAN
-    cov = gr6j.GR6J_TCOV
-    true2trans = gr6j.gr6j_true2trans
-    trans2true = gr6j.gr6j_trans2true
-    timestep = "D"
-
-elif model_name == "wapaba":
-    model = wapaba.WAPABA()
-    CalibrationObject = wapaba.CalibrationWAPABA
-    means = wapaba.WAPABA_TMEAN
-    cov = wapaba.WAPABA_TCOV
-    true2trans = wapaba.wapaba_true2trans
-    trans2true = wapaba.wapaba_trans2true
-    timestep = "MS"
-
-elif model_name == "ihacres":
-    model = ihacres.IHACRES()
-    CalibrationObject = ihacres.CalibrationIHACRES
-    means = ihacres.IHACRES_TMEAN
-    cov = ihacres.IHACRES_TCOV
-    true2trans = ihacres.ihacres_true2trans
-    trans2true = ihacres.ihacres_trans2true
-    timestep = "MS"
-
-
-# Objective function
-if objfun_name == "bc0.2":
-    objfun = calibration.ObjFunBCSSE(0.2)
-elif objfun_name == "biasbc0.2":
-    objfun = calibration.ObjFunBiasBCSSE(0.2)
-elif objfun_name == "bc0.5":
-    objfun = calibration.ObjFunBCSSE(0.5)
-elif objfun_name == "biasbc0.5":
-    objfun = calibration.ObjFunBiasBCSSE(0.5)
-elif objfun_name == "bc1.0":
-    objfun = calibration.ObjFunBCSSE(1.0)
-elif objfun_name == "biasbc1.0":
-    objfun = calibration.ObjFunBiasBCSSE(1.0)
+true2trans, trans2true = parameters_transform_factory(model_name)
 
 # Reciprocal transform for NSE reciprocal
 trans_recip = transform.Reciprocal()
@@ -174,9 +121,25 @@ trans_recip.nu = 1e-1 if timestep=="MS" else 1e-3
 # 10 years of warmup
 warmup = int(10*365.25) if timestep == "D" else 120
 
+# Objective function and calibration object
+objfun = objfun_factory(objfun_name)
+calib = calibration_factory(model_name, \
+                    objfun=objfun, \
+                    nparamslib=nparamslib, \
+                    warmup=warmup)
+
+
 # Load parameters
 if version == 1:
     LOGGER.info(f"Retrieve parameter library from package")
+    plib = calib.paramslib
+    tplib = plib*0.
+    for i, p in enumerate(plib):
+        tplib[i] = true2trans(p)
+
+    means = tplib.mean(axis=0)
+    cov = np.cov(tplib.T)
+
 else:
     LOGGER.info(f"Retrieve parameter library from version {version-1}")
     flib = fout.parent / f"calmodel_{model_name}_v{version-1}"
@@ -214,7 +177,11 @@ tplib = sutils.lhs_norm(nparamslib, means, cov)
 plib = tplib * 0.
 for i in range(len(plib)):
     plib[i, :] = trans2true(tplib[i, :])
+model = calib.model
 plib = np.clip(plib, model.params.mins, model.params.maxs)
+
+# Set library
+calib.paramslib = plib
 
 # Run calibration
 tbar = tqdm(enumerate(sites.iterrows()), total=len(sites), \
@@ -257,15 +224,8 @@ for i, (siteid, row) in tbar:
         LOGGER.error(f"Record too short ({len(ical)} {timestep}). Skip")
         continue
 
-    # Calibrate on whole period
-    cal = CalibrationObject(warmup=warmup, nparamslib=nparamslib, \
-                                objfun=objfun)
-
-    # Set paramslib
-    cal.paramslib = plib
-
     # Calibrate
-    final, _, _, _ = cal.workflow(obs, inputs, ical=ical, \
+    final, _, _, _ = calib.workflow(obs, inputs, ical=ical, \
                                     optimizer=fmin)
 
     # Detailed calib process
@@ -275,13 +235,14 @@ for i, (siteid, row) in tbar:
     #final, _, _ = cal.fit(iprint=10)
 
     # Compute simple perfs NSE / bias
-    o, s = obs[ical], cal.model.outputs[ical, 0]
+    model = calib.model
+    o, s = obs[ical], model.outputs[ical, 0]
     nse = metrics.nse(o, s)
     nserecip = metrics.nse(o, s, trans=trans_recip)
     bias = metrics.bias(o, s)
 
     # Store
-    params = {n:round(v, 3) for n, v in zip(cal.model.params.names, final)}
+    params = {n:round(v, 3) for n, v in zip(model.params.names, final)}
     dd = {
         "siteid": siteid, \
         "version": version, \

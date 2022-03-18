@@ -1,10 +1,10 @@
 #!/bin/bash -l
 
 #SBATCH --job-name=calmodel
-#SBATCH --array=0-239%100
-#SBATCH --time=10:00:00
+#SBATCH --array=0-119%100
+#SBATCH --time=1:59:00
 #SBATCH --ntasks=1
-#SBATCH --mem=10gb
+#SBATCH --mem=5gb
 #SBATCH --output=paramslib/logs/calmodel/calmodel_TASK%a_JOB%A.out
 #SBATCH --error=paramslib/logs/calmodel/calmodel_TASK%a_JOB%A.err
 #SBATCH --mail-type=end # send email when job ends
