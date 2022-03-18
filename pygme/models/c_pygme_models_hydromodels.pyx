@@ -169,12 +169,6 @@ def gr4j_run(int nuh1, int nuh2, int start, int end,
     cdef int ierr
 
     # check dimensions
-    if params.shape[0] != 4:
-        raise ValueError('params.shape[0] != 4')
-
-    if states.shape[0] < 2:
-        raise ValueError('states.shape[0] < 2')
-
     if inputs.shape[0] != outputs.shape[0]:
         raise ValueError('inputs.shape[0] != outputs.shape[0]')
 

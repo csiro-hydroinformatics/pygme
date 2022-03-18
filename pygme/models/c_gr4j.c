@@ -401,7 +401,10 @@ int c_gr4j_run(int nval, int nparams,
     if(noutputs > GR4J_NOUTPUTS)
         return GR4J_ERROR + __LINE__;
 
-    if(nstates > GR4J_NSTATES)
+    if(nparams != GR4J_NPARAMS)
+        return GR4J_ERROR + __LINE__;
+
+    if(nstates != GR4J_NSTATES)
         return GR4J_ERROR + __LINE__;
 
     if(nuh1+nuh2 > NUHMAXLENGTH)
