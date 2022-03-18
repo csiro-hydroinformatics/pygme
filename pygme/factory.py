@@ -1,7 +1,8 @@
-""" Model objects factory """
+""" Pygme objects factory """
 import re
 from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
                     turcmezentsev, wapaba, ihacres
+from pygme import calibration
 
 MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15", \
                 "TurcMezentsev", "WAPABA", "IHACRES"]
@@ -126,3 +127,41 @@ def parameters_transform_factory(name):
         return ihacres.ihacres_true2trans, ihacres.ihacres_trans2true
 
 
+def objfun_factory(name, *args, **kwargs):
+    """ Generate objective function objects.
+
+        Parameters
+        ----------
+        name : str
+            Objective function name as follows:
+            * bcx.y: Box-Cox transform SSE with exponent x.y (e.g. bc0.5)
+            * biasbcx.y: Box-Cox transform SSE with bias constraint.
+            * kge: KGE objective function.
+            * sse: Sum of squared error.
+
+        *args : list, **kwargs : list, dict
+            Model constructor kwargs.
+
+        Returns
+        -------
+        objfun : pygme.calibration.ObjFun
+            Objective function
+    """
+    if name.startswith("biasbc"):
+        lam = float(re.sub("^biasbc", "", name))
+        objfun = calibration.ObjFunBiasBCSSE(lam, *args, **kwargs)
+
+    elif name.startswith("bc"):
+        lam = float(re.sub("^bc", "", name))
+        objfun = calibration.ObjFunBCSSE(lam, *args, **kwargs)
+
+    elif name == "kge":
+        objfun = calibration.ObjFunKGE()
+
+    elif name == "sse":
+        objfun = calibration.ObjFunSSE()
+
+    else:
+        raise ValueError(f"Objective function {name} not recognised")
+
+    return objfun
