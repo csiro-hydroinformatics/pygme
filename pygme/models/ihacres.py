@@ -69,8 +69,8 @@ class IHACRES(Model):
 
         maxs = [
                 2.00, #f
-                2000.00, #d
-                20 # delta
+                3000.00, #d
+                24 # delta
         ]
 
         # params vector
