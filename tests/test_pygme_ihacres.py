@@ -26,7 +26,7 @@ def test_print():
     ihc = IHACRES()
     s = f"{ihc}"
 
-def test_ihacres_dumb():
+def test_ihacres_dumb(allclose):
     ihc = IHACRES()
 
     nval = 100
@@ -37,6 +37,9 @@ def test_ihacres_dumb():
 
     ihc.f = 0.7
     ihc.d = 200
+    ihc.delta = 0.5
+    assert allclose(ihc.params.values, [0.7, 200, 0.5])
+
     ihc.initialise()
     ihc.run()
 
@@ -72,12 +75,14 @@ def test_run(allclose):
         nval = len(inputs)
 
         # Run ihacres
-        ihc.allocate(inputs, 10)
+        ihc.allocate(inputs, ihc.noutputsmax)
         ihc.f = params.f
         ihc.d = params.d
+        ihc.delta = 0.5
         ihc.initialise_fromdata()
         ihc.run()
-        outputs = ihc.to_dataframe().loc[:, ["Q", "M", "ET"]]
+
+        outputs = ihc.to_dataframe().loc[:, ["U", "M", "ET"]]
 
         expected = data.loc[:, ["U", "CMD", "ET"]].iloc[:nval]
         assert np.allclose(outputs, expected)
@@ -127,7 +132,7 @@ def test_ihacres_calib(allclose):
     inputs = np.ascontiguousarray(data.loc[:, ["P", "E"]], np.float64)
     nval = len(inputs)
     ihc = IHACRES()
-    ihc.allocate(inputs)
+    ihc.allocate(inputs, ihc.noutputsmax)
 
     # Calibration object
     calib = CalibrationIHACRES(objfun=ObjFunSSE(), \
@@ -139,6 +144,7 @@ def test_ihacres_calib(allclose):
 
     # loop through parameters
     for i, expected in enumerate(samples):
+        print(f"Calib test {i+1}/{nsamples}")
 
         # Generate obs
         ihc.params.values = expected
@@ -158,8 +164,7 @@ def test_ihacres_calib(allclose):
         sim = calib.model.outputs[:, 0]
         rerr = np.abs(obs[warmup:]-sim[warmup:])/(1+obs[warmup:])*100
         rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-        assert rerrmax < 2e-2
-
+        assert rerrmax < 5e-2
         #params = calib.model.params.values
         #err = np.abs(params-expected)
 

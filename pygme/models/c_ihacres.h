@@ -16,13 +16,13 @@
 #define IHACRES_NINPUTS 2
 
 /* Number of params required by IHACRES run */
-#define IHACRES_NPARAMS 2
+#define IHACRES_NPARAMS 3
 
 /* Number of states returned by IHACRES run */
-#define IHACRES_NSTATES 1
+#define IHACRES_NSTATES 2
 
 /* Number of outputs returned by IHACRES run */
-#define IHACRES_NOUTPUTS 10
+#define IHACRES_NOUTPUTS 12
 
 int c_ihacres_run(int nval,
     int nconfig,

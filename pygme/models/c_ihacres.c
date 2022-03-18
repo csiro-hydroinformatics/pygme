@@ -18,6 +18,7 @@ int ihacres_minmaxparams(int nparams, double * params)
 
 	params[0] = c_minmax(0.05, 3, params[0]); 	// f
 	params[1] = c_minmax(1e1, 3e3, params[1]);	// d
+	params[2] = c_minmax(1e-2, 1e2, params[2]);	// delta
 
 	return 0;
 }
@@ -69,17 +70,21 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     double param_f = params[0];
     double param_d = params[1];
     double param_g = param_f*param_d;
+    double delta = params[2];
 
     /* model variables */
     double P, E;
     double M, Mf, M_prev;
-    double U, U0, R0, ET, F, L0, L1, M0;
+    double U, U0, ET, F, L0, L1, M0, M1;
+    double R, Q, omega;
 
     /* inputs */
     P = inputs[0] < 0 ? 0 : inputs[0];
     E = inputs[1] < 0 ? 0 : inputs[1];
 
+    /* states */
     M_prev = c_max(0, states[0]);
+    R = c_max(0, states[1]);
 
     /* main IHACRES procedure */
     Mf = M_prev;
@@ -135,16 +140,29 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     // ET = c_max(0, ET); // Useless. exp and param_e are positive
 
     // mass balance
-    R0 = M_prev-P+U;
-    M0 = R0+ET;
-    M = c_max(0, M0);
-    L1 = M0-M;
+    M0 = M_prev-P+U;
+    M1 = M0+ET;
+    M = c_max(0, M1);
+    L1 = M1-M;
+
+    /* Routing using linear store */
+    if(delta>1e-2)
+    {
+        omega = 1-exp(-1/delta);
+        Q = R*omega+U*(1-delta*omega);
+        R = R+U-Q;
+    }
+    else {
+        Q = U;
+        R = 0;
+    }
 
     /* states */
     states[0] = M;
+    states[1] = R;
 
     /* output */
-    outputs[0] = U;
+    outputs[0] = Q;
 
     if(noutputs>1)
         outputs[1] = M;
@@ -167,7 +185,7 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
         outputs[6] = M0;
 
     if(noutputs>7)
-        outputs[7] = R0;
+        outputs[7] = M1;
 
     if(noutputs>8)
         outputs[8] = L0;
@@ -175,6 +193,11 @@ int c_ihacres_runtimestep(int nconfig, int nparams, int ninputs,
     if(noutputs>9)
         outputs[9] = L1;
 
+    if(noutputs>10)
+        outputs[10] = U;
+
+    if(noutputs>11)
+        outputs[11] = R;
 
     return ierr;
 }

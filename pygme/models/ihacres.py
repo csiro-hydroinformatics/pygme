@@ -13,8 +13,10 @@ from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
-IHACRES_TMEAN = np.array([-0.73, 6.47])
-IHACRES_TCOV = np.array([[0.73, -0.14], [-0.14, 0.52]])
+IHACRES_TMEAN = np.array([-0.73, 6.47, -0.7])
+IHACRES_TCOV = np.array([   [0.73, -0.14, 0.], \
+                            [-0.14, 0.52, 0.],\
+                            [0., 0., 0.5]])
 
 def get_shapefactor(name):
     return float(re.sub("^IHACRES", "", name))
@@ -28,15 +30,17 @@ def logit_inv(v):
     return np.exp(v)/(1+np.exp(v))
 
 def ihacres_trans2true(xt):
-    x = np.zeros(2)
+    x = np.zeros(3)
     x[0] = 2*logit_inv(xt[0]) # f parameter
     x[1] = math.exp(xt[1]) # d parameter
+    x[2] = math.exp(xt[2]) # delta parameter
     return x
 
 def ihacres_true2trans(x):
-    xt = np.zeros(2)
+    xt = np.zeros(3)
     xt[0] = logit_fwd(x[0]/2) # f parameter
     xt[1] = math.log(max(1e-2, x[1])) # d parameter
+    xt[2] = math.log(max(1e-2, x[2])) # delta parameter
     return xt
 
 
@@ -44,46 +48,53 @@ def ihacres_true2trans(x):
 class IHACRES(Model):
 
     def __init__(self, shapefactor=0):
-        defaults = [
-                0.64, #f
-                826.05 #d
-        ]
-
-        mins = [
-                0.10, #f
-                28.05, #d
-        ]
-
-        maxs = [
-                2.00, #f
-                2000.00, #d
-        ]
-
         # Config vector
         # e is normally an IHACRES parameter used if evap inputs are
         # different from PET or if vegetation plays a big role in
         # influencing evap.
         config = Vector(["shapefactor", "e"], [shapefactor, 1], [0, 0.1], [10, 1.5])
 
+        # Parameter
+        defaults = [
+                0.64, #f
+                826.05, #d
+                0.5 # delta
+        ]
+
+        mins = [
+                0.10, #f
+                28.05, #d
+                0.01 # delta
+        ]
+
+        maxs = [
+                2.00, #f
+                2000.00, #d
+                20 # delta
+        ]
+
         # params vector
-        vect = Vector(["f", "d"], defaults, mins, maxs)
+        vect = Vector(["f", "d", "delta"], \
+                        defaults=defaults, \
+                        mins=mins, \
+                        maxs=maxs)
         params = ParamsVector(vect)
 
         # State vector
-        states = Vector(["M"])
+        states = Vector(["M", "R"])
 
         # Model
         super(IHACRES, self).__init__("IHACRES",
             config, params, states, \
             ninputs=2, \
-            noutputsmax=10)
+            noutputsmax=12)
 
         self.inputs_names = ["Rain", "PET"]
 
         # Runoff outputs is named 'U' in ihacres code
         # we use 'Q' here to be compatible with other models
         self.outputs_names = ["Q", "M", "Mf", "ET", \
-                                "U0", "F", "M0", "R0", "L0", "L1"]
+                                "U0", "F", "M0", "M1", "L0", "L1", "U", "R"]
 
 
     def initialise_fromdata(self):
@@ -91,13 +102,14 @@ class IHACRES(Model):
             * Production store: 50% filling level
             * Routing store: 30% filling level
         """
-        d = self.params.d
-
         # Production store
-        M0 = 0.5 * d
+        M0 = 0.5 * self.params.d
+
+        # Routing store
+        R0 = 100. * self.params.delta
 
         # Model initialisation
-        self.initialise(states=[M0])
+        self.initialise(states=[M0, R0])
 
 
     def run(self):
@@ -129,7 +141,7 @@ class CalibrationIHACRES(Calibration):
         model = IHACRES(shapefactor)
         params = model.params
 
-        cp = Vector(["tf", "td"], \
+        cp = Vector(["tf", "td", "tdelta"], \
                 mins=ihacres_true2trans(params.mins),
                 maxs=ihacres_true2trans(params.maxs),
                 defaults=ihacres_true2trans(params.defaults))
