@@ -6,7 +6,7 @@ $VERSION=$args[0]
 $Path=$PSScriptRoot
 
 # Loop over months and xv-folds
-For($taskid=0; $taskid -le 6; $taskid++)
+For($taskid=0; $taskid -le 5; $taskid++)
 {
     Write-Host "calmodel for task $taskid"
 

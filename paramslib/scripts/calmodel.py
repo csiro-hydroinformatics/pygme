@@ -184,15 +184,15 @@ plib = np.clip(plib, model.params.mins, model.params.maxs)
 calib.paramslib = plib
 
 # Run calibration
+nsites = len(sites)
 tbar = tqdm(enumerate(sites.iterrows()), total=len(sites), \
                 desc="Calib", disable=not progress)
 for i, (siteid, row) in tbar:
-    if not progress:
-        LOGGER.info("dealing with {0} ({1}/{2})".format( \
-            siteid, i, len(sites)))
+    LOGGER.info(f"dealing with {siteid} ({i+1}/{nsites})")
 
     fparams = fout / f"params_{siteid}_{model_name}_o{objfun_name}_v{version}.json"
     if fparams.exists() and not overwrite:
+        LOGGER.info("... file already exists. Skip")
         continue
 
     # Get data
@@ -257,6 +257,7 @@ for i, (siteid, row) in tbar:
     }
     with fparams.open("w") as fo:
         json.dump(dd, fo, indent=4)
+
 
 LOGGER.info("Process completed")
 
