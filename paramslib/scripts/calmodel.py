@@ -127,7 +127,7 @@ calib = calibration_factory(model_name, \
                     objfun=objfun, \
                     nparamslib=nparamslib, \
                     warmup=warmup)
-
+model = calib.model
 
 # Load parameters
 if version == 1:
@@ -177,7 +177,6 @@ tplib = sutils.lhs_norm(nparamslib, means, cov)
 plib = tplib * 0.
 for i in range(len(plib)):
     plib[i, :] = trans2true(tplib[i, :])
-model = calib.model
 plib = np.clip(plib, model.params.mins, model.params.maxs)
 
 # Set library

@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from hydrodiy.io import csv, iutils, hyruns
 from hydrodiy.plot import putils
 
-from pygme.models import sac15, gr6j, wapaba, ihacres
+from pygme.factory import model_factory, parameters_transform_factory
 
 from tqdm import tqdm
 
@@ -57,7 +57,7 @@ fimg.mkdir(exist_ok=True)
 basename = source_file.stem
 LOGGER = iutils.get_logger(basename)
 
-for model_name in ["sac15", "gr6j", "wapaba", "ihacres"]:
+for model_name in ["sac15", "gr6j", "wapaba", "IHACRES"]:
     if pattern != "" and not re.search(pattern, model_name):
         continue
 
@@ -100,19 +100,8 @@ for model_name in ["sac15", "gr6j", "wapaba", "ihacres"]:
     versions = params.version.unique()
     version = versions.max()
 
-    if model_name == "sac15":
-        model = sac15.SAC15()
-        true2trans = sac15.sac15_true2trans
-    elif model_name == "gr6j":
-        model = gr6j.GR6J()
-        true2trans = gr6j.gr6j_true2trans
-    elif model_name == "wapaba":
-        model = wapaba.WAPABA()
-        true2trans = wapaba.wapaba_true2trans
-    elif model_name == "ihacres":
-        model = ihacres.IHACRES()
-        true2trans = ihacres.ihacres_true2trans
-
+    model = model_factory(model_name)
+    true2trans, trans2true = parameters_transform_factory(model_name)
     pnames = model.params.names
 
     plib = params.loc[params.version==version, pnames]
@@ -189,7 +178,7 @@ for model_name in ["sac15", "gr6j", "wapaba", "ihacres"]:
             nrows, ncols, figsize = 3, 4, (12, 10)
         elif model_name == "wapaba":
             nrows, ncols, figsize = 3, 3, (10, 10)
-        elif model_name == "ihacres":
+        elif model_name == "IHACRES":
             nrows, ncols, figsize = 3, 3, (10, 10)
 
         fig, axs = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize, \
