@@ -74,16 +74,19 @@ def test_paramtrans_factory():
 
 def test_objfun_factory():
     for name in ["bc0.0", "bc1.0", "biasbc0.0", \
+            "bc0.0_1", "bc1.0_5.0", \
             "biasbc1.0", "sse", "kge"]:
         objfun = objfun_factory(name)
+
         if re.search("bc", name):
-            lam = float(re.sub(".*bc", "", name))
+            lam = float(re.sub(".*bc|_.*$", "", name))
             assert objfun.trans.lam == lam
 
-
-def test_objfun_factory_arguments():
-    objfun = objfun_factory("bc0.5", nu=0.1)
-    assert objfun.trans.nu == 0.1
+            if re.search("bc.*_", name):
+                nu = float(re.sub(".*_", "", name))
+                assert objfun.trans.nu == nu
+            else:
+                assert objfun.trans.nu == 1e-10
 
 
 def test_objfun_factory_errors():

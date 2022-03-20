@@ -127,20 +127,17 @@ def parameters_transform_factory(name):
         return ihacres.ihacres_true2trans, ihacres.ihacres_trans2true
 
 
-def objfun_factory(name, *args, **kwargs):
+def objfun_factory(name):
     """ Generate objective function objects.
 
         Parameters
         ----------
         name : str
             Objective function name as follows:
-            * bcx.y: Box-Cox transform SSE with exponent x.y (e.g. bc0.5)
-            * biasbcx.y: Box-Cox transform SSE with bias constraint.
+            * bcx_y: Box-Cox transform SSE with exponent x and shift y (e.g. bc0.5_0.1)
+            * biasbcx_y: Box-Cox transform SSE with bias constraint.
             * kge: KGE objective function.
             * sse: Sum of squared error.
-
-        *args : list, **kwargs : list, dict
-            Model constructor kwargs.
 
         Returns
         -------
@@ -148,12 +145,20 @@ def objfun_factory(name, *args, **kwargs):
             Objective function
     """
     if name.startswith("biasbc"):
-        lam = float(re.sub("^biasbc", "", name))
-        objfun = calibration.ObjFunBiasBCSSE(lam, *args, **kwargs)
+        lam = float(re.sub("^biasbc|_.*", "", name))
+        nu = 0.
+        if re.search("_", name):
+            nu = float(re.sub(".*_", "", name))
+
+        objfun = calibration.ObjFunBiasBCSSE(lam, nu)
 
     elif name.startswith("bc"):
-        lam = float(re.sub("^bc", "", name))
-        objfun = calibration.ObjFunBCSSE(lam, *args, **kwargs)
+        lam = float(re.sub("^bc|_.*", "", name))
+        nu = 0.
+        if re.search("_", name):
+            nu = float(re.sub(".*_", "", name))
+
+        objfun = calibration.ObjFunBCSSE(lam, nu)
 
     elif name == "kge":
         objfun = calibration.ObjFunKGE()
