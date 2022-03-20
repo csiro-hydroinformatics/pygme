@@ -13,10 +13,13 @@ from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
-IHACRES_TMEAN = np.array([-0.73, 6.47, -0.7])
-IHACRES_TCOV = np.array([   [0.73, -0.14, 0.], \
-                            [-0.14, 0.52, 0.],\
-                            [0., 0., 0.5]])
+IHACRES_TMEAN = np.array([-0.73, 6.47, -2.56])
+IHACRES_TCOV = np.array([\
+        [0.61, -0.11, -0.13],
+        [-0.11, 0.73, -0.07],
+        [-0.13, -0.07, 2.2]
+    ])
+
 
 def get_shapefactor(name):
     return float(re.sub("^IHACRES", "", name))
@@ -58,7 +61,7 @@ class IHACRES(Model):
         defaults = [
                 0.64, #f
                 826.05, #d
-                0.5 # delta
+                0.26 # delta
         ]
 
         mins = [
