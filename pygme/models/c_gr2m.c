@@ -71,20 +71,25 @@ int c_gr2m_runtimestep(int nconfig, int nparams, int ninputs,
     /* main GR2M procedure */
 
     /* production */
+
+    /* .. integration of dv/dt = [1-(v/X1)^2] P ..
+       see Edijatno (1991) page 45.
+    */
     WS = P/Scapacity;
-    WS = WS > 13 ? 13 : WS;
-    PHI = tanh(WS);
+    //WS = WS > 13 ? 13 : WS;
+    PHI = c_tanh(WS); // Use fast tanh function. Cap WS at 4.9 though.
     S1 = (S+Scapacity*PHI)/(1+PHI*S/Scapacity);
     P1 = P+S-S1;
 
+    /* .. integration of dv/dt = -v/X1 (2-v/X1) E ..*/
     WS = E/Scapacity;
-    WS = WS > 13 ? 13 : WS;
-    PSI = tanh(WS);
+    //WS = WS > 13 ? 13 : WS;
+    PSI = c_tanh(WS); // Use fast tanh function. Cap WS at 4.9 though.
     S2 = S1*(1-PSI)/(1+PSI*(1-S1/Scapacity));
     AE = S1-S2;
 
     Sr = S2/Scapacity;
-    S = S2/pow(1.+Sr*Sr*Sr, 1./3);
+    S = S2/cbrt(1.+Sr*Sr*Sr);
     P2 = S2-S;
     P3 = P1 + P2;
 
