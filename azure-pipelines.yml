@@ -8,7 +8,13 @@ resources:
       name: hydrodiy/hydrodiy
       ref: refs/heads/master
       trigger:
-      - master
+        branches:
+            include:
+            - master
+        paths:
+            exclude:
+            - azure-pipelines.yml
+            - env.yml
 
 trigger:
 - master
