@@ -68,6 +68,7 @@ steps:
 
 - script: |
     source activate $(CONDA_ENV_NAME)
+    cd $(BUILD_DIR)/pygme
     pytest --junitxml=junit/test-results.xml --cov=pygme --cov-config=.coveragerc --cov-report=xml tests
   displayName: test
   timeoutInMinutes: 30
