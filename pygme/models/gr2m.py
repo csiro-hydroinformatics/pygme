@@ -119,7 +119,7 @@ class CalibrationGR2M(Calibration):
 
         # Sample parameter library from latin hyper-cube
         mean = params.defaults
-        cov = np.diag((params.maxs-params.mins)/2)
+        cov = np.diag(mean**2)
         plib = sutils.lhs_norm(nparamslib, mean, cov)
         plib = np.clip(plib, params.mins, params.maxs)
         self.paramslib = plib
