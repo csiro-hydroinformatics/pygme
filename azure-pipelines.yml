@@ -14,7 +14,7 @@ resources:
         paths:
             exclude:
             - azure-pipelines.yml
-            - env.yml
+            - env_nriv_v2.yml
 
 trigger:
 - master
@@ -27,7 +27,7 @@ strategy:
       python.version: '3.8'
 
 variables:
-  CONDA_ENV_NAME: diyenv
+  CONDA_ENV_NAME: env_nriv_v2
   CONDA_HOME: /usr/share/miniconda/envs/$(CONDA_ENV_NAME)/
   BUILD_DIR: $(System.DefaultWorkingDirectory)
 
@@ -46,11 +46,11 @@ steps:
 - task: Cache@2
   displayName: Use cached Anaconda environment
   inputs:
-    key: conda | $(BUILD_DIR)/pygme/env.yml
+    key: conda | $(BUILD_DIR)/pygme/env_nriv_v2.yml
     path: $(CONDA_HOME)
     cacheHitVar: CONDA_CACHE_RESTORED
 
-- bash: conda env create --file  $(BUILD_DIR)/pygme/env.yml
+- bash: conda env create --file  $(BUILD_DIR)/pygme/env_nriv_v2.yml
   displayName: Create Anaconda environment (if not restored from cache)
   condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
 
