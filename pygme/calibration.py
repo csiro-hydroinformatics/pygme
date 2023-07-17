@@ -402,13 +402,13 @@ def fitfun(values, calib, use_transformed_parameters):
     ofun = objfun.compute(calib.obs[ical, :], \
                                     model.outputs[ical, :], \
                                     **objfun_kwargs)
-    if np.isnan(ofun):
-        ofun = np.inf
-
     # Apply function orientation
     # +1 = minimization
     # -1 = maximization
     ofun *= objfun.orientation
+
+    if np.isnan(ofun):
+        ofun = np.inf
 
     # Print output if needed
     if calib.iprint>0 and calib.nbeval % calib.iprint == 0:
