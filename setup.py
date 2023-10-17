@@ -59,9 +59,9 @@ cmdclass['build_ext'] = build_ext
 setup(
     name='pygme',
     author= 'Julien Lerat',
-    author_email= 'julien.lerat@gmail.com',
-    url= 'https://bitbucket.org/jlerat/pygme',
-    download_url= 'https://bitbucket.org/jlerat/pygme/downloads',
+    author_email= 'julien.lerat@csiro.au',
+    url= 'https://github.com/csiro-hydroinformatics/pygme',
+    download_url= 'hhttps://github.com/csiro-hydroinformatics/pygme/tags',
     version=versioneer.get_version(),
     description= 'Design, run and calibrate models used in'+\
                             ' environmental sciences',
