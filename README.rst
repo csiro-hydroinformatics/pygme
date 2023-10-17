@@ -12,7 +12,7 @@ What is pygme?
 Installation
 ~~~~~~~~~~~~
 
-Download the `source code <https://bitbucket.org/jlerat/pygme>`__ and
+Download the `source code <https://github.com/csiro-hydroinformatics/pygme>`__ and
 ``python setup.py install``
 
 Basic use
@@ -71,4 +71,4 @@ To setup a model, change its parameters and run it:
 
        plt.show()
 
-More examples in the `examples folder <https://bitbucket.org/jlerat/pygme/downloads>`__ directory.
+More examples in the `examples folder <https://github.com/csiro-hydroinformatics/pygme/tree/master/examples>`__ directory.
