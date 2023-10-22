@@ -75,6 +75,6 @@ More examples in the `examples folder <https://github.com/csiro-hydroinformatics
 License
 ~~~~~~~~~
 
-The source code and documentation of the hydrodiy package is licensed under the
+The source code and documentation of the pygme package is licensed under the
 `BSD license <https://opensource.org/license/bsd-3clause>`__.
 
