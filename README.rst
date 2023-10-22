@@ -71,3 +71,10 @@ To setup a model, change its parameters and run it:
        plt.show()
 
 More examples in the `examples folder <https://github.com/csiro-hydroinformatics/pygme/tree/master/examples>`__ directory.
+
+License
+~~~~~~~~~
+
+The source code and documentation of the hydrodiy package is licensed under the
+`BSD license <https://opensource.org/license/bsd-3clause>`__.
+
