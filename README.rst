@@ -11,10 +11,8 @@ What is pygme?
 
 Installation
 ~~~~~~~~~~~~
-- Install the `hydrodiy <https://github.com/csiro-hydroinformatics/hydrodiy>`__
-package.
-- Download the `source code <https://github.com/csiro-hydroinformatics/pygme>`__ and
-run ``python setup.py install``
+- Install the `hydrodiy <https://github.com/csiro-hydroinformatics/hydrodiy>`__ package.
+- Download the `source code <https://github.com/csiro-hydroinformatics/pygme>`__ and run ``python setup.py install``.
 
 Basic use
 ~~~~~~~~~
