@@ -76,5 +76,5 @@ License
 ~~~~~~~~~
 
 The source code and documentation of the pygme package is licensed under the
-`BSD license <https://opensource.org/license/bsd-3clause>`__.
+`BSD license <https://opensource.org/license/bsd-3-clause/>`__.
 
