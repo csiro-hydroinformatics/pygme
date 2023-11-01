@@ -56,7 +56,7 @@ jobs:
           conda activate env_mini
           cd $GITHUB_WORKSPACE
           echo "--- pygme test : located in $PWD ---"
-          pytest --cov=pygme --cov-config=.coveragerc --junitxml=junit/test-results.xml --cov-report=xml --cov-report=html test
+          pytest --cov=pygme --cov-config=.coveragerc --junitxml=junit/test-results.xml --cov-report=xml --cov-report=html tests
       
       - name: Upload pytest test results
         uses: actions/upload-artifact@v3
