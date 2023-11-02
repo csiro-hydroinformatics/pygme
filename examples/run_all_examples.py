@@ -8,6 +8,7 @@
 ##
 ## ------------------------------
 import sys, os, re
+from pathlib import Path
 import subprocess
 
 from hydrodiy.io import csv, iutils
@@ -19,31 +20,33 @@ from hydrodiy.io import csv, iutils
 #----------------------------------------------------------------------
 # Folders
 #----------------------------------------------------------------------
-source_file = os.path.abspath(__file__)
-froot = os.path.dirname(source_file)
+source_file = Path(__file__).resolve()
+froot = source_file.parent
 
-basename = re.sub('\\.py.*', '', os.path.basename(source_file))
+#----------------------------------------------------------------------
+# Logging
+#----------------------------------------------------------------------
+basename = re.sub("\\.py.*", "", source_file.stem)
 LOGGER = iutils.get_logger(basename)
 
 #----------------------------------------------------------------------
 # Get data
 #----------------------------------------------------------------------
-lf = iutils.find_files(froot, '.*\.py')
+lf = froot.glob("*.py")
 
 #----------------------------------------------------------------------
 # Process
 #----------------------------------------------------------------------
 
 for f in lf:
-    fname = os.path.basename(f)
-    if re.search('run_all_examples', f):
-        LOGGER.info('Skip '+ fname)
+    if re.search("run_all_examples", f.stem):
+        LOGGER.info("Skip "+ f.stem)
         continue
 
-    LOGGER.info('Running {0}'.format(fname))
-    cmd = 'python ' + f
+    LOGGER.info(f"Running {f.stem}")
+    cmd = f"python {f}"
     subprocess.check_call(cmd, shell=True)
 
 
-LOGGER.info('Process completed')
+LOGGER.info("Process completed")
 
