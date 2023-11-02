@@ -1,5 +1,5 @@
 # pygme
-[![CI](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml) [![codecov](https://codecov.io/gh/csiro-hydroinformatics/pygme/graph/badge.svg?token=ARBFW69TI3)](https://codecov.io/gh/csiro-hydroinformatics/pygme)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10065245.svg)](https://doi.org/10.5281/zenodo.10065245) [![CI](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml) [![codecov](https://codecov.io/gh/csiro-hydroinformatics/pygme/graph/badge.svg?token=ARBFW69TI3)](https://codecov.io/gh/csiro-hydroinformatics/pygme)
 
 Python Generic Modelling Engine (PyGME): A simple python package to design, run and calibrate models used in environmental sciences.
 
