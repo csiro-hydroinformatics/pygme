@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from hydrodiy.data.containers import Vector
-from pygme.model import Model, ParamsVector
+from pygme.model import Model, ParamsVector, NORDMAXMAX
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 from pygme import has_c_module
@@ -49,7 +49,10 @@ class LagRoute(Model):
             # Compute Lag = alpha * U * L / dt
             delta = config.length * params.U * params.alpha
             delta /= config.timestep
-            delta = np.float64(delta)
+
+            # Set maximum for delta based on maximum
+            # number of uh ordinates
+            delta = min(NORDMAXMAX-2, np.float64(delta))
 
             if np.isnan(delta):
                 raise ValueError("Expected non nan value for delta. "+\
@@ -71,8 +74,7 @@ class LagRoute(Model):
             noutputsmax=4)
 
         self.inputs_names = ["Inflow"]
-        self.outputs_names = ["Q", "Q1lag", \
-                    "VR", "V1"]
+        self.outputs_names = ["Q", "Q1lag", "VR", "V1"]
 
 
     def run(self):
@@ -111,7 +113,7 @@ class CalibrationLagRoute(Calibration):
 
         cp = Vector(["tU", "talpha"], \
                 mins=params.mins,
-                maxs=params.maxs,
+                maxs=params.maxs, \
                 defaults=params.defaults)
 
         # no parameter transformation
