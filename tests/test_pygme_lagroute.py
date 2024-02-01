@@ -10,7 +10,7 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 
-from pygme.models.lagroute import LagRoute, CalibrationLagRoute
+from pygme.models.lagroute import LagRoute, CalibrationLagRoute, NORDMAXMAX
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunSSE
 
 
@@ -96,6 +96,18 @@ def test_uh2():
         assert ck
 
 
+def test_max_invv():
+    lr = LagRoute()
+    # Test if maximum uh length can be set
+    length, timestep = 100e3, 3600 # 100km / 1hr
+    lr.config.length = length
+    lr.config.timestep = timestep
+
+    # Umax = NORDMAXMAX/length*timestep
+    lr.alpha = 1.
+    # .. creates an error if the max ordinate is not controlled
+    lr.U = (NORDMAXMAX+1)/length*timestep
+
 
 def test_massbalance():
 
@@ -114,8 +126,8 @@ def test_massbalance():
     # Set outputs
     lr.allocate(inputs, 4)
 
+    print("")
     for theta2 in [1, 2]:
-
         lr.config.storage_expon = theta2
 
         # Run
@@ -151,6 +163,7 @@ def test_massbalance():
         print(('\t\ttheta2={0} - Average runtime'+\
                 ' = {1:.5f} ms/yr').format( \
                     theta2, dta))
+
 
 def test_lagroute_lag():
     ''' Test lagroute with pure lag '''
