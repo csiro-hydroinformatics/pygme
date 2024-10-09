@@ -27,7 +27,6 @@ else:
             "pygme/models/c_uh.c"
         ],
         extra_cflags=["-O3"],
-        extra_compile_args=["-ffast-math"],
         include_dirs=[numpy.get_include()])
 
     ext_hydromodels=Extension(name="c_pygme_models_hydromodels",
@@ -44,7 +43,6 @@ else:
             "pygme/models/c_ihacres.c"
         ],
         extra_cflags=["-O3"],
-        extra_compile_args=["-ffast-math"],
         include_dirs=[numpy.get_include()])
 
     ext_modules = [
