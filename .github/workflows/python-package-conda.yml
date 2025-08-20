@@ -64,7 +64,7 @@ jobs:
           cd $GITHUB_WORKSPACE
           echo "--- pygme test : located in $PWD ---"
           pytest --ignore=src/pygme --ignore=src/hydrodiy --doctest-modules src
-          pytest --ignore=src/pygme --ignore=src/hydrodiy --ntry=100 --cov=pygme --cov-report=xml --cov-report=html -cov-report=missing-term tests
+          pytest --ignore=src/pygme --ignore=src/hydrodiy --cov=pygme --cov-report=xml --cov-report=html -cov-report=missing-term tests
       
       - name: Parse coverage report and create badge
         run: |
