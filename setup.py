@@ -13,7 +13,7 @@ if os.getenv("PYGME_NO_BUILD") == "1":
 else:
     extensions = [
         Extension(
-            name="c_pygme_model_utils",
+            name="c_pygme_models_utils",
             sources=[
                 "src/pygme/models/c_pygme_models_utils.pyx",
                 "src/pygme/models/c_utils.c",
