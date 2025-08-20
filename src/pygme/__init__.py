@@ -1,5 +1,7 @@
 import importlib
 
+__version__ = "1.4"
+
 def has_c_module(name, raise_error=True):
     name = f"c_pygme_{name}"
     out = importlib.util.find_spec(name)
@@ -13,6 +15,3 @@ def has_c_module(name, raise_error=True):
         else:
             return False
 
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
