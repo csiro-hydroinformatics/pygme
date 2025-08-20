@@ -4,14 +4,16 @@ from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
                     turcmezentsev, wapaba, ihacres
 from pygme import calibration
 
-MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15", \
-                "TurcMezentsev", "WAPABA", "IHACRES"]
+MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15",
+               "TurcMezentsev", "WAPABA", "IHACRES"]
+
 
 def check_model(name):
-    txt = "/".join(MODEL_NAMES)
-    errmsg = f"Expected model name in {txt}, got {name}."
-    assert name in MODEL_NAMES or name.startswith("IHACRES") \
-                    or name.startswith("GR2M"), errmsg
+    if name not in MODEL_NAMES or not name.startswith("IHACRES") \
+            or not name.startswith("GR2M"):
+        txt = "/".join(MODEL_NAMES)
+        errmsg = f"Expected model name in {txt}, got {name}."
+        raise ValueError(errmsg)
 
 
 def model_factory(name, *args, **kwargs):
@@ -43,7 +45,7 @@ def model_factory(name, *args, **kwargs):
         return lagroute.LagRoute(*args, **kwargs)
     elif name == "SAC15":
         return sac15.SAC15(*args, **kwargs)
-    elif  name == "TurcMezentsev":
+    elif name == "TurcMezentsev":
         return turcmezentsev.TurcMezentsev(*args, **kwargs)
     elif name == "WAPABA":
         return wapaba.WAPABA(*args, **kwargs)
@@ -82,7 +84,7 @@ def calibration_factory(name, *args, **kwargs):
         return lagroute.CalibrationLagRoute(*args, **kwargs)
     elif name == "SAC15":
         return sac15.CalibrationSAC15(*args, **kwargs)
-    elif  name == "TurcMezentsev":
+    elif name == "TurcMezentsev":
         return turcmezentsev.CalibrationTurcMezentsev(*args, **kwargs)
     elif name == "WAPABA":
         return wapaba.CalibrationWAPABA(*args, **kwargs)
@@ -119,7 +121,7 @@ def parameters_transform_factory(name):
         return lagroute.lagroute_true2trans, lagroute.lagroute_trans2true
     elif name == "SAC15":
         return sac15.sac15_true2trans, sac15.sac15_trans2true
-    elif  name == "TurcMezentsev":
+    elif name == "TurcMezentsev":
         raise ValueError("No transform available")
     elif name == "WAPABA":
         return wapaba.wapaba_true2trans, wapaba.wapaba_trans2true
@@ -134,7 +136,8 @@ def objfun_factory(name):
         ----------
         name : str
             Objective function name as follows:
-            * bcx_y: Box-Cox transform SSE with exponent x and shift y (e.g. bc0.5_0.1)
+            * bcx_y: Box-Cox transform SSE with exponent x
+                      and shift y (e.g. bc0.5_0.1)
             * biasbcx_y: Box-Cox transform SSE with bias constraint.
             * kge: KGE objective function.
             * sse: Sum of squared error.

@@ -2,11 +2,12 @@ import importlib
 
 __version__ = "1.4"
 
+
 def has_c_module(name, raise_error=True):
     m_name = f"c_pygme_{name}"
     out = importlib.util.find_spec(m_name)
 
-    if not out is None:
+    if out is not None:
         return True
     else:
         if raise_error:
@@ -15,4 +16,3 @@ def has_c_module(name, raise_error=True):
             raise ImportError(errmsg)
         else:
             return False
-

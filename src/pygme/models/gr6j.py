@@ -1,11 +1,10 @@
 import math
 import numpy as np
-import pandas as pd
 
 from hydrodiy.stat import sutils
 from hydrodiy.data.containers import Vector
 
-from pygme.model import Model, ParamsVector, UH, ParameterCheckValueError
+from pygme.model import Model, ParamsVector, ParameterCheckValueError
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 from pygme.models.gr4j import gr4j_X1_initial
 
@@ -24,26 +23,30 @@ GR6J_TCOV = np.array([
     [-1.1, -0.11, 1.5, -0.22, -0.0, 4.9]
 ])
 
+
 # Transformation functions for gr6j parameters
 def gr6j_trans2true(x):
-    return np.array([ \
-                math.exp(x[0]), \
-                math.sinh(x[1]), \
-                math.exp(x[2]), \
-                0.49+math.exp(x[3]), \
-                math.sinh(x[4]), \
+    return np.array([
+                math.exp(x[0]),
+                math.sinh(x[1]),
+                math.exp(x[2]),
+                0.49+math.exp(x[3]),
+                math.sinh(x[4]),
                 math.exp(x[5])
             ])
 
+
 def gr6j_true2trans(x):
-    return np.array([ \
-                math.log(max(1e-10, x[0])), \
-                math.asinh(x[1]), \
-                math.log(max(1e-10, x[2])), \
-                math.log(max(1e-10, x[3]-0.49)), \
-                math.asinh(x[4]), \
+    return np.array([
+                math.log(max(1e-10, x[0])),
+                math.asinh(x[1]),
+                math.log(max(1e-10, x[2])),
+                math.log(max(1e-10, x[3]-0.49)),
+                math.asinh(x[4]),
                 math.log(max(1e-10, x[5]))
             ])
+
+
 # Model
 class GR6J(Model):
 
@@ -54,42 +57,42 @@ class GR6J(Model):
 
         # params vector
         defaults = [
-                353.38, #X1
-                -0.26, #X2
-                47.71, #X3
-                2.12, #X4
-                0.03, #X5
-                48.94 #X6
+                353.38,  # X1
+                -0.26,  # X2
+                47.71,  # X3
+                2.12,  # X4
+                0.03,  # X5
+                48.94  # X6
         ]
 
         mins = [
-                1.00, #X1
-                -21.30, #X2
-                1.00, #X3
-                0.50, #X4
-                -50.00, #X5
-                0.10, #X6
+                1.00,  # X1
+                -21.30,  # X2
+                1.00,  # X3
+                0.50,  # X4
+                -50.00,  # X5
+                0.10,  # X6
         ]
 
         maxs = [
-                10000.00, #X1
-                6.67, #X2
-                10000.00, #X3
-                50.00, #X4
-                50.00, #X5
-                1000.00, #X6
+                10000.00,  # X1
+                6.67,  # X2
+                10000.00,  # X3
+                50.00,  # X4
+                50.00,  # X5
+                1000.00,  # X6
         ]
 
-        vect = Vector(["X1", "X2", "X3", "X4", "X5", "X6"], \
-                    defaults=defaults, \
-                    mins=mins, maxs=maxs)
+        vect = Vector(["X1", "X2", "X3", "X4", "X5", "X6"],
+                      defaults=defaults,
+                      mins=mins, maxs=maxs)
 
         # Rule to exclude certain parameters
         def checkvalues(values):
             X2, X3 = values[1:3]
             if X3 < -X2:
-                raise ParameterCheckValueError(\
-                        "X3 ({0:0.2f}) < - X2 ({1:0.2f})".format(X3, X2))
+                errmsg = f"X3 ({X3:0.2f}) < - X2 ({X2:0.2f})"
+                raise ParameterCheckValueError(errmsg)
 
         params = ParamsVector(vect, checkvalues=checkvalues)
 
@@ -99,19 +102,19 @@ class GR6J(Model):
 
         # State vector
         # Set default state vector to -100 for exponential reservoir
-        states = Vector(["S", "R", "A"], [0., 0., -100], \
-                                check_bounds=False)
+        states = Vector(["S", "R", "A"], [0., 0., -100],
+                        check_bounds=False)
 
         # Model
         super(GR6J, self).__init__("GR6J",
-            config, params, states, \
-            ninputs=2, \
-            noutputsmax=13)
+                                   config, params, states,
+                                   ninputs=2,
+                                   noutputsmax=13)
 
         self.inputs_names = ["Rain", "PET"]
-        self.outputs_names = ["Q", "S", "R", "A", "ECH", "AE", \
-                    "PR", "QD", "QR", "PERC", "QExp", "Q1", "Q9"]
-
+        self.outputs_names = ["Q", "S", "R", "A", "ECH", "AE",
+                              "PR", "QD", "QR", "PERC", "QExp",
+                              "Q1", "Q9"]
 
     def initialise_fromdata(self, Pm=0., Em=0., Q0=1e-3):
         """ Initialisation of GR6J using
@@ -150,8 +153,6 @@ class GR6J(Model):
         # Model initialisation
         self.initialise(states=[S0, R0, A0])
 
-
-
     def run(self):
         has_c_module("models_hydromodels")
 
@@ -163,63 +164,65 @@ class GR6J(Model):
         _, uh2 = self.params.uhs[1]
 
         # Run gr4j c code
-        ierr = c_pygme_models_hydromodels.gr6j_run(\
-            version, \
-            uh1.nord, \
-            uh2.nord, self.istart, self.iend, \
-            self.params.values, \
-            uh1.ord, \
-            uh2.ord, \
-            self.inputs, \
-            uh1.states, \
-            uh2.states, \
-            self.states.values, \
-            self.outputs)
-
+        ierr = c_pygme_models_hydromodels.gr6j_run(version,
+                                                   uh1.nord,
+                                                   uh2.nord,
+                                                   self.istart,
+                                                   self.iend,
+                                                   self.params.values,
+                                                   uh1.ord,
+                                                   uh2.ord,
+                                                   self.inputs,
+                                                   uh1.states,
+                                                   uh2.states,
+                                                   self.states.values,
+                                                   self.outputs)
         if ierr > 0:
-            raise ValueError(("c_pygme_models_hydromodels.gr6j_run" +
-                " returns {0}").format(ierr))
+            errmsg = "c_pygme_models_hydromodels.gr6j_run"\
+                     + f" returns {ierr}"
+            raise ValueError(errmsg)
 
 
 class CalibrationGR6J(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.5), \
-                    warmup=5*365, \
-                    timeit=False, \
-                    fixed=None, \
-                    nparamslib=8000, \
-                    objfun_kwargs={},
-                    Pm=0., Em=0.):
+    def __init__(self, objfun=ObjFunBCSSE(0.5),
+                 warmup=5*365,
+                 timeit=False,
+                 fixed=None,
+                 nparamslib=8000,
+                 objfun_kwargs={},
+                 Pm=0., Em=0.):
 
         # Input objects for Calibration class
         model = GR6J()
         params = model.params
 
         # initialisation of states
-        if Pm < 0 or Em < 0 :
-            raise ValueError("Expected Pm and Em >0, "+\
-                "got Pm={0}, Em={1}".format(Pm, Em))
+        if Pm < 0 or Em < 0:
+            errmsg = "Expected Pm and Em >0, "\
+                     + f"got Pm={Pm:0.2f}, Em={Em:0.2f}"
+            raise ValueError(errmsg)
 
-        initial_kwargs = {"Pm":Pm, "Em":Em}
+        initial_kwargs = {"Pm": Pm, "Em": Em}
 
         # Build calib vector
-        cp = Vector(["tX1", "tX2", "tX3", "tX4", "tX5", "tX6"], \
-                mins=gr6j_true2trans(params.mins),
-                maxs=gr6j_true2trans(params.maxs),
-                defaults=gr6j_true2trans(params.defaults))
+        cp = Vector(["tX1", "tX2", "tX3", "tX4", "tX5", "tX6"],
+                    mins=gr6j_true2trans(params.mins),
+                    maxs=gr6j_true2trans(params.maxs),
+                    defaults=gr6j_true2trans(params.defaults))
 
-        calparams = CalibParamsVector(model, cp, \
-            trans2true=gr6j_trans2true, \
-            true2trans=gr6j_true2trans,\
-            fixed=fixed)
+        calparams = CalibParamsVector(model, cp,
+                                      trans2true=gr6j_trans2true,
+                                      true2trans=gr6j_true2trans,
+                                      fixed=fixed)
 
         # Instanciate calibration
-        super(CalibrationGR6J, self).__init__(calparams, \
-            objfun=objfun, \
-            warmup=warmup, \
-            timeit=timeit, \
-            objfun_kwargs=objfun_kwargs, \
-            initial_kwargs=initial_kwargs)
+        super(CalibrationGR6J, self).__init__(calparams,
+                                              objfun=objfun,
+                                              warmup=warmup,
+                                              timeit=timeit,
+                                              objfun_kwargs=objfun_kwargs,
+                                              initial_kwargs=initial_kwargs)
 
         # Build parameter library from
         # MVT norm in transform space
@@ -232,4 +235,3 @@ class CalibrationGR6J(Calibration):
 
         plib = np.clip(plib, model.params.mins, model.params.maxs)
         self.paramslib = plib
-

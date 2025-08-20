@@ -1,7 +1,4 @@
-
-import math
 import numpy as np
-import pandas as pd
 from scipy.special import lambertw
 
 from hydrodiy.data.containers import Vector
@@ -17,15 +14,17 @@ def turcm_forward(rain, evap, nparam):
 
 def turcm_gradient(rain, evap, nparam):
     """ Turc-Mezentsev gradient model """
-    return rain*(np.power(rain/evap, nparam-1)/np.power(1.+np.power(rain/evap, nparam), (1./nparam+1)))
+    num = np.power(rain/evap, nparam-1)
+    denom = np.power(1.+np.power(rain/evap, nparam), (1./nparam+1))
+    return rain * num / denom
 
 
 def turcm_iterfun(x, rc, ar):
     """ Function used in Halley"s iteration """
     ax = np.power(ar, x)
     return x*np.log(1-rc)+np.log(1+ax), \
-            np.log(1-rc)+np.log(ar)*ax/(1+ax), \
-            np.log(ar)**2*ax**2/(1+ax)**2
+        np.log(1-rc)+np.log(ar)*ax/(1+ax), \
+        np.log(ar)**2*ax**2/(1+ax)**2
 
 
 def turcm_backward(runoff, rain, evap, nitermax=20, tol=1e-3):
@@ -37,8 +36,9 @@ def turcm_backward(runoff, rain, evap, nitermax=20, tol=1e-3):
     ar = rain/evap
 
     if np.any(ar > 2.):
-        raise ValueError("Expected aridity index < 2, got "+\
-            "{:0.2f}".format(np.max(ar)))
+        errmsg = "Expected aridity index < 2, "\
+                 + "got {np.max(ar):0.2f}"
+        raise ValueError(errmsg)
 
     # First approximation
     nparam0 = -lambertw(np.log(ar)/np.log(1-rc))/np.log(ar)
@@ -84,8 +84,8 @@ class TurcMezentsev(Model):
     def __init__(self):
 
         # Config vector
-        config = Vector(["continuous"],\
-                    [0], [0], [1])
+        config = Vector(["continuous"],
+                        [0], [0], [1])
 
         # params vector
         vect = Vector(["n"], [2.3],  [1.], [5])
@@ -96,20 +96,19 @@ class TurcMezentsev(Model):
 
         # Model
         super(TurcMezentsev, self).__init__("TurcMezentsev",
-            config, params, states, \
-            ninputs=2, \
-            noutputsmax=2)
+                                            config, params, states,
+                                            ninputs=2,
+                                            noutputsmax=2)
 
         self.inputs_names = ["Rain", "PET"]
         self.outputs_names = ["Q", "E"]
-
 
     def run(self):
         istart, iend = self.istart, self.iend
         kk = range(istart, iend+1)
 
-        P = self.inputs[kk,0]
-        PE = self.inputs[kk,1]
+        P = self.inputs[kk, 0]
+        PE = self.inputs[kk, 1]
         n = self.params.values[0]
         Q = turcm_forward(P, PE, n)
         E = P-Q
@@ -119,13 +118,12 @@ class TurcMezentsev(Model):
             self.outputs[kk, 1] = E
 
 
-
 class CalibrationTurcMezentsev(Calibration):
 
-    def __init__(self, objfun=ObjFunBCSSE(0.5), \
-                    warmup=2, \
-                    objfun_kwargs={}, \
-                    nparamslib=500):
+    def __init__(self, objfun=ObjFunBCSSE(0.5),
+                 warmup=2,
+                 objfun_kwargs={},
+                 nparamslib=500):
 
         # Input objects for Calibration class
         model = TurcMezentsev()
@@ -133,15 +131,15 @@ class CalibrationTurcMezentsev(Calibration):
         calparams = CalibParamsVector(model)
 
         # Instanciate calibration
-        super(CalibrationTurcMezentsev, self).__init__(calparams, \
-            objfun=objfun, \
-            warmup=warmup, \
-            objfun_kwargs=objfun_kwargs)
-
+        obkw = objfun_kwargs
+        super(CalibrationTurcMezentsev, self).__init__(calparams,
+                                                       objfun=objfun,
+                                                       warmup=warmup,
+                                                       objfun_kwargs=obkw)
         # Parameter library
-        plib = np.random.multivariate_normal(mean=params.defaults, \
-                    cov=np.diag((params.maxs-params.mins)/3), \
-                    size=nparamslib)
+        cov = np.diag((params.maxs-params.mins)/3)
+        plib = np.random.multivariate_normal(mean=params.defaults,
+                                             cov=cov,
+                                             size=nparamslib)
         plib = np.clip(plib, params.mins, params.maxs)
         self.paramslib = plib
-

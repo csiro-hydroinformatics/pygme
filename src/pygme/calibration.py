@@ -723,11 +723,10 @@ class Calibration(object):
         ical = np.arange(nval)
         ical = ical[(ical >= self.warmup) & np.all(~np.isnan(obs), axis=1)]
         self.ical = ical
-        LOGGER.info("Allocating ical with a default value, "+\
-                            "ncal={0}".format(len(ical)))
+        LOGGER.info("Allocating ical with a default value, "
+                    + f"ncal={len(ical)}")
 
         LOGGER.info("Calibration data allocated")
-
 
     def explore(self, iprint=0, raise_error=False):
         """ Systematic exploration of parameter space and
@@ -770,8 +769,8 @@ class Calibration(object):
         for i, values in enumerate(paramslib):
             # Run fitfun with untransformed parameters
             try:
-                ofun = fitfun(values, calib=self, \
-                        use_transformed_parameters=False)
+                ofun = fitfun(values, calib=self,
+                              use_transformed_parameters=False)
             except ValueError as err:
                 LOGGER.error(str(err))
 
@@ -792,28 +791,28 @@ class Calibration(object):
                 # (e.g. fixed)
                 best = self.model.params.values
 
-        raise_it = True if (not np.isfinite(ofun_min)) or (best is None) \
-                                    else False
+        raise_it = True if (not np.isfinite(ofun_min)) \
+            or (best is None) else False
         if raise_it:
-            raise ValueError("Could not identify a suitable" + \
-                "  parameter set by exploration")
+            errmsg = "Could not identify a suitable"\
+                     + "  parameter set by exploration"
+            raise ValueError(errmsg)
 
         # Set model parameters
         self.calparams.truevalues = best
 
-        LOGGER.info(("End of explore [{0}]: "+\
-                "{1}({2}) = {3:3.3e} ~ {4:.3f} ms").format( \
-                self.nbeval, self.objfun.name, \
-                format_array(self.calparams.truevalues), \
-                ofun_min, self.runtime))
+        pval = format_array(self.calparams.truevalues)
+        logmsg = f"End of explore [{self.nbeval}]: "\
+                 + f"{self.objfun.name}({pval}) = "\
+                 + f"{ofun_min:3.3e} ~ {self.runtime:.3f} ms"
+        LOGGER.info(logmsg)
 
         LOGGER.info("Parameter exploration completed")
 
         return best, ofun_min, ofuns
 
-
-    def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin, \
-                **kwargs):
+    def fit(self, start=None, iprint=10, nrepeat=1, optimizer=fmin,
+            **kwargs):
         """ Fit model using the supplied optmizer
 
             Parameters
@@ -849,7 +848,6 @@ class Calibration(object):
                 Model outputs corresponding to the optimised parameter
                 set
         """
-
         LOGGER.info("Parameter fit started")
 
         self.iprint = iprint
@@ -861,15 +859,16 @@ class Calibration(object):
 
         start = np.atleast_1d(start).astype(np.float64)
         if np.any(np.isnan(start)):
-            raise ValueError("Expected no NaN in start, got {0}".format(\
-                start))
+            errmsg = f"Expected no NaN in start, got {start}"
+            raise ValueError(errmsg)
 
-        if not "disp" in kwargs:
+        if "disp" not in kwargs:
             kwargs["disp"] = 0
 
         # First run of fitfun
-        fitfun_start = fitfun(start, calib=self, \
-                            use_transformed_parameters=True)
+        # ... commented out because of flake8
+        # fitfun_start = fitfun(start, calib=self,
+        #                      use_transformed_parameters=True)
 
         # Apply the optimizer several times to ensure convergence
         calparams = self.calparams
@@ -877,13 +876,13 @@ class Calibration(object):
         for k in range(nrepeat):
 
             # Run optimizer using fitfun with transformed parameters
-            tfinal = optimizer(fitfun, \
-                        start, args=(self, True, ), \
-                        **kwargs)
+            tfinal = optimizer(fitfun,
+                               start, args=(self, True, ),
+                               **kwargs)
 
             calparams.values = tfinal
-            fitfun_final = fitfun(tfinal, calib=self, \
-                                use_transformed_parameters=True)
+            fitfun_final = fitfun(tfinal, calib=self,
+                                  use_transformed_parameters=True)
 
             # Loop
             start = tfinal
@@ -893,24 +892,24 @@ class Calibration(object):
         final = self.model.params.values
         outputs_final = self.model.outputs
 
-        LOGGER.info(("End of fit [{0}]: {1}({2}) = "+\
-            "{3:3.3e} ~ {4:.3f} ms").format( \
-                self.nbeval, self.objfun.name, \
-                    format_array(self.calparams.values), \
-            fitfun_final, self.runtime))
+        pval = format_array(self.calparams.values)
+        logmsg = f"End of fit [{self.nbeval}]: "\
+                 + f"{self.objfun.name}({pval}) = "\
+                 + f" {fitfun_final:3.3e} "\
+                 + f"/ {self.nbeval:3.3e} ~ {self.runtime:.3f} ms"
+        LOGGER.info(logmsg)
 
         LOGGER.info("Parameter fit completed")
 
         return final, fitfun_final, outputs_final
 
-
-    def workflow(self, obs, inputs, \
-            ical=None, \
-            iprint=0, \
-            nrepeat=1, \
-            raise_exploration_error=False, \
-            optimizer=fmin, \
-            **kwargs):
+    def workflow(self, obs, inputs,
+                 ical=None,
+                 iprint=0,
+                 nrepeat=1,
+                 raise_exploration_error=False,
+                 optimizer=fmin,
+                 **kwargs):
         """ Perform model allocation, exploration and fitting
             in one command. See
 
@@ -965,23 +964,22 @@ class Calibration(object):
                 Objective function values for each set in the parameter
                 library
         """
-
         LOGGER.info("Calibration workflow started")
 
         # 1. allocate data
         self.allocate(obs, inputs)
 
         # 2. set ical if needed
-        if not ical is None:
+        if ical is not None:
             self.ical = ical
 
         # 3. Run exploration
         try:
-            start, _, ofun_explore = self.explore(iprint=iprint, \
-                                    raise_error=raise_exploration_error)
+            rerr = raise_exploration_error
+            start, _, ofun_explore = self.explore(iprint=iprint,
+                                                  raise_error=rerr)
         except CalibrationExplorationError as err:
-            LOGGER.error("error in parameter exploration: {0}".format(\
-                            str(err)))
+            LOGGER.error(f"error in parameter exploration: {err}")
             start = self.model.params.defaults
             ofun_explore = None
 
@@ -992,13 +990,12 @@ class Calibration(object):
         self.calparams.truevalues = start
         tstart = self.calparams.values
 
-        final, ofun_final, outputs_final = self.fit(tstart, \
-                                    iprint=iprint, nrepeat=nrepeat, \
-                                    optimizer=optimizer, \
-                                    **kwargs)
+        final, ofun_final, outputs_final = self.fit(tstart,
+                                                    iprint=iprint,
+                                                    nrepeat=nrepeat,
+                                                    optimizer=optimizer,
+                                                    **kwargs)
 
         LOGGER.info("Calibration workflow completed")
 
         return final, ofun_final, outputs_final, ofun_explore
-
-
