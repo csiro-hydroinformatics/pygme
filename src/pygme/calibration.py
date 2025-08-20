@@ -12,6 +12,7 @@ from pygme.model import ParameterCheckValueError
 # Setup login
 LOGGER = logging.getLogger(__name__)
 
+
 class CalibrationExplorationError(Exception):
     """ Error raised by the exploration phase of a calibration task """
     pass
@@ -28,21 +29,19 @@ class ObjFun(object):
 
         self.name = name
 
-        if not orientation in [-1, 1]:
-            raise ValueError(("Expected orientation to be -1 or 1,"+\
-                " got {0}").format(orientation))
+        if orientation not in [-1, 1]:
+            errmsg = "Expected orientation to be -1 or 1,"\
+                     + f" got {orientation}"
+            raise ValueError(errmsg)
 
         self.orientation = orientation
 
-
     def __str__(self):
-        return "{0} objective function, orientation {1}".format(\
-                    self.name, self.orientation)
-
+        return f"{self.name} objective function, "\
+               + f"orientation {self.orientation}"
 
     def compute(self, obs, sim, **kwargs):
         raise ValueError("Need to override this function")
-
 
 
 class ObjFunSSE(ObjFun):
@@ -51,11 +50,9 @@ class ObjFunSSE(ObjFun):
     def __init__(self):
         super(ObjFunSSE, self).__init__("SSE", 1)
 
-
     def compute(self, obs, sim, **kwargs):
         err = obs.squeeze()-sim.squeeze()
         return np.sum(err*err)
-
 
 
 class ObjFunKGE(ObjFun):
@@ -64,10 +61,8 @@ class ObjFunKGE(ObjFun):
     def __init__(self):
         super(ObjFunKGE, self).__init__("KGE", -1)
 
-
     def compute(self, obs, sim, **kwargs):
         return metrics.kge(obs.squeeze(), sim.squeeze())
-
 
 
 class ObjFunBCSSE(ObjFun):
@@ -94,7 +89,6 @@ class ObjFunBCSSE(ObjFun):
         tsim = self.trans.forward(sim)
 
         # Compute errors
-        t2 = time.time()
         err = tobs.squeeze()-tsim.squeeze()
 
         return np.sum(err*err)
@@ -125,20 +119,21 @@ def check_vector(x, nval):
         raise ValueError("data is not a 1d numpy array")
 
     if not len(x) == nval:
-        raise ValueError("Expected vector of "+\
-            "length {0}, got {1}".format(nval, len(x)))
+        errmsg = "Expected vector of "\
+                 + f"length {nval}, got {len(x)}"
+        raise ValueError(errmsg)
 
     if np.any(np.isnan(x)):
-        raise ValueError("Expected no nan values in vector, "+\
-            "got {0}".format(xd))
-
+        errmsg = "Expected no nan values in vector, "\
+                 + f"got {x}"
+        raise ValueError(errmsg)
 
 
 # Overload Vector class to include parameter transform
 class CalibParamsVector(Vector):
 
-    def __init__(self, model, tparams=None, trans2true=None,\
-            true2trans=None, fixed=None):
+    def __init__(self, model, tparams=None, trans2true=None,
+                 true2trans=None, fixed=None):
         """ Object to handle calibrated parameters
 
         Parameters
@@ -162,29 +157,33 @@ class CalibParamsVector(Vector):
             tparams = model.params.clone()
 
         # Initialise Vector object
-        super(CalibParamsVector, self).__init__(tparams.names, \
-            tparams.defaults, tparams.mins, tparams.maxs, \
-            tparams.hitbounds)
-
+        super(CalibParamsVector, self).__init__(tparams.names,
+                                                tparams.defaults,
+                                                tparams.mins,
+                                                tparams.maxs,
+                                                tparams.hitbounds)
         # Check fixed
-        if not fixed is None:
+        if fixed is not None:
             names = model.params.names
             check = [k in names for k in fixed]
             if not np.all(check):
-                raise ValueError("Expected names of fixed parameters "+\
-                    "to be in {0}, got {1}".format(names, \
-                        list(fixed.keys())))
+                fkeys = list(fixed.keys())
+                errmsg = "Expected names of fixed parameters "\
+                         + f"to be in {names}, got {fkeys}"
+                raise ValueError(errmsg)
 
         self._fixed = fixed
 
         # Check mins and maxs are set
         if np.any(np.isinf(tparams.mins)):
-            raise ValueError("Expected no infinite values in mins, "+
-                "got {0}".format(tparams.mins))
+            errmsg = "Expected no infinite values in mins, "\
+                     + f"got {tparams.mins}"
+            raise ValueError(errmsg)
 
         if np.any(np.isinf(tparams.maxs)):
-            raise ValueError("Expected no infinite values in maxs, "+
-                "got {0}".format(tparams.maxs))
+            errmsg = "Expected no infinite values in maxs, "\
+                     + f"got {tparams.maxs}"
+            raise ValueError(errmsg)
 
         # Syntactic sugar for common transforms
         if trans2true == "sinh":
@@ -195,55 +194,60 @@ class CalibParamsVector(Vector):
             true2trans = np.log
 
         # Set default transform as identity
-        if (trans2true is None and not true2trans is None)\
-            or (not trans2true is None and true2trans is None):
-            raise ValueError("Expected both trans2true and true2trans "+\
-                "to be either valid or None, got {0} and {1}".format(\
-                    trans2true, true2trans))
+        if (trans2true is None and true2trans is not None)\
+                or (trans2true is not None and true2trans is None):
+            errmsg = "Expected both trans2true and true2trans "\
+                     + "to be either valid or None, "\
+                     + f"got {trans2true} and {true2trans}"
+            raise ValueError(errmsg)
 
         if trans2true is None:
-            trans2true = lambda x: x
-            true2trans = lambda x: x
+            def trans2true(x):
+                return x
+
+            def true2trans(x):
+                return x
 
         # Check transforms applied to default values
         xd = trans2true(self.defaults)
         try:
             check_vector(xd, model.params.nval)
         except ValueError as err:
-            raise ValueError(\
-                "Problem with trans2true for default: {0}".format(str(err)))
+            raise ValueError(f"Problem with trans2true for default: {err}")
 
         # Check back transforms applied to default values
         xtd = true2trans(xd)
         try:
             check_vector(xtd, self.nval)
         except ValueError as err:
-            raise ValueError("Problem with true2trans: {0}".format(str(err)))
+            raise ValueError(f"Problem with true2trans: {err}")
 
         # Check trans2true is one to one
         xmi = trans2true(self.mins)
         try:
             check_vector(xmi, model.params.nval)
         except ValueError as err:
-            raise ValueError(\
-                "Problem with trans2true for min: {0}".format(str(err)))
+            errmsg = f"Problem with trans2true for min: {err}"
+            raise ValueError(errmsg)
 
         xma = trans2true(self.maxs)
         try:
             check_vector(xmi, model.params.nval)
         except ValueError as err:
-            raise ValueError(\
-                "Problem with trans2true for max: {0}".format(str(err)))
+            errmsg = f"Problem with trans2true for max: {err}"
+            raise ValueError(errmsg)
 
-        if np.any((xd-xmi)<0):
-            raise ValueError("Expected transform of defaults to be greater"+\
-                " than transform of mins, got "+\
-                "t(defaults)={0} and t(mins)={1}".format(xd, xmi))
+        if np.any((xd - xmi) < 0):
+            errmsg = "Expecter transform of defaults to be greater"\
+                     + " than transform of mins, got "\
+                     + f"t(defaults)={xd} and t(mins)={xmi}"
+            raise ValueError(errmsg)
 
-        if np.any((xma-xd)<0):
-            raise ValueError("Expected transform of maximum to be greater"+\
-                " than transform of defaults, got "+ \
-                "t(maxs)={0} and t(defaults)={1}".format(xmax, xd))
+        if np.any((xma - xd) < 0):
+            errmsg = "Expected transform of maximum to be greater"\
+                     + " than transform of defaults, got "\
+                     + f"t(maxs)={xma} and t(defaults)={xd}"
+            raise ValueError(errmsg)
 
         # Check transform followed by backtransform are neutral
         xd2 = trans2true(xtd)
@@ -256,16 +260,16 @@ class CalibParamsVector(Vector):
 
         for v1, v2 in [[xd, xd2], [xmi, xmi2], [xma, xma2]]:
             if not np.allclose(v1, v2):
-                raise ValueError("Expected trans2true followed by "+\
-                    "true2trans to return the original vector, "+\
-                    "got {0} -> {1}".format(v1, v2))
+                errmsg = "Expected trans2true followed by "\
+                         + "true2trans to return the original vector, "\
+                         + f"got {v1} -> {v2}"
+                raise ValueError(errmsg)
 
         # Store data
         self._trans2true = trans2true
         self._true2trans = true2trans
         self._model = model
         model.params.values = trans2true(self.defaults).copy()
-
 
     def __setitem__(self, key, values):
         # Set item for the vector
@@ -278,30 +282,25 @@ class CalibParamsVector(Vector):
 
         # Set fixed
         fixed = self.fixed
-        if not fixed is None:
+        if fixed is not None:
             for pname, pvalue in fixed.items():
                 params[pname] = pvalue
-
 
     @property
     def model(self):
         return self._model
 
-
     @property
     def fixed(self):
         return self._fixed
-
 
     @property
     def trans2true(self):
         return self._trans2true
 
-
     @property
     def true2trans(self):
         return self._true2trans
-
 
     @property
     def truevalues(self):
@@ -315,14 +314,13 @@ class CalibParamsVector(Vector):
 
         # Set fixed
         fixed = self.fixed
-        if not fixed is None:
+        if fixed is not None:
             for pname, pvalue in fixed.items():
                 params[pname] = pvalue
 
         # Run the vector value setter
         tvalues = self.true2trans(self.model.params.values)
         Vector.values.fset(self, tvalues)
-
 
     @Vector.values.setter
     def values(self, values):
@@ -335,10 +333,9 @@ class CalibParamsVector(Vector):
 
         # Set fixed
         fixed = self.fixed
-        if not fixed is None:
+        if fixed is not None:
             for pname, pvalue in fixed.items():
                 params[pname] = pvalue
-
 
 
 def fitfun(values, calib, use_transformed_parameters):
@@ -399,9 +396,9 @@ def fitfun(values, calib, use_transformed_parameters):
 
     # Compute objectif function during calibration period
     # Pass additional argument to obj fun
-    ofun = objfun.compute(calib.obs[ical, :], \
-                                    model.outputs[ical, :], \
-                                    **objfun_kwargs)
+    ofun = objfun.compute(calib.obs[ical, :],
+                          model.outputs[ical, :],
+                          **objfun_kwargs)
     # Apply function orientation
     # +1 = minimization
     # -1 = maximization
@@ -411,26 +408,24 @@ def fitfun(values, calib, use_transformed_parameters):
         ofun = np.inf
 
     # Print output if needed
-    if calib.iprint>0 and calib.nbeval % calib.iprint == 0:
-        LOGGER.info(("Fitfun [{0}]: {1}({2}) = {3:3.3e} "+\
-            "~ {4:.3f} ms").format( \
-                calib.nbeval, objfun.name, format_array(\
-                    calib.calparams.truevalues), \
-                ofun, calib.runtime))
+    if calib.iprint > 0 and calib.nbeval % calib.iprint == 0:
+        pval = format_array(calib.calparams.truevalues)
+        logmsg = f"Fitfun [{calib.nbeval}]: {objfun.name}({pval})"\
+                 + f" = {ofun:3.3e} ~ {calib.runtime:.3f} ms"
+        LOGGER.info(logmsg)
 
     return ofun
 
 
-
 class Calibration(object):
 
-    def __init__(self, calparams, \
-            warmup=0, \
-            objfun=ObjFunSSE(), \
-            timeit=False, \
-            hitbounds=True,
-            objfun_kwargs={},\
-            initial_kwargs={}):
+    def __init__(self, calparams,
+                 warmup=0,
+                 objfun=ObjFunSSE(),
+                 timeit=False,
+                 hitbounds=True,
+                 objfun_kwargs={},
+                 initial_kwargs={}):
         """ Generic calibration object. Handles parameter exploration and
             fitting using a scipy optimiser.
 
@@ -481,53 +476,45 @@ class Calibration(object):
         self._nparamslib = 0
 
     def __str__(self):
-        str = ("Calibration instance " +
-                "for model {0}\n").format(self.model.name)
-        str += "  ncalparams : {0}\n".format(self.calparams.nval)
-        str += "  objfun     : {0}\n".format(self.objfun.name)
-        str += "  warmup     : {0}\n".format(self.warmup)
-        str += "  hitbounds  : {0}\n".format(self.hitbounds)
-        str += "  nbeval     : {0}\n".format(self.nbeval)
-        str += "  nparamslib : {0}\n".format(self.nparamslib)
+        str = f"Calibration instance form model {self.model.name}\n"
+        str += f"  ncalparams : {self.calparams.nval}\n"
+        str += f"  objfun     : {self.objfun.name}\n"
+        str += f"  warmup     : {self.warmup}\n"
+        str += f"  hitbounds  : {self.hitbounds}\n"
+        str += f"  nbeval     : {self.nbeval}\n"
+        str += f"  nparamslib : {self.nparamslib}\n"
 
         return str
-
 
     @property
     def runtime(self):
         """ Model runtime in seconds """
         return self._runtime
 
-
     @property
     def nbeval(self):
         """ Number of objective function evaluation """
         return self._nbeval
-
 
     @property
     def objfun(self):
         """ Objective function object """
         return self._objfun
 
-
     @property
     def objfun_args(self):
         """ Objective function arguments """
         return self._objfun_args
-
 
     @property
     def objfun_kwargs(self):
         """ Objective function dict arguments """
         return self._objfun_kwargs
 
-
     @property
     def initial_kwargs(self):
         """ Model initialisation dict arguments """
         return self._initial_kwargs
-
 
     @property
     def fixed(self):
@@ -535,11 +522,11 @@ class Calibration(object):
         and value are fixed values) """
         return self._calparams.fixed
 
-
     def _check_paramslib(self):
         if self._paramslib is None:
-            raise ValueError("Trying to access paramslib, but it is "+\
-                        "not allocated.")
+            errmsg = "Trying to access paramslib, but it is "\
+                     + "not allocated."
+            raise ValueError(errmsg)
 
     @property
     def nparamslib(self):
@@ -562,10 +549,9 @@ class Calibration(object):
         model = calparams.model
         nlib, nparams = values.shape
         if nparams != model.params.nval:
-            raise ValueError(("Expected {0} parameters in "+\
-                "paramslib, got {1}").format(\
-                    model.params.nval, \
-                    nparams))
+            errmsg = f"Expected {model.params.nval} parameters in "\
+                     + f"paramslib, got {nparams}"
+            raise ValueError(errmsg)
 
         if np.any(np.isnan(values)):
             raise ValueError("Expected no NaN in paramslib")
@@ -579,49 +565,46 @@ class Calibration(object):
             clipped = np.clip(row, mins, maxs)
 
             if not np.allclose(row, clipped):
-                LOGGER.warning("Clipped parameter set "+\
-                    "#{0} from paramslib: {1} -> {2}".format(ip,\
-                        row, clipped))
+                logmsg = "Clipped parameter set #{ip}"\
+                         + f" from paramslib: {row} -> {clipped}"
+                LOGGER.warning(logmsg)
 
             # Check values is valid with parameter transform
             tclipped = calparams.true2trans(clipped)
             if np.any(np.isnan(tclipped)):
-                raise ValueError("Parameter set "+\
-                    "#{0} is invalid after transform: {1}".format(ip, \
-                        tclipped))
+                errmsg = f"Parameter set #{ip} is invalid after "\
+                         + f"transform: {tclipped}"
+                raise ValueError(errmsg)
 
             clipped2 = calparams.trans2true(tclipped)
             if np.any(np.isnan(clipped2)):
-                raise ValueError("Parameter set "+\
-                    "#{0} is invalid after back transform: {1}".format(\
-                        ip,  clipped2))
+                errmsg = f"Parameter set #{ip} is invalid after back "\
+                         + f"transform: {clipped2}"
+                raise ValueError(errmsg)
 
             plib[ip, :] = clipped
 
         self._paramslib = plib
-
 
     @property
     def calparams(self):
         """ Calibrated parameter vector """
         return self._calparams
 
-
     @property
     def model(self):
         """ Calibrated model """
         return self._calparams.model
 
-
     @property
     def obs(self):
         """ Observation used to calibrate model """
         if self._obs is None:
-            raise ValueError("Trying to get obs, but it is "+\
-                        "not allocated. Please allocate")
+            errmsg = "Trying to get obs, but it is "\
+                     + "not allocated. Please allocate"
+            raise ValueError(errmsg)
 
         return self._obs
-
 
     @property
     def ical(self):
@@ -636,14 +619,13 @@ class Calibration(object):
         # Set to all indexes if None
         if values is None:
             ical = np.arange(nval)
-            ical = ical[~np.isnan(obs)]
-
+            ical = ical[~np.isnan(self.obs)]
         else:
             values = np.atleast_1d(values)
 
             if values.dtype == np.dtype("bool"):
-                errmsg = "Expected boolean ical of "+\
-                            f"length {nval}, got {values.shape[0]}."
+                errmsg = "Expected boolean ical of "\
+                         + f"length {nval}, got {values.shape[0]}."
                 assert values.shape[0] == nval, errmsg
 
                 # Convert boolean to index
@@ -657,19 +639,19 @@ class Calibration(object):
             raise ValueError(errmsg)
 
         # check value is within obs indexes
-        iout = (ical<0) | (ical>=nval)
-        if np.sum(iout)>0:
+        iout = (ical < 0) | (ical >= nval)
+        if np.sum(iout) > 0:
             out = ical[iout]
-            errmsg = "Expected all values in ical to be "+\
-                f"in [0, {nval-1}], got {out[:5]} (first five only)."
+            errmsg = "Expected all values in ical to be "\
+                     + f"in [0, {nval-1}], got {out[:5]} (first five only)."
             raise ValueError(errmsg)
 
         # check obs[ical] are not nan
         isnan = np.isnan(self.obs[ical])
         if np.any(isnan):
             nval_nan = np.sum(isnan)
-            errmsg = "Expected no nan in obs[ical], "+\
-                        f"got {nval_nan} nan values (len(obs)={nval})."
+            errmsg = "Expected no nan in obs[ical], "\
+                     + f"got {nval_nan} nan values (len(obs)={nval})."
             raise ValueError(errmsg)
 
         # Check value leaves enough data for warmup
@@ -678,7 +660,6 @@ class Calibration(object):
             raise ValueError(errmsg)
 
         self._ical = ical
-
 
     def allocate(self, obs, inputs):
         """ Allocate model inputs and obs data
@@ -695,7 +676,7 @@ class Calibration(object):
 
         # Convert outputs to numpy 2d array
         obs = np.atleast_2d(obs).astype(np.float64)
-        if obs.shape[0] == 1 and obs.shape[1]>1:
+        if obs.shape[0] == 1 and obs.shape[1] > 1:
             obs = obs.T
 
         nval, noutputs = obs.shape
@@ -703,14 +684,16 @@ class Calibration(object):
 
         # Check inputs and outputs size
         if inputs.shape[0] != nval:
-            raise ValueError(("Expected same number of timestep "+\
-                "in inputs({0}) and outputs({1})").format(\
-                    inputs.shape[0], nval))
+            errmsg = "Expected same number of timestep "\
+                     + f"in inputs({inputs.shape[0]}) "\
+                     + f"and outputs({nval})"
+            raise ValueError(errmsg)
 
-        if noutputs>self.model.noutputsmax:
-            raise ValueError("Expected number of outputs to be "+\
-                "lower than {0}, got {1}".format(self.model.noutputsmax,
-                    noutputs))
+        if noutputs > self.model.noutputsmax:
+            errmsg = "Expected number of outputs to be "\
+                     + f"lower than {self.model.noutputmax},"\
+                     + f"got {noutputs}"
+            raise ValueError(errmsg)
 
         # Allocate model
         self.model.allocate(inputs, noutputs)
