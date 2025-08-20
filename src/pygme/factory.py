@@ -9,8 +9,8 @@ MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15",
 
 
 def check_model(name):
-    if name not in MODEL_NAMES or not name.startswith("IHACRES") \
-            or not name.startswith("GR2M"):
+    if name not in MODEL_NAMES and not name.startswith("IHACRES") \
+            and not name.startswith("GR2M"):
         txt = "/".join(MODEL_NAMES)
         errmsg = f"Expected model name in {txt}, got {name}."
         raise ValueError(errmsg)
@@ -37,18 +37,25 @@ def model_factory(name, *args, **kwargs):
         if name != "GR2M":
             kwargs["Rcapacity"] = gr2m.get_rcapacity(name)
         return gr2m.GR2M(*args, **kwargs)
+
     elif name == "GR4J":
         return gr4j.GR4J(*args, **kwargs)
+
     elif name == "GR6J":
         return gr6j.GR6J(*args, **kwargs)
+
     elif name == "LagRoute":
         return lagroute.LagRoute(*args, **kwargs)
+
     elif name == "SAC15":
         return sac15.SAC15(*args, **kwargs)
+
     elif name == "TurcMezentsev":
         return turcmezentsev.TurcMezentsev(*args, **kwargs)
+
     elif name == "WAPABA":
         return wapaba.WAPABA(*args, **kwargs)
+
     elif name.startswith("IHACRES"):
         if name != "IHACRES":
             kwargs["shapefactor"] = ihacres.get_shapefactor(name)
