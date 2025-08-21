@@ -1,5 +1,5 @@
 # pygme
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10065245.svg)](https://doi.org/10.5281/zenodo.10065245) [![CI](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml) [![codecov](https://codecov.io/gh/csiro-hydroinformatics/pygme/graph/badge.svg?token=ARBFW69TI3)](https://codecov.io/gh/csiro-hydroinformatics/pygme)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10065245.svg)](https://doi.org/10.5281/zenodo.10065245) [![CI](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml/badge.svg)](https://github.com/csiro-hydroinformatics/pygme/actions/workflows/python-package-conda.yml) 
 
 Python Generic Modelling Engine (PyGME): A simple python package to design, run and calibrate models used in environmental sciences.
 
@@ -8,7 +8,7 @@ Python Generic Modelling Engine (PyGME): A simple python package to design, run 
 - pygme provides interface to classical hydrological models and allows you to create your own models.
 
 # Installation
-- Create a suitable python environment. We recommend using [miniconda](https://docs.conda.io/projects/miniconda/en/latest/) combined with the environment specification provided in the [env_mini.yml] (env_mini.yml) file in this repository.
+- Create a suitable python environment. We recommend using [miniconda](https://docs.conda.io/projects/miniconda/en/latest/) combined with the environment specification provided in the [env_pygme.yml] (env_pygme.yml) file in this repository.
 - Git clone this repository and run `pip install .`
 
 # Basic use

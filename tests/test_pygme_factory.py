@@ -16,7 +16,7 @@ def test_model_factory():
 
 def test_model_factory_errors():
     msg = f"Expected model name in "
-    with pytest.raises(AssertionError, match=msg):
+    with pytest.raises(ValueError, match=msg):
         model = model_factory("bidule")
 
 
@@ -39,7 +39,7 @@ def test_calibration_factory():
 
 def test_calibration_factory_errors():
     msg = f"Expected model name in "
-    with pytest.raises(AssertionError, match=msg):
+    with pytest.raises(ValueError, match=msg):
         calib = calibration_factory("bidule")
 
 
