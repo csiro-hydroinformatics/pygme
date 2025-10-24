@@ -33,7 +33,8 @@ else:
                 "src/pygme/models/c_gr6j.c",
                 "src/pygme/models/c_sac15.c",
                 "src/pygme/models/c_wapaba.c",
-                "src/pygme/models/c_ihacres.c"
+                "src/pygme/models/c_ihacres.c",
+                "src/pygme/models/c_hbv.c"
             ],
             include_dirs=[numpy.get_include()]),
     ]
