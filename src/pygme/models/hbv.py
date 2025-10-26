@@ -8,8 +8,18 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
+HBV_TMEAN = np.array([5.8, -0.78, 3.39, 0.86, 0., 3.])
 
-def hbv_params_trans2true(x):
+HBV_TCOV = np.array([[1.16, 0.2, -0.15, -0.07, 0., 0.],
+                     [0.2, 1.79, -0.24, -0.149, 0., 0.],
+                     [-0.15, -0.24, 1.68, -0.16, 0., 0.],
+                     [-0.07, -0.149, -0.16, 0.167, 0., 0.],
+                     [0., 0., 0., 0., 1., 0.],
+                     [0., 0., 0., 0., 0., 1.]
+                     ])
+
+
+def hbv_trans2true(x):
     return np.array([math.exp(x[0]),
                      math.sinh(x[1]),
                      math.exp(x[2]),
@@ -19,7 +29,7 @@ def hbv_params_trans2true(x):
                      ])
 
 
-def hbv_params_true2trans(x):
+def hbv_true2trans(x):
     return np.array([math.log(x[0]),
                      math.asinh(x[1]),
                      math.log(x[2]),
@@ -101,27 +111,18 @@ class CalibrationHBV(Calibration):
 
         cp = Vector(['tLPRAT', 'tFC', 'tBETA', 'tK0', 'tK1', 'tK2',
                      'tLSUZ', 'tCPERC', 'tBMAX', 'tCROUTE'],
-                    mins=hbv_params_true2trans(params.mins),
-                    maxs=hbv_params_true2trans(params.maxs),
-                    defaults=hbv_params_true2trans(params.defaults))
+                    mins=hbv_true2trans(params.mins),
+                    maxs=hbv_true2trans(params.maxs),
+                    defaults=hbv_true2trans(params.defaults))
 
         calparams = CalibParamsVector(model, cp,
-                                      trans2true=hbv_params_trans2true,
-                                      true2trans=hbv_params_true2trans,
+                                      trans2true=hbv_trans2true,
+                                      true2trans=hbv_true2trans,
                                       fixed=fixed)
 
         # Build parameter library from
         # MVT norm in transform space
-        # TODO !!!!!!!
-        mean = [5.8, -0.78, 3.39, 0.86, 0., 3.]
-        cov = [[1.16, 0.2, -0.15, -0.07, 0., 0.],
-               [0.2, 1.79, -0.24, -0.149, 0., 0.],
-               [-0.15, -0.24, 1.68, -0.16, 0., 0.],
-               [-0.07, -0.149, -0.16, 0.167, 0., 0.],
-               [0., 0., 0., 0., 1., 0.],
-               [0., 0., 0., 0., 0., 1.]
-               ]
-        tplib = sutils.lhs_norm(5000, mean, cov)
+        tplib = sutils.lhs_norm(5000, HBV_TMEAN, HBV_TCOV)
         tplib = np.clip(tplib, calparams.mins, calparams.maxs)
         plib = tplib * 0.
         plib[:, [0, 2, 3, 5]] = np.exp(tplib[:, [0, 2, 3, 5]])

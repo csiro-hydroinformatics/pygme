@@ -53,14 +53,14 @@ for(i in 1:20)
         df[nm] = as.vector(sim[[nm]])
     }
 
-    filename <- file.path('output_data', 
+    filename <- file.path('hbv', 
                     sprintf('HBV_timeseries_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 
     nms = c('LPrat', 'FC', 'BETA', 'K0', 'K1', 'K2', 
                 'LSUZ', 'CPERC', 'BMAX', 'CROUTE')
     df = as.data.frame(list(parname=nms, value=params[6:15]))
-    filename <- file.path('output_data', 
+    filename <- file.path('hbv', 
                     sprintf('HBV_params_%0.2d.csv', i))
     write.csv(df, filename, row.names=FALSE)
 }
