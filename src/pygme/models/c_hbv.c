@@ -48,22 +48,22 @@ int hbv_soilmoisture(double rain, double etp, double moist,
 
     /* soil mositure accounting */
     moistold = moist;
-    dq = pow(moistold/FC, BETA)*(rain+melt);
-    dq = dq > rain+melt ? rain+melt : dq;
+    dq = pow(moistold/FC, BETA)*(rain + melt);
+    dq = dq > rain + melt ? rain + melt : dq;
 
-    dmoist = rain+melt-dq;
-    moist = moistold+dmoist;
+    dmoist = rain + melt - dq;
+    moist = moistold + dmoist;
 
     if(moist > FC)
     {
-      dq = (moist-FC)+dq;
+      dq = (moist - FC) + dq;
       moist = FC;
     }
 
     /* calculate evapotranspiration */
     if(moist < LP)
     {
-        eta = moist*etp/LP;
+        eta = moist * etp / LP;
         eta = eta > etp ? etp : eta;
     } else
     {
@@ -73,7 +73,7 @@ int hbv_soilmoisture(double rain, double etp, double moist,
 
     /* substract eta of soilmoisture */
     xx = moist;
-    moist = moist-eta;
+    moist = moist - eta;
 
     if(moist < 0)
     {
@@ -102,8 +102,8 @@ int hbv_respfunc(double dq, double K0, double LSUZ,
 
     /* The split rat/1-rat is not implemented because rat=1 */
     rat = 1.0;
-    suzold = suz+rat*dq;
-    slzold = slz+(1.-rat)*dq;
+    suzold = suz + rat * dq;
+    slzold = slz + (1. - rat) * dq;
 
     slzin = CPERC;
 
@@ -113,18 +113,18 @@ int hbv_respfunc(double dq, double K0, double LSUZ,
     /* upper storage */
     if(suzold > LSUZ)
     {
-        q0 = (suzold-LSUZ)/K0*exp(-1./K0);
+        q0 = (suzold - LSUZ) / K0 * exp(-1. / K0);
         q0 = q0 < 0 ? 0 : q0;
-        q0 = q0 > suzold-LSUZ ? suzold-LSUZ : q0;
+        q0 = q0 > suzold - LSUZ ? suzold - LSUZ : q0;
     } else {
         q0 = 0.;
     }
-    suzold = suzold-q0;
+    suzold = suzold - q0;
 
-    q1 = -slzin+(slzin+suzold/K1)*exp(-1./K1);
+    q1 = -slzin + (slzin + suzold / K1) * exp(-1. / K1);
     q1 = q1 < 0 ? 0. : q1;
 
-    suz = suzold-q1-slzin;
+    suz = suzold - q1 - slzin;
     if(suz < 0)
     {
         suz = 0.;
@@ -132,40 +132,40 @@ int hbv_respfunc(double dq, double K0, double LSUZ,
     }
 
     /* lower storage */
-    q2 = slzin-(slzin-slzold/K2)*exp(-1./K2);
+    q2 = slzin - (slzin - slzold / K2) * exp(-1. / K2);
     q2 = q2 < 0 ? 0. : q2;
 
-    slz = slzold-q2+slzin;
+    slz = slzold - q2 + slzin;
     if(slz < 0)
     {
       slz = 0.;
-      q2 = slzold+slzin;
+      q2 = slzold + slzin;
     }
-    qg = q0+q1+q2;
+    qg = q0 + q1 + q2;
 
     /* transformation function */
-    if(BMAX-CROUTE*qg > 1.)
+    if(BMAX-CROUTE * qg > 1.)
     {
-        bq = BMAX-CROUTE*qg;
+        bq = BMAX-CROUTE * qg;
         *bql = (int)bq;
-        *bql = *bql > HBV_MAXUH-1 ? HBV_MAXUH-1 : *bql;
+        *bql = *bql > HBV_MAXUH - 1 ? HBV_MAXUH - 1 : *bql;
         bql2 = (double)(*bql * *bql);
-        bqlh = (int)((double)*bql/2);
+        bqlh = (int)((double)*bql / 2);
 
         sum = 0.;
         for(j=1; j<=*bql; j++)
         {
             if(j <= bqlh)
             {
-                dquh[j-1] = (((double)j-0.5)*4*qg)/bql2;
+                dquh[j-1] = (((double)j - 0.5) * 4 * qg) / bql2;
             }
-            else if (fabs(j-(bqlh+0.5)) < 0.1)
+            else if (fabs(j - (bqlh + 0.5)) < 0.1)
             {
-                dquh[j-1] = (((double)j-0.75)*4*qg)/bql2;
+                dquh[j-1] = (((double)j - 0.75) * 4 * qg) / bql2;
             }
             else
             {
-                dquh[j-1] = (((double)(*bql-j)+0.5)*4*qg)/bql2;
+                dquh[j-1] = (((double)(*bql - j) + 0.5) * 4 * qg) / bql2;
             }
             sum = sum + dquh[j];
          }
@@ -237,7 +237,7 @@ int hbv_runtimestep(int nparams,
 
     /* Production */
     ierr = hbv_soilmoisture(rain, etp, moist,
-                LP, FC, BETA, prod);
+                            LP, FC, BETA, prod);
 
     dq = prod[0];
     dmoist = prod[1];
@@ -246,8 +246,7 @@ int hbv_runtimestep(int nparams,
 
     /* Response function */
     ierr = hbv_respfunc(dq, K0, LSUZ, K1, K2, CPERC, BMAX, CROUTE,
-                suz, slz, resp, bql, dquh);
-
+                        suz, slz, resp, bql, dquh);
     q0 = resp[0];
     q1 = resp[1];
     q2 = resp[2];
@@ -259,7 +258,7 @@ int hbv_runtimestep(int nparams,
     /* RESULTS
     * Skip outputs[0] and outputs[1] because the convolution
     * is done in the run routine due to variable
-    * length UH
+    * length UH. See below in c_hbv_run.
     */
     if(noutputs>2)
         outputs[2] = dq;
@@ -358,21 +357,23 @@ int c_hbv_run(int nval, int nparams,
     {
         /* Run timestep model and update states */
     	ierr = hbv_runtimestep(nparams,
-                ninputs,
-                nstates,
-                noutputs,
-                params,
-                &(inputs[ninputs*i]),
-                states,
-                &(outputs[noutputs*i]),
-                bql, dquh);
+                               ninputs,
+                               nstates,
+                               noutputs,
+                               params,
+                               &(inputs[ninputs*i]),
+                               states,
+                               &(outputs[noutputs*i]),
+                               bql, dquh);
 
-        outputs[noutputs*i+1] = (double)(bql[0]);
+        /* Store UH length */
+        if(noutputs > 1)
+            outputs[noutputs*i+1] = (double)(bql[0]);
 
-        /* Run variable length UH */
+        /* Run variable length UH and store simulated flow */
         for(j=0; j < bql[0]; j++)
         {
-            if(i+j <= end) outputs[noutputs*(i+j)] += dquh[j];
+            if(i + j <= end) outputs[noutputs * (i + j)] += dquh[j];
         }
 
 		if(ierr>0)
