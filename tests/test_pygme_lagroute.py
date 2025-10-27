@@ -232,18 +232,6 @@ def test_calibrate_against_it():
         # Test if error on outputs
         warmup = calib.warmup
         sim = calib.model.outputs[:, 0]
-        rerr = np.abs(obs[warmup:]-sim[warmup:])/(1+obs[warmup:])*100
+        rerr = np.arcsinh(obs[warmup:]) - np.arcsinh(sim[warmup:])
         rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-        assert (rerrmax < 1e-1)
-
-        # Test error on parameters
-        #err = np.abs(final-params)
-        #imax = np.argmax(err)
-        #ck = np.allclose(params, final, rtol=1e-3, atol=1e-3)
-
-        #print(('\t\tTEST CALIB {0:02d} : PASSED?{1:5}'+\
-        #            ' err[X{2}] = {3:3.3e}').format(\
-        #            i+1, strck, imax+1, err[imax]))
-
-        #assert ck
-
+        assert (rerrmax < 1e-3)

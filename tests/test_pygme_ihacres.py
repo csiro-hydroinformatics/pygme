@@ -168,14 +168,13 @@ def test_ihacres_calib(allclose):
         sim = calib.model.outputs[:, 0]
         rerr = np.abs(obs[warmup:]-sim[warmup:])/(1+obs[warmup:])*100
         rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-        try:
-            assert rerrmax < 5e-2
-        except:
-            import matplotlib.pyplot as plt
-            plt.plot(obs)
-            plt.plot(sim)
-            plt.show()
-            import pdb; pdb.set_trace()
+        #if rerrmax > 5e-2:
+        #    import matplotlib.pyplot as plt
+        #    plt.plot(obs)
+        #    plt.plot(sim)
+        #    plt.show()
+        #    import pdb; pdb.set_trace()
+        assert rerrmax < 5e-2
 
         #params = calib.model.params.values
         #err = np.abs(params-expected)
