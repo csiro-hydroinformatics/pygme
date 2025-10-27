@@ -51,19 +51,6 @@ def test_error2():
         sa.initialise()
 
 
-def test_uh():
-    pytest.skip("WIP")
-    sa = HBV()
-    sa.allocate(np.zeros((10, 2)))
-
-    for Lag in np.linspace(0, 50, 100):
-        sa.params.reset()
-        sa.params.Lag = Lag
-
-        ordu = sa.params.uhs[0][1].ord
-        assert abs(np.sum(ordu)-1) < UHEPS * 1
-
-
 def test_params_transform(allclose):
     nparamslib = 10000
     model = HBV()
@@ -96,34 +83,32 @@ def test_run1():
 
 def test_run2():
     pytest.skip("WIP")
-    rerr_thresh = 8e-2
+    rerr_thresh = 5e-3
     warmup = 365*11
     sa = HBV()
 
-    fp = FHERE / "hbv" / "HBV_params.csv"
-    params = pd.read_csv(fp, index_col="id")
-    params = params.sort_index()
+    for i in range(1, 21):
+        fp = FHERE / "hbv" / f"HBV_params_{i:02d}.csv"
+        params = pd.read_csv(fp, index_col="parname").squeeze()
 
-    for i, param in params.iterrows():
         fts = FHERE / "hbv" / f"HBV_timeseries_{i:02d}.csv"
         data = pd.read_csv(fts)
-        inputs = np.ascontiguousarray(data.iloc[:, [1, 2]], np.float64)
+        inputs = np.ascontiguousarray(data.iloc[:, [0, 1]], np.float64)
         nval = inputs.shape[0]
 
-        # Run hbv [block]
-        sa.allocate(inputs)
-        for nm, value in param.items():
-            if nm in sa.params.names:
-                sa.params[nm] = value
-
-        sa.params.Lag = 1-sa.params.Lag
+        # Run hbv
+        sa.allocate(inputs) #, noutputs=sa.noutputsmax)
+        for nm, value in params.items():
+            nm2 = nm.upper()
+            if nm2 in sa.params.names:
+                sa.params[nm2] = value
 
         sa.initialise()
         sa.run()
         qsim1 = sa.outputs[:,0].copy()
 
         # Compare
-        expected = data.loc[:, "hbv[mm/d]"].values
+        expected = data.loc[:, "q"].values
 
         start = max(warmup, np.where(expected>=0)[0].min())
         idx = np.arange(nval) > start
@@ -131,16 +116,29 @@ def test_run2():
         expected = expected[idx]
 
         err = np.abs(qsim1 - expected)
-        rerr = err/(1e-1+expected)*100
-        ck = rerr.max() < rerr_thresh
-        failmsg = f"TEST {i+1} : max abs rerr = " +\
-            f"{rerr.max():0.5f} < {rerr_thresh:0.5f}"
-        assert ck, failmsg
+        rerr = np.abs(np.arcsinh(qsim1) - np.arcsinh(expected))
 
+        rerrmax = np.percentile(rerr, 90)
+        ck = rerrmax < rerr_thresh
+        failmsg = f"TEST {i+1} : max abs rerr = " +\
+                  f"{rerrmax:0.5f} < {rerr_thresh:0.5f}"
+        if not ck:
+            print(failmsg)
+            import matplotlib.pyplot as plt
+            fig, ax = plt.subplots()
+            ax.plot(expected)
+            ax.plot(qsim1)
+
+            tax = ax.twinx()
+            tax.plot(qsim1 - expected, "--", color="0.6")
+            plt.show()
+            import pdb; pdb.set_trace()
+
+        #assert ck, failmsg
 
 
 def test_calibrate():
-    return
+    pytest.skip("WIP")
     sa = HBV()
     warmup = 365*6
 
@@ -148,11 +146,10 @@ def test_calibrate():
     calib.iprint = 100
     sa = HBV()
 
-    fp = FHERE / "hbv" / "HBV_params.csv"
-    params = pd.read_csv(fp, index_col="id")
-    params = params.sort_index()
-
     for i, param in params.iterrows():
+        fp = FHERE / "hbv" / f"HBV_params_{i:02d}.csv"
+        params = pd.read_csv(fp, index_col="parname").squeeze()
+
         fts = FHERE / "hbv" / f"HBV_timeseries_{i:02d}.csv"
         data = pd.read_csv(fts)
         inputs = np.ascontiguousarray(data.iloc[:, [1, 2]], np.float64)

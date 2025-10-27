@@ -120,9 +120,9 @@ def test_wapaba_calib(allclose):
         # Test
         warmup = calib.warmup
         sim = calib.model.outputs[:, 0]
-        rerr = np.abs(obs[warmup:]-sim[warmup:])/(1+obs[warmup:])*100
+        rerr = np.arcsinh(obs[warmup:]) - np.arcinsh(sim[warmup:])
         rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-        assert rerrmax < 2e-2
+        assert rerrmax < 2e-3
 
         #params = calib.model.params.values
         #err = np.abs(params-expected)

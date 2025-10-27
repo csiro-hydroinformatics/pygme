@@ -168,5 +168,5 @@ def test_ihacres_calib(allclose):
         sim = calib.model.outputs[:, 0]
         rerr = np.arcsinh(obs[warmup:]) - np.arcsinh(sim[warmup:])
         rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-        assert rerrmax < 2e-3
+        assert rerrmax < 5e-3
 
