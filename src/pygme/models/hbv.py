@@ -20,23 +20,11 @@ HBV_TCOV = np.array([[1.16, 0.2, -0.15, -0.07, 0., 0.],
 
 
 def hbv_trans2true(x):
-    return np.array([math.exp(x[0]),
-                     math.sinh(x[1]),
-                     math.exp(x[2]),
-                     0.49+math.exp(x[3]),
-                     math.sinh(x[4]),
-                     math.exp(x[5])
-                     ])
+    return np.sinh(x)
 
 
 def hbv_true2trans(x):
-    return np.array([math.log(x[0]),
-                     math.asinh(x[1]),
-                     math.log(x[2]),
-                     math.log(x[3]-0.49),
-                     math.asinh(x[4]),
-                     math.log(x[5])
-                     ])
+    return np.arcsinh(x)
 
 
 class HBV(Model):

@@ -30,6 +30,17 @@ sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(ft)
 LOGGER.addHandler(sh)
 
+
+def get_hbv_data(catchment):
+    fp = FHERE / "hbv" / f"HBV_params_{catchment:02d}.csv"
+    params = pd.read_csv(fp, index_col="parname").squeeze()
+
+    fts = FHERE / "hbv" / f"HBV_timeseries_{catchment:02d}.csv"
+    data = pd.read_csv(fts)
+    inputs = np.ascontiguousarray(data.iloc[:, [0, 1]], np.float64)
+    return data, inputs, params
+
+
 def test_print():
     sa = HBV()
     LOGGER.info(str(sa))
@@ -81,128 +92,82 @@ def test_run1():
     assert out.shape == (nval, 6)
 
 
-def test_run2():
-    pytest.skip("WIP")
+@pytest.mark.parametrize("catchment", np.arange(1, 21))
+def test_run2(catchment):
+    if catchment == 4:
+        pytest.skip("Very low flow only. Skipping.")
+
+    warmup = 365 * 5
+    sa = HBV()
+
+    data, inputs, params = get_hbv_data(catchment)
+    nval = inputs.shape[0]
+
+    # Run hbv
+    sa.allocate(inputs) #, noutputs=sa.noutputsmax)
+    for nm, value in params.items():
+        nm2 = nm.upper()
+        if nm2 in sa.params.names:
+            sa.params[nm2] = value
+
+    sa.initialise()
+    sa.run()
+    qsim1 = sa.outputs[:,0].copy()
+
+    # Compare
+    expected = data.loc[:, "q"].values
+
+    start = max(warmup, np.where(expected>=0)[0].min())
+    idx = np.arange(nval) > start
+    qsim1 = qsim1[idx]
+    expected = expected[idx]
+
+    err = np.abs(qsim1 - expected)
+    rerr = np.abs(np.arcsinh(qsim1) - np.arcsinh(expected))
+
+    rerrmax = np.percentile(rerr, 90)
     rerr_thresh = 5e-3
-    warmup = 365*11
-    sa = HBV()
-
-    for i in range(1, 21):
-        fp = FHERE / "hbv" / f"HBV_params_{i:02d}.csv"
-        params = pd.read_csv(fp, index_col="parname").squeeze()
-
-        fts = FHERE / "hbv" / f"HBV_timeseries_{i:02d}.csv"
-        data = pd.read_csv(fts)
-        inputs = np.ascontiguousarray(data.iloc[:, [0, 1]], np.float64)
-        nval = inputs.shape[0]
-
-        # Run hbv
-        sa.allocate(inputs) #, noutputs=sa.noutputsmax)
-        for nm, value in params.items():
-            nm2 = nm.upper()
-            if nm2 in sa.params.names:
-                sa.params[nm2] = value
-
-        sa.initialise()
-        sa.run()
-        qsim1 = sa.outputs[:,0].copy()
-
-        # Compare
-        expected = data.loc[:, "q"].values
-
-        start = max(warmup, np.where(expected>=0)[0].min())
-        idx = np.arange(nval) > start
-        qsim1 = qsim1[idx]
-        expected = expected[idx]
-
-        err = np.abs(qsim1 - expected)
-        rerr = np.abs(np.arcsinh(qsim1) - np.arcsinh(expected))
-
-        rerrmax = np.percentile(rerr, 90)
-        ck = rerrmax < rerr_thresh
-        failmsg = f"TEST {i+1} : max abs rerr = " +\
-                  f"{rerrmax:0.5f} < {rerr_thresh:0.5f}"
-        if not ck:
-            print(failmsg)
-            import matplotlib.pyplot as plt
-            fig, ax = plt.subplots()
-            ax.plot(expected)
-            ax.plot(qsim1)
-
-            tax = ax.twinx()
-            tax.plot(qsim1 - expected, "--", color="0.6")
-            plt.show()
-            import pdb; pdb.set_trace()
-
-        #assert ck, failmsg
+    ck = rerrmax < rerr_thresh
+    failmsg = f"max abs rerr = {rerrmax:0.5f} < {rerr_thresh:0.5f}"
+    assert ck, failmsg
 
 
-def test_calibrate():
+@pytest.mark.parametrize("catchment", np.arange(1, 21))
+def test_calibrate(catchment):
     pytest.skip("WIP")
     sa = HBV()
-    warmup = 365*6
+    warmup = 365 * 6
 
     calib = CalibrationHBV(objfun=ObjFunSSE())
     calib.iprint = 100
     sa = HBV()
 
-    for i, param in params.iterrows():
-        fp = FHERE / "hbv" / f"HBV_params_{i:02d}.csv"
-        params = pd.read_csv(fp, index_col="parname").squeeze()
+    data, inputs, params = get_hbv_data(catchment)
+    nval = inputs.shape[0]
 
-        fts = FHERE / "hbv" / f"HBV_timeseries_{i:02d}.csv"
-        data = pd.read_csv(fts)
-        inputs = np.ascontiguousarray(data.iloc[:, [1, 2]], np.float64)
-        nval = inputs.shape[0]
+    sa.allocate(inputs)
+    t0 = time.time()
+    for nm, value in param.items():
+        if nm in sa.params.names:
+            sa.params[nm] = value
+    expected = sa.params.values.copy()
 
-        # Run hbv to define obs
-        sa.allocate(inputs)
-        t0 = time.time()
-        for nm, value in param.items():
-            if nm in sa.params.names:
-                sa.params[nm] = value
-        expected = sa.params.values.copy()
+    sa.params.Lag = 1-sa.params.Lag
+    sa.initialise()
+    sa.run()
+    nval = sa.outputs.shape[0]
+    err = np.random.uniform(-1, 1, nval)*1e-4
+    obs = np.maximum(0, sa.outputs[:, 0]+err)
+    ical = np.arange(nval)>warmup
 
-        sa.params.Lag = 1-sa.params.Lag
-        sa.initialise()
-        sa.run()
-        nval = sa.outputs.shape[0]
-        err = np.random.uniform(-1, 1, nval)*1e-4
-        obs = np.maximum(0, sa.outputs[:, 0]+err)
-        ical = np.arange(nval)>warmup
+    # Calibrate
+    final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \
+                           maxfun=100000, ftol=1e-8)
 
-        # Calibrate
-        #final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \
-        #                       maxfun=100000, ftol=1e-8)
-        calib.allocate(obs, inputs)
-        calib.ical = ical
-
-        start, _, ofun_explore = calib.explore(iprint=500)
-        calib.calparams.truevalues = start
-        tstart = calib.calparams.values
-        final, ofun_final, outputs_final = calib.fit(tstart, \
-                                    iprint=50, \
-                                    optimizer=fmin_bfgs) #, \
-                                    #maxfun=100000) #, ftol=1e-8)
-
-        # Not tested!
-        #err = np.abs(calib.model.params.values - expected)
-        #ck = np.max(err) < 1e-7
-
-        #sim = calib.model.outputs[:, 0]
-        #err = sim[ical]-obs[ical]
-
-        #import matplotlib.pyplot as plt
-        #plt.close("all")
-        #plt.plot(obs)
-        #plt.plot(sim)
-        #plt.show()
-        #import pdb; pdb.set_trace()
-
-
-        #print(("\t\tTEST CALIB {0:02d} : max abs err = {1:3.3e}" +
-        #        " neval= {2} + {3}").format( \
-        #            i+1, np.max(err), ieval1, ieval2))
-
-        #assert ck
+    err = np.abs(calib.model.params.values - expected)
+    ck = np.max(err) < 1e-7
+    msg = f"TEST HBV CALIB {catchment:02d} :"\
+          + f" max abs err = {np.max(err):3.3e}"
+    print(msg)
+    #assert ck
 
