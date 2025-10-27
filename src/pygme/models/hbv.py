@@ -1,4 +1,3 @@
-import math
 import numpy as np
 
 from hydrodiy.stat import sutils
