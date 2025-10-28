@@ -80,8 +80,6 @@ class CalibrationHBV(Calibration):
                  objfun_kwargs={},
                  nparamslib=2000,
                  Pm=0, Em=0):
-
-
         model = HBV()
         params = model.params
 
@@ -107,7 +105,7 @@ class CalibrationHBV(Calibration):
                                              objfun_kwargs=objfun_kwargs,
                                              initial_kwargs=initial_kwargs)
 
-         # Build parameter library from
+        # Build parameter library from
         # MVT norm in transform space using latin hypercube
         tplib = sutils.lhs_norm(nparamslib, HBV_TMEAN, HBV_TCOV)
 
