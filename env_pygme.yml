@@ -8,7 +8,7 @@ dependencies:
   - flake8=7.3.0
   - matplotlib=3.10.6
   - numpy=1.26.4
-  - pandas=3.8
+  - pandas=2.3.3
   - pip=25.2
   - pytest=8.4.2
   - pytest-cov=7.0.0
