@@ -7,15 +7,10 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
-HBV_TMEAN = np.array([5.8, -0.78, 3.39, 0.86, 0., 3.])
+HBV_TMEAN = np.arcsinh([0.5, 300, 10, 1, 10,
+                        100, 50, 4, 15, 20])
 
-HBV_TCOV = np.array([[1.16, 0.2, -0.15, -0.07, 0., 0.],
-                     [0.2, 1.79, -0.24, -0.149, 0., 0.],
-                     [-0.15, -0.24, 1.68, -0.16, 0., 0.],
-                     [-0.07, -0.149, -0.16, 0.167, 0., 0.],
-                     [0., 0., 0., 0., 1., 0.],
-                     [0., 0., 0., 0., 0., 1.]
-                     ])
+HBV_TCOV = np.eye(len(HBV_TMEAN))
 
 
 def hbv_trans2true(x):
@@ -27,13 +22,9 @@ def hbv_true2trans(x):
 
 
 class HBV(Model):
-
     def __init__(self):
-
-        # Config vector
         config = Vector(['nothing'], [0], [0], [1])
 
-        # params vector
         vect = Vector(['LPRAT', 'FC', 'BETA', 'K0', 'K1', 'K2',
                        'LSUZ', 'CPERC', 'BMAX', 'CROUTE'],
                       [0.9, 100, 3.3, 0.5, 9, 105, 50, 2, 10, 26.5],
@@ -42,10 +33,8 @@ class HBV(Model):
 
         params = ParamsVector(vect)
 
-        # State vector
         states = Vector(['MOIST', 'SUZ', 'SLZ'])
 
-        # Model
         super(HBV, self).__init__('HBV',
                                   config,
                                   params,
@@ -84,15 +73,15 @@ class HBV(Model):
 
 
 class CalibrationHBV(Calibration):
-
-    def __init__(self,
-                 objfun=ObjFunBCSSE(0.2),
+    def __init__(self, objfun=ObjFunBCSSE(0.5),
                  warmup=5*365,
                  timeit=False,
                  fixed=None,
-                 objfun_kwargs={}):
+                 objfun_kwargs={},
+                 nparamslib=2000,
+                 Pm=0, Em=0):
 
-        # Input objects for Calibration class
+
         model = HBV()
         params = model.params
 
@@ -107,15 +96,6 @@ class CalibrationHBV(Calibration):
                                       true2trans=hbv_true2trans,
                                       fixed=fixed)
 
-        # Build parameter library from
-        # MVT norm in transform space
-        tplib = sutils.lhs_norm(5000, HBV_TMEAN, HBV_TCOV)
-        tplib = np.clip(tplib, calparams.mins, calparams.maxs)
-        plib = tplib * 0.
-        plib[:, [0, 2, 3, 5]] = np.exp(tplib[:, [0, 2, 3, 5]])
-        plib[:, 3] += 0.49
-        plib[:, [1, 4]] = np.sinh(tplib[:, [1, 4]])
-
         # Initialisation arguments
         initial_kwargs = {}
 
@@ -124,6 +104,16 @@ class CalibrationHBV(Calibration):
                                              objfun=objfun,
                                              warmup=warmup,
                                              timeit=timeit,
-                                             paramslib=plib,
                                              objfun_kwargs=objfun_kwargs,
-                                             initial_kwargs=initial_kwargs())
+                                             initial_kwargs=initial_kwargs)
+
+         # Build parameter library from
+        # MVT norm in transform space using latin hypercube
+        tplib = sutils.lhs_norm(nparamslib, HBV_TMEAN, HBV_TCOV)
+
+        # Back transform
+        plib = tplib * 0.
+        for i in range(len(plib)):
+            plib[i, :] = hbv_trans2true(tplib[i, :])
+        plib = np.clip(plib, model.params.mins, model.params.maxs)
+        self.paramslib = plib

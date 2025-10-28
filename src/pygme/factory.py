@@ -1,11 +1,15 @@
 """ Pygme objects factory """
 import re
-from pygme.models import gr2m, gr4j, gr6j, lagroute, sac15, \
-                    turcmezentsev, wapaba, ihacres
+
+from pygme.models import gr2m, gr4j, gr6j, lagroute
+from pygme.models import sac15, turcmezentsev, wapaba, ihacres
+from pygme.models import hbv
+
 from pygme import calibration
 
 MODEL_NAMES = ["GR2M", "GR4J", "GR6J", "LagRoute", "SAC15",
-               "TurcMezentsev", "WAPABA", "IHACRES"]
+               "TurcMezentsev", "WAPABA", "IHACRES",
+               "HBV"]
 
 
 def check_model(name):
@@ -56,6 +60,9 @@ def model_factory(name, *args, **kwargs):
     elif name == "WAPABA":
         return wapaba.WAPABA(*args, **kwargs)
 
+    elif name == "HBV":
+        return hbv.HBV(*args, **kwargs)
+
     elif name.startswith("IHACRES"):
         if name != "IHACRES":
             kwargs["shapefactor"] = ihacres.get_shapefactor(name)
@@ -95,6 +102,8 @@ def calibration_factory(name, *args, **kwargs):
         return turcmezentsev.CalibrationTurcMezentsev(*args, **kwargs)
     elif name == "WAPABA":
         return wapaba.CalibrationWAPABA(*args, **kwargs)
+    elif name == "HBV":
+        return hbv.CalibrationHBV(*args, **kwargs)
     elif name.startswith("IHACRES"):
         if name != "IHACRES":
             kwargs["shapefactor"] = ihacres.get_shapefactor(name)
@@ -132,6 +141,8 @@ def parameters_transform_factory(name):
         raise ValueError("No transform available")
     elif name == "WAPABA":
         return wapaba.wapaba_true2trans, wapaba.wapaba_trans2true
+    elif name == "HBV":
+        return hbv.hbv_true2trans, hbv.hbv_trans2true
     elif name.startswith("IHACRES"):
         return ihacres.ihacres_true2trans, ihacres.ihacres_trans2true
 
