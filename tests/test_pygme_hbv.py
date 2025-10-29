@@ -34,6 +34,7 @@ LOGGER.addHandler(sh)
 def get_hbv_data(catchment):
     fp = FHERE / "hbv" / f"HBV_params_{catchment:02d}.csv"
     params = pd.read_csv(fp, index_col="parname").squeeze()
+    params.index = params.index.str.upper()
 
     fts = FHERE / "hbv" / f"HBV_timeseries_{catchment:02d}.csv"
     data = pd.read_csv(fts)
@@ -106,9 +107,7 @@ def test_run2(catchment):
     # Run hbv
     sa.allocate(inputs) #, noutputs=sa.noutputsmax)
     for nm, value in params.items():
-        nm2 = nm.upper()
-        if nm2 in sa.params.names:
-            sa.params[nm2] = value
+        sa.params[nm] = value
 
     sa.initialise()
     sa.run()
@@ -132,33 +131,54 @@ def test_run2(catchment):
     assert ck, failmsg
 
 
-@pytest.mark.parametrize("catchment", np.arange(1, 21))
-def test_calibrate(catchment):
-    pytest.skip("WIP")
+@pytest.mark.parametrize("catchment", [1])
+def test_stability(catchment, allclose):
     sa = HBV()
     warmup = 365 * 6
+    data, inputs, params = get_hbv_data(catchment)
+
+    nval = inputs.shape[0]
+    sa.allocate(inputs)
+    sa.iend = 5
+
+    for nm, value in params.items():
+        sa.params[nm] = value
+
+    sa.initialise_fromdata()
+    sa.run()
+    out1 = sa.outputs[:, 0].copy()
+
+    sa.initialise_fromdata()
+    sa.run()
+    out2 = sa.outputs[:, 0].copy()
+    assert allclose(out1, out2)
+
+
+@pytest.mark.parametrize("catchment", np.arange(1, 21))
+def test_calibrate(catchment):
+    sa = HBV()
+    warmup = 365 * 6
+    data, inputs, params = get_hbv_data(catchment)
 
     calib = CalibrationHBV(objfun=ObjFunSSE())
     calib.iprint = 100
-    sa = HBV()
 
     data, inputs, params = get_hbv_data(catchment)
     nval = inputs.shape[0]
 
     sa.allocate(inputs)
     t0 = time.time()
-    for nm, value in param.items():
+    for nm, value in params.items():
         if nm in sa.params.names:
             sa.params[nm] = value
     expected = sa.params.values.copy()
 
-    sa.params.Lag = 1-sa.params.Lag
     sa.initialise()
     sa.run()
     nval = sa.outputs.shape[0]
     err = np.random.uniform(-1, 1, nval)*1e-4
     obs = np.maximum(0, sa.outputs[:, 0]+err)
-    ical = np.arange(nval)>warmup
+    ical = np.arange(nval) > warmup
 
     # Calibrate
     final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \

@@ -7,8 +7,8 @@
 
 #include "c_utils.h"
 
-/* Max number of uh */
-#define HBV_MAXUH 500
+/* Max number of uh -> 50 days */
+#define HBV_MAXUH 50
 
 /* Number of inputs required by HBV run */
 #define HBV_NINPUTS 2
@@ -21,6 +21,8 @@
 
 /* Number of outputs returned by HBV run */
 #define HBV_NOUTPUTS 13
+
+int c_hbv_get_maxuh();
 
 int hbv_soilmoisture(double rain, double etp, double moist,
         double LP, double FC, double BETA, double *prod);
@@ -47,6 +49,7 @@ int c_hbv_run(int nval, int nparams,
     int noutputs,
     int start, int end,
     double * params,
+    double * dquh,
     double * inputs,
     double * statesini,
     double * outputs);

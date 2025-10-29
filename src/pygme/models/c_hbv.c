@@ -14,9 +14,11 @@
 * Julien Lerat, 2018
 */
 
+int c_hbv_get_maxuh() {
+    return HBV_MAXUH;
+}
 
-int hbv_minmaxparams(int nparams, double * params)
-{
+int hbv_minmaxparams(int nparams, double * params) {
     if(nparams < HBV_NPARAMS)
     {
         return HBV_ERROR + __LINE__;
@@ -144,7 +146,7 @@ int hbv_respfunc(double dq, double K0, double LSUZ,
     qg = q0 + q1 + q2;
 
     /* transformation function */
-    if(BMAX-CROUTE * qg > 1.)
+    if(BMAX - CROUTE * qg > 1.)
     {
         bq = BMAX-CROUTE * qg;
         *bql = (int)bq;
@@ -326,13 +328,13 @@ int c_hbv_run(int nval, int nparams,
     int noutputs,
     int start, int end,
     double * params,
+    double * dquh,
     double * inputs,
     double * states,
     double * outputs)
 {
     int ierr=0, i, j;
     int bql[1];
-    double dquh[HBV_MAXUH];
 
     bql[0] = 0;
 
@@ -361,16 +363,19 @@ int c_hbv_run(int nval, int nparams,
                                nstates,
                                noutputs,
                                params,
-                               &(inputs[ninputs*i]),
+                               &(inputs[ninputs * i]),
                                states,
-                               &(outputs[noutputs*i]),
+                               &(outputs[noutputs * i]),
                                bql, dquh);
 
         /* Store UH length */
         if(noutputs > 1)
-            outputs[noutputs*i+1] = (double)(bql[0]);
+            outputs[noutputs * i + 1] = (double)(bql[0]);
 
-        /* Run variable length UH and store simulated flow */
+        /* Run variable length UH and store simulated flow
+         * CAREFUL -> outputs needs to be initialised to zero
+         * otherwise this keeps increasing !
+         */
         for(j=0; j < bql[0]; j++)
         {
             if(i + j <= end) outputs[noutputs * (i + j)] += dquh[j];

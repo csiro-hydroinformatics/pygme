@@ -105,6 +105,8 @@ cdef extern from 'c_ihacres.h':
         double * outputs)
 
 cdef extern from 'c_hbv.h':
+    int c_hbv_get_maxuh()
+
     int c_hbv_run(int nval,
         int nparams,
         int ninputs,
@@ -112,6 +114,7 @@ cdef extern from 'c_hbv.h':
         int noutputs,
         int start, int end,
         double * params,
+        double * dquh,
         double * inputs,
         double * statesini,
         double * outputs)
@@ -418,18 +421,32 @@ def ihacres_run(int start, int end,
                          <double*> np.PyArray_DATA(outputs))
     return ierr
 
+
+def hbv_get_maxuh():
+        return c_hbv_get_maxuh()
+
 def hbv_run(int start, int end,
             np.ndarray[double, ndim=1, mode='c'] params not None,
+            np.ndarray[double, ndim=1, mode='c'] dquh not None,
             np.ndarray[double, ndim=2, mode='c'] inputs not None,
             np.ndarray[double, ndim=1, mode='c'] statesini not None,
             np.ndarray[double, ndim=2, mode='c'] outputs not None):
 
     cdef int ierr
+    cdef int nuh = c_hbv_get_maxuh()
 
     # check dimensions
     if inputs.shape[0] != outputs.shape[0]:
         raise ValueError('inputs.shape[0] != outputs.shape[0]')
 
+    if dquh.shape[0] < nuh:
+        raise ValueError('dquh.shape[0] < nuh')
+
+    # Initialise data
+    dquh.fill(0.)
+    outputs[:, 0].fill(0.)
+
+    # Run model
     ierr = c_hbv_run(inputs.shape[0],
                      params.shape[0],
                      inputs.shape[1],
@@ -437,6 +454,7 @@ def hbv_run(int start, int end,
                      outputs.shape[1],
                      start, end,
                      <double*> np.PyArray_DATA(params),
+                     <double*> np.PyArray_DATA(dquh),
                      <double*> np.PyArray_DATA(inputs),
                      <double*> np.PyArray_DATA(statesini),
                      <double*> np.PyArray_DATA(outputs))

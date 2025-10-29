@@ -48,14 +48,17 @@ class HBV(Model):
                               'MOIST', 'SUZ', 'SLZ'
                               ]
 
+        nuh = c_pygme_models_hydromodels.hbv_get_maxuh()
+        self._dquh = np.zeros(nuh, dtype=np.float64)
+
     def initialise_fromdata(self):
         ''' Initialisation of HBV using
             * Production store:
             * Routing store:
         '''
-        MOIST0 = 0.
-        SUZ0 = 0.
-        SLZ0 = 0.
+        MOIST0 = self.params.FC / 2
+        SUZ0 = self.params.LSUZ / 2
+        SLZ0 = self.params.LSUZ / 2
         self.initialise([MOIST0, SUZ0, SLZ0])
 
     def run(self):
@@ -63,6 +66,7 @@ class HBV(Model):
         ierr = c_pygme_models_hydromodels.hbv_run(self.istart,
                                                   self.iend,
                                                   self.params.values,
+                                                  self._dquh,
                                                   self.inputs,
                                                   self.states.values,
                                                   self.outputs)
