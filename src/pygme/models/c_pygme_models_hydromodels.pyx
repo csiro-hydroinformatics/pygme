@@ -443,6 +443,7 @@ def hbv_run(int start, int end,
         raise ValueError('dquh.shape[0] < nuh')
 
     # Initialise data
+    # CAREFUL -> without this, outputs is constantly increased !!!
     dquh.fill(0.)
     outputs[:, 0].fill(0.)
 
