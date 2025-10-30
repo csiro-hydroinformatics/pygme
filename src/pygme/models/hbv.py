@@ -7,14 +7,77 @@ from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 import c_pygme_models_hydromodels
 
-HBV_TMEAN = np.arcsinh([0.5, 300, 10, 1, 10,
-                        100, 50, 4, 15, 20])
+# Default from R code
+# [0.9, 100, 3.3, 0.5, 9, 105, 50, 2, 10, 26.5],
+HBV_PARAMS_DEFAULT = np.array([
+    0.60,  # LPRAT
+    394.28,  # FC
+    4.44,  # BETA
+    1.02,  # K0
+    5.18,  # K1
+    139.31,  # K2
+    26.42,  # LSUZ
+    0.82,  # CPERC
+    1.77,  # BMAX
+    26.97  # CROUTE
+    ])
 
-HBV_TCOV = np.eye(len(HBV_TMEAN))
+HBV_PARAMS_MINS = np.array([
+    0.00,   # LPRAT
+    2.46,   # FC
+    0.00,   # BETA
+    0.00,   # K0
+    2.00,   # K1
+    30.00,  # K2
+    1.00,   # LSUZ
+    0.00,   # CPERC
+    0.00,   # BMAX
+    0.00,   # CROUTE
+    ])
+
+HBV_PARAMS_MAXS = np.array([
+    1.00,    # LPRAT
+    600.00,  # FC
+    20.00,   # BETA
+    2.00,    # K0
+    30.00,   # K1
+    250.00,  # K2
+    100.00,  # LSUZ
+    8.00,    # CPERC
+    27.97,   # BMAX
+    50.00,   # CROUTE
+    ])
+
+
+HBV_TMEAN = np.array([0.55, 6.54, 1.95, 0.84, 2.18, 5.31, 3.35,
+                      0.51, 1.04, 3.48])
+
+HBV_TCOV = np.array([
+                    [0.09, -0.095, 0.112, 0.012, -0.037, -0.099,
+                     -0.057, 0.034, 0.033, 0.024],
+                    [-0.095, 0.33, -0.1, -0.03, 0.1, 0.18, 0.03,
+                     -0.14, -0.11, -0.09],
+                    [0.112, -0.1, 0.47, 0.03, -0.12, 0.01, -0.19,
+                     -0.03, 0.03, 0.01],
+                    [0.012, -0.03, 0.03, 0.16, -0.05, -0.05, -0.03,
+                     -0.01, -0.02, -0.02],
+                    [-0.037, 0.1, -0.12, -0.05, 0.32, 0.07, 0.14,
+                     -0.04, -0.07, -0.1],
+                    [-0.099, 0.18, 0.01, -0.05, 0.07, 0.74, -0.04,
+                     -0.12, -0.11, -0.14],
+                    [-0.057, 0.03, -0.19, -0.03, 0.14, -0.04, 1.5,
+                     0.33, 0.09, -0.1],
+                    [0.034, -0.14, -0.03, -0.01, -0.04, -0.12, 0.33,
+                     0.49, 0.11, 0.02],
+                    [0.033, -0.11, 0.03, -0.02, -0.07, -0.11, 0.09,
+                     0.11, 0.61, 0.34],
+                    [0.024, -0.09, 0.01, -0.02, -0.1, -0.14, -0.1,
+                     0.02, 0.34, 1.7]
+                    ])
 
 
 def hbv_trans2true(x):
-    return np.sinh(x)
+    return np.clip(np.sinh(x), HBV_PARAMS_MINS, HBV_PARAMS_MAXS)
 
 
 def hbv_true2trans(x):
@@ -27,10 +90,9 @@ class HBV(Model):
 
         vect = Vector(['LPRAT', 'FC', 'BETA', 'K0', 'K1', 'K2',
                        'LSUZ', 'CPERC', 'BMAX', 'CROUTE'],
-                      [0.9, 100, 3.3, 0.5, 9, 105, 50, 2, 10, 26.5],
-                      [0, 0, 0, 0, 2, 30, 1, 0, 0, 0],
-                      [1, 600, 20, 2, 30, 250, 100, 8, 30, 50])
-
+                      HBV_PARAMS_DEFAULT,
+                      HBV_PARAMS_MINS,
+                      HBV_PARAMS_MAXS)
         params = ParamsVector(vect)
 
         states = Vector(['MOIST', 'SUZ', 'SLZ'])
@@ -117,5 +179,5 @@ class CalibrationHBV(Calibration):
         plib = tplib * 0.
         for i in range(len(plib)):
             plib[i, :] = hbv_trans2true(tplib[i, :])
-        plib = np.clip(plib, model.params.mins, model.params.maxs)
+
         self.paramslib = plib

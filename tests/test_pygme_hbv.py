@@ -30,6 +30,8 @@ sh = logging.StreamHandler(sys.stdout)
 sh.setFormatter(ft)
 LOGGER.addHandler(sh)
 
+np.random.seed(5446)
+
 
 def get_hbv_data(catchment):
     fp = FHERE / "hbv" / f"HBV_params_{catchment:02d}.csv"
@@ -158,13 +160,15 @@ def test_stability(catchment, allclose):
 def test_calibrate(catchment):
     sa = HBV()
     warmup = 365 * 6
-    data, inputs, params = get_hbv_data(catchment)
+    data, inputs, _ = get_hbv_data(catchment)
 
     calib = CalibrationHBV(objfun=ObjFunSSE())
-    calib.iprint = 100
+    calib.iprint = 0
 
-    data, inputs, params = get_hbv_data(catchment)
-    nval = inputs.shape[0]
+    iparam = np.random.randint(0, len(calib.paramslib) - 1)
+    tparams = calib.paramslib[iparam]
+    params = pd.Series(hbv_trans2true(tparams),
+                       sa.params.names)
 
     sa.allocate(inputs)
     t0 = time.time()
@@ -183,9 +187,12 @@ def test_calibrate(catchment):
     # Calibrate
     final, ofun, _, _ = calib.workflow(obs, inputs, ical=ical, \
                            maxfun=100000, ftol=1e-8)
+    sim = calib.model.outputs[:, 0]
+    diff = np.abs(np.arcsinh(obs) - np.arcsinh(sim))
 
     err = np.abs(calib.model.params.values - expected)
     ck = np.max(err) < 1e-7
+
     msg = f"TEST HBV CALIB {catchment:02d} :"\
           + f" max abs err = {np.max(err):3.3e}"
     print(msg)
