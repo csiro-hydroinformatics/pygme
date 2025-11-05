@@ -1,6 +1,6 @@
 import importlib
 
-__version__ = "1.4"
+__version__ = "2.1"
 
 
 def has_c_module(name, raise_error=True):

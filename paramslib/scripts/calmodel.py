@@ -24,14 +24,12 @@ from hydrodiy.io import csv, iutils
 from hydrodiy.io.hyruns import get_batch, OptionManager
 from hydrodiy.stat import metrics, sutils, transform
 
-from datasets import Dataset
+from pygme.factory import calibration_factory
+from pygme.factory import model_factory
+from pygme.factory import parameters_transform_factory
+from pygme.factory import objfun_factory
 
-from pygme.factory import calibration_factory, \
-                model_factory, parameters_transform_factory,\
-                objfun_factory
 from pygme import calibration
-
-from tqdm import tqdm
 
 #----------------------------------------------------------------------
 # Config
@@ -47,21 +45,21 @@ parser.add_argument("-t", "--taskid", help="Task id", \
                     type=int, required=True)
 parser.add_argument("-n", "--nbatch", help="Number of batch processes", \
                     type=int, default=20)
-parser.add_argument("-p", "--progress", help=" Show progress", \
-                    action="store_true", default=False)
 parser.add_argument("-o", "--overwrite", help="Overwrite", \
+                    action="store_true", default=False)
+parser.add_argument("-d", "--debug", help="Debug mode", \
                     action="store_true", default=False)
 args = parser.parse_args()
 
 taskid = args.taskid
 version = args.version
-progress = args.progress
 overwrite = args.overwrite
+debug = args.debug
 nbatch = args.nbatch
 
 # Get option manager
 opm = OptionManager()
-models = ["IHACRES"] #["IHACRES", "SAC15", "GR6J", "WAPABA"]
+models = ["HBV"] #["IHACRES", "SAC15", "GR6J", "WAPABA"]
 objfuns = ["bc0.2", "biasbc0.2", "bc0.5", "biasbc0.5", \
                                 "bc1.0", "biasbc1.0"]
 batches = np.arange(nbatch)
@@ -81,14 +79,21 @@ nparamslib = 20000 if model_name == "SAC15" else 5000
 #----------------------------------------------------------------------
 source_file = Path(__file__).resolve()
 froot = source_file.parent.parent
+
+fdata = froot.parent.parent.parent / "Data"\
+    / "characterisation_paper" / "export"
+
 fout = froot / "outputs" / f"calmodel_{model_name}_v{version}"
 fout.mkdir(exist_ok=True, parents=True)
 
+#----------------------------------------------------------------------
+# Logging
+#----------------------------------------------------------------------
 flogs = froot / "logs" / "calmodel"
 flogs.mkdir(exist_ok=True, parents=True)
 basename = source_file.stem
 flog = flogs / f"calmodel_TASK{taskid}_V{version}.log"
-LOGGER = iutils.get_logger(basename, console=False, flog=flog)
+LOGGER = iutils.get_logger(basename, console=debug, flog=flog)
 
 LOGGER.info(f"version: {version}")
 LOGGER.info(f"taskid: {taskid}")
@@ -99,17 +104,28 @@ LOGGER.info(f"batch:  {batch}")
 #----------------------------------------------------------------------
 # Get data
 #----------------------------------------------------------------------
-dset = Dataset("OZDATA", "1.0")
-sites = dset.get_sites()
+LOGGER.info("Loading data")
+dversion = "5.0"
+fs = fdata / f"stations_v{dversion}.csv"
+sites, _ = csv.read_csv(fs, index_col="STATIONID")
+sites = sites.loc[sites.IS_VALID == 1]
 
 # select site from batch
 isites = get_batch(len(sites), nbatch, batch)
 sites = sites.iloc[isites, :]
 
+if debug:
+    sites = sites.iloc[:2]
+
+fd = fdata / "daily.parquet_v5.0.gzip"
+daily = pd.read_parquet(fd)
+isin = daily.STATIONID.isin(sites.index)
+daily = daily.loc[isin]
+
 #----------------------------------------------------------------------
 # Process
 #----------------------------------------------------------------------
-timestep = "D" if model_name in ["GR6J", "SAC15"] else "MS"
+timestep = "MS" if model_name in ["GR2M", "IHACRES"] else "D"
 
 # Load model objects
 true2trans, trans2true = parameters_transform_factory(model_name)
@@ -146,10 +162,8 @@ else:
     lf = list(flib.glob(f"params_*{model_name}_*_v{version-1}.json"))
     nf = len(lf)
     tplib = []
-    tbar = tqdm(enumerate(lf), desc="Loading params", \
-                    total=nf, disable=not progress)
     perfs = []
-    for i, f in tbar:
+    for i, f in enumerate(f):
         with f.open("r") as fo:
             p = json.load(fo)
         nse = p["nse"]
@@ -184,25 +198,21 @@ calib.paramslib = plib
 
 # Run calibration
 nsites = len(sites)
-tbar = tqdm(enumerate(sites.iterrows()), total=len(sites), \
-                desc="Calib", disable=not progress)
-for i, (siteid, row) in tbar:
-    LOGGER.info(f"dealing with {siteid} ({i+1}/{nsites})")
+for i, (stationid, row) in enumerate(sites.iterrows()):
+    LOGGER.info(f"dealing with {stationid} ({i+1}/{nsites})")
 
-    fparams = fout / f"params_{siteid}_{model_name}_o{objfun_name}_v{version}.json"
+    fparams = fout / f"params_{stationid}_{model_name}_o{objfun_name}_v{version}.json"
     if fparams.exists() and not overwrite:
         LOGGER.info("... file already exists. Skip")
         continue
 
     # Get data
-    data, _ = dset.get(siteid, "rainfall_runoff", timestep)
+    data = daily.loc[daily.STATIONID == stationid]
     dates = data.index
-    obs = data.filter(regex="^runoff\[", axis=1).values.squeeze()
+    obs = data.Q.values.squeeze()
     obs[obs<0] = np.nan
 
-    df = pd.concat([data.filter(regex="^rain\[+", axis=1),
-                    data.filter(regex="^evap\[+", axis=1)], axis=1)
-    inputs = df.values
+    inputs = data.loc[:, ["RAIN", "PET"]].values
 
     # Select data with available flow + warmup
     nval = len(data)
@@ -224,13 +234,15 @@ for i, (siteid, row) in tbar:
         continue
 
     # Calibrate
-    final, _, _, _ = calib.workflow(obs, inputs, ical=ical, \
-                                    optimizer=fmin)
+    #final, ofun, sfinal, oexplo = calib.workflow(obs, inputs, ical=ical,
+    #                                             optimizer=fmin)
 
     # Detailed calib process
-    #cal.allocate(obs, inputs)
-    #cal.ical = ical
-    #start, _, ofuns = cal.explore(iprint=500)
+    calib.allocate(obs, inputs)
+    calib.ical = ical
+    start, _, ofuns = calib.explore(iprint=500)
+    sys.exit()
+
     #final, _, _ = cal.fit(iprint=10)
 
     # Compute simple perfs NSE / bias
@@ -240,18 +252,21 @@ for i, (siteid, row) in tbar:
     nserecip = metrics.nse(o, s, trans=trans_recip)
     bias = metrics.bias(o, s)
 
+    sys.exit()
+
+
     # Store
     params = {n:round(v, 3) for n, v in zip(model.params.names, final)}
     dd = {
-        "siteid": siteid, \
-        "version": version, \
-        "model": model_name, \
-        "objfun": objfun_name, \
-        "warmup": warmup, \
-        "nparamslib": nparamslib, \
-        "nse": round(nse, 3), \
-        "nserecip": round(nserecip, 3), \
-        "bias": round(bias, 3), \
+        "stationid": stationid,
+        "version": version,
+        "model": model_name,
+        "objfun": objfun_name,
+        "warmup": warmup,
+        "nparamslib": nparamslib,
+        "nse": round(nse, 3),
+        "nserecip": round(nserecip, 3),
+        "bias": round(bias, 3),
         "params": params
     }
     with fparams.open("w") as fo:
