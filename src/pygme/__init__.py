@@ -1,8 +1,5 @@
 import importlib
 
-__version__ = "3.0"
-
-
 def has_c_module(name, raise_error=True):
     m_name = f"c_pygme_{name}"
     out = importlib.util.find_spec(m_name)
