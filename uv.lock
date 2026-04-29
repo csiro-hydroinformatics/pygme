@@ -1080,7 +1080,7 @@ wheels = [
 [[package]]
 name = "hydrodiy"
 version = "2.9"
-source = { git = "https://github.com/csiro-hydroinformatics/hydrodiy#021dad54f1a36578ba076cca07dabffc7e41f535" }
+source = { git = "https://github.com/csiro-hydroinformatics/hydrodiy#20d3cbd1003c9551ca84152b598058875464a5c8" }
 dependencies = [
     { name = "cython" },
     { name = "matplotlib", version = "3.7.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },
