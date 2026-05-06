@@ -46,7 +46,7 @@ int c_lagroute_runtimestep(int nparams,
 
     /* input */
     q1 = inputs[0];
-    q1 = q1 < 0 ? q1 : q1;
+    q1 = q1 < 0 ? 0 : q1;
 
     /* states */
     v0 = states[0];
