@@ -8,6 +8,7 @@
 #include <errno.h>
 
 #include "c_utils.h"
+#include "c_uh.h"
 
 /* Number of inputs required by LAG ROUTE run */
 #define LAGROUTE_NINPUTS 5

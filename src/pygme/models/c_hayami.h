@@ -8,6 +8,10 @@
 #include <errno.h>
 
 #include "c_utils.h"
+#include "c_uh.h"
+
+/* Max number of uh -> 100 * 24 = 100 days at hourly timestep */
+#define HAYAMI_MAXUH 2400
 
 /* Number of inputs required by LAG ROUTE run */
 #define HAYAMI_NINPUTS 5
@@ -21,6 +25,27 @@
 /* Number of outputs returned by LAG ROUTE run */
 #define HAYAMI_NOUTPUTS 10
 
+/* Maximum argument to exponential in hayami kernel */
+#define HAYAMI_EXP_ARGMAX 100
+
+/* Minimum time in hayami kernel (sec) */
+#define HAYAMI_TMIN 1e-3
+
+
+int c_hayami_get_maxuh();
+
+double hayami_kernel(double theta, double z, double t);
+
+double uh_hayami(double ordinate, double theta, double z,
+                 double timestep);
+
+int c_uh_getuh_hayami(int nuhlengthmax,
+                      double timestep,
+                      double theta,
+                      double z,
+                      int * nuh,
+                      double * uh);
+
 int c_hayami_run(int nval,
         int nparams,
         int nuh,
@@ -30,11 +55,11 @@ int c_hayami_run(int nval,
         int noutputs,
         int start, int end,
         double * config,
-	    double * params,
+        double * params,
         double * uh,
-	    double * inputs,
+        double * inputs,
         double * statesuh,
-	    double * states,
+        double * states,
         double * outputs);
 
 #endif

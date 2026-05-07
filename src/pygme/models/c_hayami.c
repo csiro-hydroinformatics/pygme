@@ -1,11 +1,8 @@
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-
 #include "c_hayami.h"
-#include "c_uh.h"
-#include "c_utils.h"
+
+int c_hayami_get_maxuh() {
+    return HAYAMI_MAXUH;
+}
 
 
 int hayami_minmaxparams(int nparams, double * params)
@@ -29,9 +26,14 @@ int hayami_minmaxparams(int nparams, double * params)
 
 double hayami_kernel(double theta, double z, double t) {
     /*
-     * See Moussa, R. (1996). https://doi.org/10.1002/(SICI)1099-1085(199609)10:9%253C1209::AID-HYP380%253E3.0.CO;2-2
+     * See Moussa, R. (1996).
+     * https://doi.org/10.1002/(SICI)1099-1085(199609)10:9%253C1209::AID-HYP380%253E3.0.CO;2-2
      */
-    return sqrt(theta * z / UTILS_PI) * exp(z * (2 - theta / t - t / theta)) / sqrt(t * t * t);
+    double A = sqrt(theta * z / UTILS_PI);
+    t = c_max(HAYAMI_TMIN, t);
+    double arg = z * (2 - theta / t - t / theta);
+    arg = c_minmax(-HAYAMI_EXP_ARGMAX, HAYAMI_EXP_ARGMAX, arg);
+    return A * exp(arg) / sqrt(t * t * t);
 }
 
 
@@ -57,18 +59,57 @@ double uh_hayami(double ordinate, double theta, double z, double timestep)
     /* 10 pt Gaussian Quadrature */
     for (int j = 0; j < 5; j++) {
         double dx = rg * x[j];
-        double f1 = hayami_kernel(theta, z, mid + dx);
-        double f2 = hayami_kernel(theta, z, mid - dx);
-        s += w[j] * (f1 + f2);
+        s += w[j] * (hayami_kernel(theta, z, mid + dx) + hayami_kernel(theta, z, mid - dx));
     }
     return s *= rg;
 }
 
 
-int c_hayami_runtimestep(int nparams,
+int c_uh_getuh_hayami(int nuhlengthmax,
+                      double timestep,
+                      double theta,
+                      double z,
+                      int * nuh,
+                      double * uh)
+{
+    int i;
+    double u;
+    double suh;
+
+    /* UH ordinates */
+    *nuh = 0;
+    suh = 0;
+    for(i = 0; i < nuhlengthmax - 1; i++)
+    {
+        if(suh < 1 - UHEPS)
+            *nuh += 1;
+        else
+            break;
+
+        /* Integration can be very inaccurate sometimes */
+        u = c_min(1., uh_hayami((double)i, theta, z, timestep));
+        uh[i] = u;
+        suh += u;
+    }
+
+    /* NUH is not big enough */
+    //if(1 - suh > UHEPS || *nuh > nuhlengthmax)
+    //{
+    //    fprintf(stdout, "suh=%0.4f\n", suh);
+    //    return HAYAMI_ERROR + __LINE__;
+    //}
+
+    /* Small correction of first ordinate to remove any bias */
+    uh[0] += 1 - suh;
+
+    return 0;
+}
+
+
+int c_hayami_runtimestep(
         int nuh, int ninputs,
         int nstates, int noutputs,
-	    double * params,
+	    double dt,
         double * uh,
         double * inputs,
 	    double * statesuh,
@@ -127,20 +168,17 @@ int c_hayami_run(int nval,
         double * states,
         double * outputs)
 {
-    int ierr=0, i, storage_type;
-    double dt, L;
+    int ierr=0, i;
+    double dt;
 
     /* Check dimensions */
-    if(nparams < 2)
-        return HAYAMI_ERROR + __LINE__;
-
-    if(nconfig < 2)
+    if(nconfig < 1)
         return HAYAMI_ERROR + __LINE__;
 
     if(nstates < 1)
         return HAYAMI_ERROR + __LINE__;
 
-    if(nuh > NUHMAXLENGTH || nuh <= 0)
+    if(nuh > HAYAMI_MAXUH || nuh <= 0)
         return HAYAMI_ERROR + __LINE__;
 
     if(noutputs > HAYAMI_NOUTPUTS)
@@ -152,6 +190,10 @@ int c_hayami_run(int nval,
     if(end >= nval)
         return HAYAMI_ERROR + __LINE__;
 
+    /* Config data */
+    dt = config[0];
+    dt = dt < 1 ? 1 : dt;
+
     /* Check parameters */
     ierr = hayami_minmaxparams(nparams, params);
 
@@ -159,9 +201,9 @@ int c_hayami_run(int nval,
     for(i = start; i <= end; i++)
     {
        /* Run timestep model and update states */
-    	ierr = c_hayami_runtimestep(nparams, nuh, ninputs,
+    	ierr = c_hayami_runtimestep(nuh, ninputs,
                                     nstates, noutputs,
-                                    uh,
+                                    dt, uh,
                                     &(inputs[ninputs*i]),
                                     statesuh,
                                     states,

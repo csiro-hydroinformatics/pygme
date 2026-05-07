@@ -142,6 +142,7 @@ class UH(object):
         clone = UH(self.name, self.nordmax)
         clone.timebase = self.timebase
         clone._states = self.states.copy()
+        clone._ord = self.ord.copy()
 
         return clone
 

@@ -1,12 +1,4 @@
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-
 #include "c_lagroute.h"
-#include "c_uh.h"
-#include "c_utils.h"
-
 
 int lagroute_minmaxparams(int nparams, double * params)
 {
