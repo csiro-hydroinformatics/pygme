@@ -215,7 +215,7 @@ int c_hayami_run(int nval,
         double * outputs)
 {
     int ierr=0, i;
-    double dt, lateral, theta;
+    double dt, lateral, eta, theta;
 
     /* Check dimensions */
     if(nparams < 2)
@@ -247,7 +247,11 @@ int c_hayami_run(int nval,
 
     /* Check parameters */
     ierr = hayami_minmaxparams(nparams, params);
-    theta = params[0];
+
+    /* theta parameter is obtained by multiplying eta by timestep
+     * duration */
+    eta = params[0];
+    theta = eta * dt;
 
     /* Run timeseries */
     for(i = start; i <= end; i++)

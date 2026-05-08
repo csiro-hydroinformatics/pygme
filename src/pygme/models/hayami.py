@@ -95,8 +95,8 @@ class Hayami(Model):
     def __init__(self):
 
         # Config vector
-        # default timestep = daily (=86400 sec)
-        # default reach length = 10km
+        # default timestep in sec = daily (=86400 sec)
+        # default reach length in m = 10km
         config = Vector(["timestep", "length", "lateral"],
                         defaults=[86400, 1e4, 0],
                         mins=[1, 1, 0],
