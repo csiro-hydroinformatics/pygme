@@ -141,7 +141,8 @@ int c_uh_getuh_hayami(int nuhlengthmax,
 int c_hayami_runtimestep(
         int nuh, int ninputs,
         int nstates, int noutputs,
-	    double dt,
+	    double dt, double lateral,
+        double theta,
         double * uh,
         double * inputs,
 	    double * statesuh,
@@ -149,34 +150,52 @@ int c_hayami_runtimestep(
         double * outputs)
 {
     int k, ierr = 0;
-    double qin;
+    int is_lateral = lateral > 0;
+    double qin, qsum, qconvol, qout;
     double vr;
+
+    /* Parameters */
 
     /* input */
     qin = inputs[0];
     qin = qin < 0 ? 0. : qin;
 
+    /* if lateral flow, use cumulative inflow
+     * See Equation 49 in Moussa (1996)
+     * */
+    qsum = (states[0] + qin) * dt / theta;
+    qconvol = is_lateral ? qsum : qin;
+
     /* Hayami uh */
     vr = 0;
     for (k = 0; k < nuh - 1; k++)
     {
-        statesuh[k] = statesuh[1 + k] + uh[k] * qin;
+        statesuh[k] = statesuh[1 + k] + uh[k] * qconvol;
 
         /* Volume in transit in the river reach */
         if(k > 0)
             vr += statesuh[k] * dt;
     }
-    statesuh[nuh - 1] = uh[nuh - 1] * qin;
+    statesuh[nuh - 1] = uh[nuh - 1] * qconvol;
 
     if(nuh > 1)
         vr += statesuh[nuh - 1] * dt;
 
+    /* States */
+    states[0] += qin;
+
     /* flow outputs */
-    outputs[0] = statesuh[0];
+    if(is_lateral) {
+        /* See Equation 49 in Moussa (1996) */
+        qout = qsum - statesuh[0];
+    } else {
+        qout = statesuh[0];
+    }
+    outputs[0] = qout;
 
     /* Storage outputs */
-    if(noutputs > 2)
-        outputs[2] = vr;
+    if(noutputs > 1)
+        outputs[1] = vr;
     else
         return ierr;
 
@@ -201,10 +220,13 @@ int c_hayami_run(int nval,
         double * outputs)
 {
     int ierr=0, i;
-    double dt;
+    double dt, lateral, theta;
 
     /* Check dimensions */
-    if(nconfig < 1)
+    if(nparams < 2)
+        return HAYAMI_ERROR + __LINE__;
+
+    if(nconfig < 2)
         return HAYAMI_ERROR + __LINE__;
 
     if(nstates < 1)
@@ -226,8 +248,11 @@ int c_hayami_run(int nval,
     dt = config[0];
     dt = dt < 1 ? 1 : dt;
 
+    lateral = config[2];
+
     /* Check parameters */
     ierr = hayami_minmaxparams(nparams, params);
+    theta = params[0];
 
     /* Run timeseries */
     for(i = start; i <= end; i++)
@@ -235,7 +260,7 @@ int c_hayami_run(int nval,
        /* Run timestep model and update states */
     	ierr = c_hayami_runtimestep(nuh, ninputs,
                                     nstates, noutputs,
-                                    dt, uh,
+                                    dt, lateral, theta, uh,
                                     &(inputs[ninputs*i]),
                                     statesuh,
                                     states,
