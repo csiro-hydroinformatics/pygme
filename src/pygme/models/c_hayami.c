@@ -150,7 +150,7 @@ int c_hayami_runtimestep(
         double * outputs)
 {
     int k, ierr = 0;
-    int is_lateral = lateral > 0;
+    double is_lateral = lateral > 0 ? 1. : 0.;
     double qin, qsum, qconvol, qout;
     double vr;
 
@@ -164,7 +164,7 @@ int c_hayami_runtimestep(
      * See Equation 49 in Moussa (1996)
      * */
     qsum = (states[0] + qin) * dt / theta;
-    qconvol = is_lateral ? qsum : qin;
+    qconvol = qin - is_lateral * qsum;
 
     /* Hayami uh */
     vr = 0;
@@ -185,13 +185,8 @@ int c_hayami_runtimestep(
     states[0] += qin;
 
     /* flow outputs */
-    if(is_lateral) {
-        /* See Equation 49 in Moussa (1996) */
-        qout = qsum - statesuh[0];
-    } else {
-        qout = statesuh[0];
-    }
-    outputs[0] = qout;
+    /* See Equation 49 in Moussa (1996) */
+    outputs[0] = statesuh[0] + is_lateral * qsum;
 
     /* Storage outputs */
     if(noutputs > 1)
