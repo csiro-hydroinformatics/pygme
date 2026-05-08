@@ -125,8 +125,7 @@ cdef extern from 'c_hayami.h':
 
     double hayami_kernel(double theta, double z, double t);
 
-    double uh_hayami(double ordinate, double theta, double z,
-                     double timestep);
+    double uh_hayami(double a, double b, double theta, double z);
 
     int c_uh_getuh_hayami(int nuhlengthmax,
                           double timestep,
@@ -502,8 +501,8 @@ def test_hayami_kernel(double theta, double z, double t):
     return hayami_kernel(theta, z, t)
 
 
-def test_uh_hayami(double ordinate, double theta, double z, double timestep):
-    return uh_hayami(ordinate, theta, z, timestep)
+def test_uh_hayami(double a, double b, double theta, double z):
+    return uh_hayami(a, b, theta, z)
 
 
 def uh_getuh_hayami(int nuhlengthmax, double timestep,

@@ -29,16 +29,17 @@ double hayami_kernel(double theta, double z, double t) {
      * See Moussa, R. (1996).
      * https://doi.org/10.1002/(SICI)1099-1085(199609)10:9%253C1209::AID-HYP380%253E3.0.CO;2-2
      */
-    double A = sqrt(theta * z / UTILS_PI);
-    t = c_max(HAYAMI_TMIN, t);
-    double arg = z * (2 - theta / t - t / theta);
-    arg = c_minmax(-HAYAMI_EXP_ARGMAX, HAYAMI_EXP_ARGMAX, arg);
-    return A * exp(arg) / sqrt(t * t * t);
+    double u = t / theta;
+    double A = sqrt(z / theta / theta / UTILS_PI);
+    return A * exp(z * (2 - 1. / u - u)) / sqrt(u * u * u);
 }
 
 
-double uh_hayami(double ordinate, double theta, double z, double timestep)
+double uh_hayami(double a, double b, double theta, double z)
 {
+    if(b <= a)
+        return 0;
+
     /* Gaussian quadature abscissae and weights */
     double x[5] = {0.1488743389816312,0.4333953941292472,
                   0.6794095682990244,0.8650633666889845,
@@ -46,10 +47,6 @@ double uh_hayami(double ordinate, double theta, double z, double timestep)
     double w[5] = {0.2955242247147529,0.2692667193099963,
                    0.2190863625159821,0.1494513491505806,
                    0.0666713443086881};
-
-    /* Boundaries of integration */
-    double a = ordinate * timestep;
-    double b = (ordinate + 1) * timestep;
 
     /* Initialise */
     double mid = 0.5 * (b + a);
@@ -72,9 +69,22 @@ int c_uh_getuh_hayami(int nuhlengthmax,
                       int * nuh,
                       double * uh)
 {
-    int i;
-    double u;
-    double suh;
+    int i, j;
+    double du, u, suh;
+    double t0, t1;
+
+    /* Define an ordinate below which the bulk of the integral
+     * is. This is defined as M1 + sqrt(M2) with M1 and M2
+     * the first and second moment of the kernel.
+     * M1 = theta
+     * M2 = theta^2 (1 + 1/2z)
+     * See Moussa (1996)
+     */
+    double tmax = theta * (1 + sqrt(1 + 1. / 2 / c_max(1e-100, z)));
+
+    int ndiv = 2;
+    double a[2];
+    double b[2];
 
     /* UH ordinates */
     *nuh = 0;
@@ -86,21 +96,43 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         else
             break;
 
-        /* Integration can be very inaccurate sometimes */
-        u = c_min(1., uh_hayami((double)i, theta, z, timestep));
+        /* Split interval if kernel concentrated towards 0 */
+        t0 = timestep * (double)i;
+        t1 = t0 + timestep;
+
+        a[0] = t0;
+        b[0] = i == 0 ? c_min(tmax, t1) : t1;
+
+        a[1] = b[0];
+        b[1] = t1;
+
+        /* Compute kernel for each subdivision */
+        u = 0;
+        for(j = 0; j < ndiv; j++) {
+            du = uh_hayami(a[j], b[j], theta, z);
+            u += du;
+            if(u > 1) {
+                u = 1;
+                break;
+            }
+            fprintf(stdout, "a=%0.2e b=%0.2e du=%0.2e u=%0.2e\n",
+                    a[j], b[j], du, u);
+        }
+
         uh[i] = u;
         suh += u;
     }
 
     /* NUH is not big enough */
-    //if(1 - suh > UHEPS || *nuh > nuhlengthmax)
-    //{
-    //    fprintf(stdout, "suh=%0.4f\n", suh);
-    //    return HAYAMI_ERROR + __LINE__;
-    //}
+    if(1 - suh > UHEPS)
+    {
+        *nuh = nuhlengthmax - 1;
+        for(i = 0; i < nuhlengthmax - 1; i++)
+            uh[i] /= suh;
+    }
 
     /* Small correction of first ordinate to remove any bias */
-    uh[0] += 1 - suh;
+    //uh[0] += 1 - suh;
 
     return 0;
 }

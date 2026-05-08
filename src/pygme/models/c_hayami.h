@@ -36,8 +36,7 @@ int c_hayami_get_maxuh();
 
 double hayami_kernel(double theta, double z, double t);
 
-double uh_hayami(double ordinate, double theta, double z,
-                 double timestep);
+double uh_hayami(double a, double b, double theta, double z);
 
 int c_uh_getuh_hayami(int nuhlengthmax,
                       double timestep,

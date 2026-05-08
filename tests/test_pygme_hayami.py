@@ -64,7 +64,6 @@ def test_error2():
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
 @pytest.mark.parametrize("D", [100, 10000, 1000000])
 def test_hayami_kernel(L, C, D, allclose):
-    pytest.skip("WIP")
     theta = L / C
     z = C * L / 4 / D
     timestep = 86400
@@ -78,17 +77,21 @@ def test_hayami_kernel(L, C, D, allclose):
     expected /= np.sqrt(tt**3)
     assert allclose(kernel, expected)
 
-    print("")
-    print(f"C={C:0.1f} D={D:0.0f} L={L:0.1e}:")
+    print("\n\n")
+    print(f"C={C:0.1f} D={D:0.0f} L={L:0.1e} (θ={theta:0.1e} z={z:0.1e}):\n")
     for i in range(10):
-        u = c_pygme_models_hydromodels.test_uh_hayami(float(i), theta, z, timestep)
+        a = float(i * timestep)
+        b = float((i + 1) * timestep)
+        u = c_pygme_models_hydromodels.test_uh_hayami(a, b, theta, z)
 
         def fun(x):
             return c_pygme_models_hydromodels.test_hayami_kernel(theta, z, x)
         expected, err = quad(fun, i * timestep, (i + 1) * timestep)
-        tol = 2e-5 if i == 0 else 1e-10
-        print(f"\tu[{i}]={u:0.3e} ({expected:0.3e}) err={expected - u:0.3e}")
-        #assert abs(math.log(u) - math.log(expected)) < tol
+
+        lu = math.log(max(1e-100, u))
+        le = math.log(max(1e-100, expected))
+        logerr = abs(lu - le)
+        assert logerr < 1e-5
 
 
 def test_uh_hayami():
