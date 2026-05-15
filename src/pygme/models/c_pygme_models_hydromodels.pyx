@@ -127,6 +127,9 @@ cdef extern from 'c_hayami.h':
 
     double uh_hayami(double a, double b, double theta, double z);
 
+    int c_time_bounds_hayami(double theta, double z,
+                             double eps, double bounds[3]);
+
     int c_uh_getuh_hayami(int nuhlengthmax,
                           double timestep,
                           double theta,
@@ -505,12 +508,23 @@ def test_uh_hayami(double a, double b, double theta, double z):
     return uh_hayami(a, b, theta, z)
 
 
+def time_bounds_hayami(double theta, double z, double eps,
+                    np.ndarray[double, ndim=1, mode='c'] bounds not None):
+    cdef int ierr
+    ierr = c_time_bounds_hayami(theta, z, eps,
+                                <double*> np.PyArray_DATA(bounds))
+    return ierr
+
+
 def uh_getuh_hayami(int nuhlengthmax, double timestep,
                     double theta, double z,
                     np.ndarray[int, ndim=1, mode='c'] nuh not None,
                     np.ndarray[double, ndim=1, mode='c'] uh not None):
 
     cdef int ierr
+
+    if uh.shape[0] != nuhlengthmax:
+        raise ValueError("uh.shape[0] != nuhlengthmnax")
 
     ierr = c_uh_getuh_hayami(nuhlengthmax,
                              timestep, theta, z,

@@ -76,8 +76,11 @@ class HayamiParamsVector(ParamsVector):
         self._hayami_uh = HayamiUH(config)
 
     def _set_values(self):
-        eta, z = self.values
-        theta = eta * self.config.timestep
+        eta, zeta = self.values
+        L0 = self.config.length_ref
+        L = self.config.length
+        theta = eta * self.config.timestep * L / L0
+        z = zeta * L / L0
         self._hayami_uh.set_uh(theta, z)
         super()._set_values()
 
@@ -97,13 +100,14 @@ class Hayami(Model):
         # Config vector
         # default timestep in sec = daily (=86400 sec)
         # default reach length in m = 10km
-        config = Vector(["timestep", "length", "lateral"],
-                        defaults=[86400, 1e4, 0],
-                        mins=[1, 1, 0],
-                        maxs=[np.inf, np.inf, 1])
+        config = Vector(["timestep", "length_ref", "length",
+                         "lateral"],
+                        defaults=[86400, 1e4, 1e4, 0],
+                        mins=[1, 1, 0, 0],
+                        maxs=[np.inf, np.inf, np.inf, 1])
 
         # params vector
-        vect = Vector(["eta", "z"],
+        vect = Vector(["eta", "zeta"],
                       defaults=[1., 1.],
                       mins=[1e-4, 1e-4],
                       maxs=[2400, 100.])

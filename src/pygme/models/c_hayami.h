@@ -38,6 +38,8 @@ double hayami_kernel(double theta, double z, double t);
 
 double uh_hayami(double a, double b, double theta, double z);
 
+int c_time_bounds_hayami(double theta, double z, double eps, double bounds[3]);
+
 int c_uh_getuh_hayami(int nuhlengthmax,
                       double timestep,
                       double theta,

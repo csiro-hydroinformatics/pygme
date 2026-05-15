@@ -62,6 +62,35 @@ double uh_hayami(double a, double b, double theta, double z)
 }
 
 
+int c_time_bounds_hayami(double theta, double z, double eps, double bounds[3]) {
+    /* We approximate the kernel as
+     * K*(t) = sqrt(z theta / pi) exp(z * (2 - theta / t - t / theta) / sqrt(t0^3)
+     * where t0 is such that dK/dt = 0 (maximum of the kernel)
+     *
+     * We look for value of t such that K*(t) = eps, hence
+     * C = 2 - theta / t - t / theta
+     * where C = log(eps * sqrt(pi / theta / z) sqrt(t0^3)) / z
+     *
+     * Multiplying by t, we obtain:
+     * -1/theta t^2 + (2 - C) t - theta = 0
+     *
+     * Hence
+     * Delta = (2 - C)^2 - 4
+     * t = (2 - C ± sqrt(Delta)) theta / 2
+     */
+    double t0 = theta * (sqrt(16 * z * z + 9) - 3) / 4 / z;
+    double C = log(eps * sqrt(UTILS_PI / theta / z) * sqrt(t0 * t0 * t0)) / z;
+    double delta = (2 - C) * (2 - C) - 4;
+    double sqdelta = sqrt(delta);
+
+    bounds[0] = theta * (2 - C - sqdelta) / 2;
+    bounds[1] = t0;
+    bounds[2] = theta * (2 - C + sqdelta) / 2;
+
+    return 0;
+}
+
+
 int c_uh_getuh_hayami(int nuhlengthmax,
                       double timestep,
                       double theta,
@@ -70,21 +99,17 @@ int c_uh_getuh_hayami(int nuhlengthmax,
                       double * uh)
 {
     int i, j;
-    double du, u, suh;
+    double u, suh;
     double t0, t1;
 
-    /* Define an ordinate below which the bulk of the integral
-     * is. This is defined as M1 + sqrt(M2) with M1 and M2
-     * the first and second moment of the kernel.
-     * M1 = theta
-     * M2 = theta^2 (1 + 1/2z)
-     * See Moussa (1996)
-     */
-    double tmax = theta * (1 + sqrt(1 + 1. / 2 / c_max(1e-100, z)));
-
-    int ndiv = 2;
-    double a[2];
-    double b[2];
+    double eps = 1e-10;
+    double bounds[3];
+    c_time_bounds_hayami(theta, z, eps, bounds);
+    double tlow = bounds[0];
+    double tmax = bounds[1];
+    double thigh = bounds[2];
+    double delta = thigh - tlow;
+    int delta_small = delta < timestep / 5;
 
     /* UH ordinates */
     *nuh = 0;
@@ -96,28 +121,23 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         else
             break;
 
-        /* Split interval if kernel concentrated towards 0 */
+        /* timestep time bounds */
         t0 = timestep * (double)i;
         t1 = t0 + timestep;
 
-        a[0] = t0;
-        b[0] = i == 0 ? c_min(tmax, t1) : t1;
-
-        a[1] = b[0];
-        b[1] = t1;
-
-        /* Compute kernel for each subdivision */
-        u = 0;
-        for(j = 0; j < ndiv; j++) {
-            du = uh_hayami(a[j], b[j], theta, z);
-            u += du;
-            if(u > 1) {
-                u = 1;
-                break;
-            }
-            fprintf(stdout, "a=%0.2e b=%0.2e du=%0.2e u=%0.2e\n",
-                    a[j], b[j], du, u);
+        /* Check bounds */
+        if(delta_small && i == 0) {
+            t0 = t0 < tlow ? tlow : t0;
+            t1 = t1 > thigh ? thigh : t1;
         }
+
+        /* Compute */
+        u = uh_hayami(t0, t1, theta, z);
+        u = u > 1. ? 1. : u;
+
+        /* Stop if we have passed to biggest part of kernel */
+        if(u < eps && t1 > tmax)
+            break;
 
         uh[i] = u;
         suh += u;
