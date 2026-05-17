@@ -65,16 +65,20 @@ def test_error2():
 #@pytest.mark.parametrize("D", [100, 10000, 1000000])
 #@pytest.mark.parametrize("itimestep", range(10))
 
-@pytest.mark.parametrize("L", [1e4])
-@pytest.mark.parametrize("C", [0.1])
-@pytest.mark.parametrize("D", [10000])
-@pytest.mark.parametrize("itimestep", [0])
-def test_hayami_kernel(L, C, D, itimestep, allclose):
+#@pytest.mark.parametrize("L", [1e4])
+#@pytest.mark.parametrize("C", [0.1])
+#@pytest.mark.parametrize("D", [10000])
+#@pytest.mark.parametrize("itimestep", [0])
+
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+def test_hayami_kernel(L, C, D, allclose):
     theta = L / C
     z = C * L / 4 / D
     timestep = 86400
 
-    tt = np.linspace(1, 5 * timestep, 500)
+    tt = np.linspace(theta / 100, 10 * theta, 100000)
     kernel = [c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t) for t in tt]
     kernel = np.array(kernel)
 
@@ -83,24 +87,70 @@ def test_hayami_kernel(L, C, D, itimestep, allclose):
     expected /= np.sqrt(tt**3)
     assert allclose(kernel, expected)
 
-    eps = 1e-10
-    bounds = np.zeros(3)
+    dkernel = [c_pygme_models_hydromodels.test_hayami_kernel_diff(theta, z, t) for t in tt]
+    dkernel = np.array(dkernel)
+    expected = (kernel[2:] - kernel[:-2]) / 2 / (tt[1] - tt[0])
+
+    err = np.abs(dkernel[1:-1] - expected)
+    errm = err.max() / np.abs(expected).max()
+    assert errm < 5e-3
+
+
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10., 100.])
+@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+def test_hayami_tbounds(L, C, D, allclose):
+    theta = L / C
+    z = C * L / 4 / D
+    timestep = 86400
+
+    eps = 1e-8
+    bounds = np.zeros(2)
     c_pygme_models_hydromodels.time_bounds_hayami(theta, z, eps, bounds)
-    tlow, tmax, thigh = bounds
+    tlow, thigh = bounds
 
-    delta = thigh - tlow;
-    delta_small = delta < timestep / 5
+    t0 = theta * (math.sqrt(16 * z * z + 9) - 3) / 4 / z
+    f0 = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t0)
+    fobj = f0 * eps
 
-    print("\n\n")
-    print(f"C={C:0.1f} D={D:0.0f} L={L:0.1e} (θ={theta:0.1e} z={z:0.1e}):\n")
+    # Try newton
+    #C = math.log(eps * math.sqrt(math.pi / theta / z) * math.sqrt(t0 * t0 * t0)) / z
+    #delta = (2 - C) * (2 - C) - 4
+    #sqdelta = math.sqrt(delta)
 
+    #tlow = theta * (2 - C - sqdelta) / 2
+    #thigh = theta * (2 - C + sqdelta) / 2
+
+
+    #tt = np.linspace(theta / 100, 10 * theta, 100000)
+    #kernel = [c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t) for t in tt]
+    #kernel = np.array(kernel)
+    #import matplotlib.pyplot as plt
+    #plt.plot(tt, kernel)
+    #plt.show()
+
+    assert tlow < t0
+    assert thigh > t0
+
+    fl = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, tlow)
+    fh = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, thigh)
+
+    assert abs(fl - fobj) / f0 < eps * 1e-1
+    assert abs(fh - fobj) / f0 < eps * 1e-2
+
+
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+@pytest.mark.parametrize("itimestep", range(20))
+def test_hayami_uh1(L, C, D, itimestep, allclose):
     a = float(itimestep * timestep)
     b = float((itimestep + 1) * timestep)
-    if itimestep == 0 and delta_small:
+    if itimestep == 0:
         a = max(tlow, a)
         b = min(thigh, b)
 
-    u = c_pygme_models_hydromodels.test_uh_hayami(a, b, theta, z)
+    u = c_pygme_models_hydromodels.test_integrate_hayami_kernel(a, b, theta, z)
     u = min(u, 1)
 
     def fun(x):
@@ -124,7 +174,7 @@ def test_hayami_kernel(L, C, D, itimestep, allclose):
 
 
 
-def test_uh_hayami():
+def test_hayami_uh2():
     pytest.skip("WIP")
     hay = Hayami()
     hay.config.L = 10e4

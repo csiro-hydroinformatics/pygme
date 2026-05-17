@@ -125,10 +125,11 @@ cdef extern from 'c_hayami.h':
 
     double hayami_kernel(double theta, double z, double t);
 
-    double uh_hayami(double a, double b, double theta, double z);
+    double hayami_kernel_diff(double theta, double z, double t);
 
-    int c_time_bounds_hayami(double theta, double z,
-                             double eps, double bounds[3]);
+    double integrate_hayami_kernel(double a, double b, double theta, double z);
+
+    int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]);
 
     int c_uh_getuh_hayami(int nuhlengthmax,
                           double timestep,
@@ -504,15 +505,22 @@ def test_hayami_kernel(double theta, double z, double t):
     return hayami_kernel(theta, z, t)
 
 
-def test_uh_hayami(double a, double b, double theta, double z):
-    return uh_hayami(a, b, theta, z)
+def test_hayami_kernel_diff(double theta, double z, double t):
+    return hayami_kernel_diff(theta, z, t)
+
+
+def test_integrate_hayami_kernel(double a, double b, double theta, double z):
+    return integrate_hayami_kernel(a, b, theta, z)
 
 
 def time_bounds_hayami(double theta, double z, double eps,
-                    np.ndarray[double, ndim=1, mode='c'] bounds not None):
+                    np.ndarray[double, ndim=1, mode='c'] tbounds not None):
     cdef int ierr
-    ierr = c_time_bounds_hayami(theta, z, eps,
-                                <double*> np.PyArray_DATA(bounds))
+    if tbounds.shape[0] != 2:
+        raise ValueError("tbounds.shape[0] != 2")
+
+    ierr = hayami_kernel_tbounds(theta, z, eps,
+                                 <double*> np.PyArray_DATA(tbounds))
     return ierr
 
 

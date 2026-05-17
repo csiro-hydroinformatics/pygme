@@ -35,7 +35,89 @@ double hayami_kernel(double theta, double z, double t) {
 }
 
 
-double uh_hayami(double a, double b, double theta, double z)
+double hayami_kernel_diff(double theta, double z, double t) {
+    double u = t / theta;
+    double A = sqrt(z / theta / theta / UTILS_PI);
+    double e = exp(z * (2 - 1. / u - u));
+    double u3 = u * u * u;
+    return - A  / theta * (z * (1. - 1. / u / u) * sqrt(u3) + 1.5 * sqrt(u)) * e / u3;
+}
+
+
+double hayami_kernel_tmax(double theta, double z) {
+    return theta * (sqrt(16 * z * z + 9) - 3) / 4 / z;
+}
+
+
+int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]) {
+    int iter, nitermax;
+    double tlow, thigh;
+    double flow, fhigh;
+    double dflow, dfhigh;
+    double atol, err, abserr, abserr_prev;
+
+    /* This is the value of the kernel we seek: eps x max(kernel) */
+    double t0 = hayami_kernel_tmax(theta, z);
+    double f0 = hayami_kernel(theta, z, t0);
+    double fobj = f0 * eps;
+
+    /* We approximate the kernel as
+     * K*(t) = sqrt(z theta / pi) exp(z * (2 - theta / t - t / theta) / sqrt(t0^3)
+     * where t0 is such that dK/dt = 0 (maximum of the kernel)
+     *
+     * We look for value of t such that K*(t) = eps, hence
+     * C = 2 - theta / t - t / theta
+     * where C = log(eps * sqrt(pi / theta / z) sqrt(t0^3)) / z
+     *
+     * Multiplying by t, we obtain:
+     * -1/theta t^2 + (2 - C) t - theta = 0
+     *
+     * Hence
+     * Delta = (2 - C)^2 - 4
+     * t = (2 - C ± sqrt(Delta)) theta / 2
+     */
+    double C = log(fobj * sqrt(UTILS_PI / theta / z) * sqrt(t0 * t0 * t0)) / z;
+    double delta = (2 - C) * (2 - C) - 4;
+    double sqdelta = sqrt(delta);
+
+    tlow = theta * (2 - C - sqdelta) / 2;
+    thigh = theta * (2 - C + sqdelta) / 2;
+
+    /* Newton iteration */
+    nitermax = 10;
+    atol = fobj * 1e-10;
+    abserr_prev = 1e100;
+    for(iter = 0; iter < nitermax; iter++) {
+        flow = hayami_kernel(theta, z, tlow);
+        err = flow - fobj;
+        abserr = abs(err);
+        if(abserr < atol || abserr > abserr_prev)
+            break;
+        dflow = hayami_kernel_diff(theta, z, tlow);
+        tlow -= err / dflow;
+        abserr_prev = abserr;
+    }
+
+    abserr_prev = 1e100;
+    for(iter = 0; iter < nitermax; iter++) {
+        fhigh = hayami_kernel(theta, z, thigh);
+        err = fhigh - fobj;
+        abserr = abs(err);
+        if(abserr < atol || abserr > abserr_prev)
+            break;
+        dfhigh = hayami_kernel_diff(theta, z, thigh);
+        thigh -= err / dfhigh;
+        abserr_prev = abserr;
+    }
+
+    tbounds[0] = tlow;
+    tbounds[1] = thigh;
+
+    return 0;
+}
+
+
+double integrate_hayami_kernel(double a, double b, double theta, double z)
 {
     if(b <= a)
         return 0;
@@ -62,35 +144,6 @@ double uh_hayami(double a, double b, double theta, double z)
 }
 
 
-int c_time_bounds_hayami(double theta, double z, double eps, double bounds[3]) {
-    /* We approximate the kernel as
-     * K*(t) = sqrt(z theta / pi) exp(z * (2 - theta / t - t / theta) / sqrt(t0^3)
-     * where t0 is such that dK/dt = 0 (maximum of the kernel)
-     *
-     * We look for value of t such that K*(t) = eps, hence
-     * C = 2 - theta / t - t / theta
-     * where C = log(eps * sqrt(pi / theta / z) sqrt(t0^3)) / z
-     *
-     * Multiplying by t, we obtain:
-     * -1/theta t^2 + (2 - C) t - theta = 0
-     *
-     * Hence
-     * Delta = (2 - C)^2 - 4
-     * t = (2 - C ± sqrt(Delta)) theta / 2
-     */
-    double t0 = theta * (sqrt(16 * z * z + 9) - 3) / 4 / z;
-    double C = log(eps * sqrt(UTILS_PI / theta / z) * sqrt(t0 * t0 * t0)) / z;
-    double delta = (2 - C) * (2 - C) - 4;
-    double sqdelta = sqrt(delta);
-
-    bounds[0] = theta * (2 - C - sqdelta) / 2;
-    bounds[1] = t0;
-    bounds[2] = theta * (2 - C + sqdelta) / 2;
-
-    return 0;
-}
-
-
 int c_uh_getuh_hayami(int nuhlengthmax,
                       double timestep,
                       double theta,
@@ -102,14 +155,13 @@ int c_uh_getuh_hayami(int nuhlengthmax,
     double u, suh;
     double t0, t1;
 
+    double tmax = hayami_kernel_tmax(theta, z);
+
     double eps = 1e-10;
-    double bounds[3];
-    c_time_bounds_hayami(theta, z, eps, bounds);
-    double tlow = bounds[0];
-    double tmax = bounds[1];
-    double thigh = bounds[2];
-    double delta = thigh - tlow;
-    int delta_small = delta < timestep / 5;
+    double tbounds[2];
+    hayami_kernel_tbounds(theta, z, eps, tbounds);
+    double tlow = tbounds[0];
+    double thigh = tbounds[1];
 
     /* UH ordinates */
     *nuh = 0;
@@ -126,13 +178,13 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         t1 = t0 + timestep;
 
         /* Check bounds */
-        if(delta_small && i == 0) {
+        if(i == 0) {
             t0 = t0 < tlow ? tlow : t0;
             t1 = t1 > thigh ? thigh : t1;
         }
 
         /* Compute */
-        u = uh_hayami(t0, t1, theta, z);
+        u = integrate_hayami_kernel(t0, t1, theta, z);
         u = u > 1. ? 1. : u;
 
         /* Stop if we have passed to biggest part of kernel */

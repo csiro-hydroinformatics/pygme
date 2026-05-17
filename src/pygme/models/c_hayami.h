@@ -36,9 +36,13 @@ int c_hayami_get_maxuh();
 
 double hayami_kernel(double theta, double z, double t);
 
-double uh_hayami(double a, double b, double theta, double z);
+double hayami_kernel_diff(double theta, double z, double t);
 
-int c_time_bounds_hayami(double theta, double z, double eps, double bounds[3]);
+double hayami_kernel_tmax(double theta, double z);
+
+double integrate_hayami_kernel(double a, double b, double theta, double z);
+
+int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]);
 
 int c_uh_getuh_hayami(int nuhlengthmax,
                       double timestep,
