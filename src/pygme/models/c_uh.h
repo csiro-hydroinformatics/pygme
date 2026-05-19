@@ -10,7 +10,7 @@
 #include "c_utils.h"
 
 /* Maximum number of uh states*/
-#define NUHMAXLENGTH 300
+#define NUHMAXLENGTH 3000
 
 /* Check on uh sum */
 #define UHEPS 1e-6

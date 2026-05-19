@@ -1,13 +1,14 @@
-import math
 import numpy as np
 
 from hydrodiy.data.containers import Vector
-from pygme.model import Model, UH, ParamsVector, NORDMAXMAX
+from pygme.model import Model, UH, ParamsVector
 from pygme.calibration import Calibration, CalibParamsVector, ObjFunBCSSE
 
 from pygme import has_c_module
 if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
+
+HAYAMI_MAXUH = c_pygme_models_hydromodels.hayami_get_maxuh()
 
 
 # Transformation functions for hayami parameters
@@ -20,15 +21,20 @@ def hayami_true2trans(x):
 
 
 class HayamiUH(UH):
-    def __init__(self, config, nordmax=NORDMAXMAX):
-        super(HayamiUH, self).__init__("lag")
+    def __init__(self, config, niter=10, nordmax=HAYAMI_MAXUH):
+        super(HayamiUH, self).__init__("lag", nordmax=nordmax)
         self._theta = config.timestep
         self._z = 2.5
         self._config = config
+        self._niter = niter
 
     @property
     def config(self):
         return self._config
+
+    @property
+    def niter(self):
+        return self._niter
 
     def set_uh(self, theta, z):
         self._theta = theta
@@ -36,6 +42,7 @@ class HayamiUH(UH):
 
         # Populate the uh ordinates
         ierr = c_pygme_models_hydromodels.uh_getuh_hayami(self.nordmax,
+                                                          self.niter,
                                                           self.config.timestep,
                                                           theta, z,
                                                           self._nord, self._ord)
@@ -115,11 +122,11 @@ class Hayami(Model):
         vect = Vector(["eta", "zeta"],
                       defaults=[1., 1.],
                       mins=[1e-4, 1e-4],
-                      maxs=[2400, 100.])
+                      maxs=[1e5, 100.])
         params = HayamiParamsVector(vect, config)
 
         # State vector
-        states = Vector(["S"])
+        states = Vector(["Vr"])
 
         # Model
         super(Hayami, self).__init__("Hayami",
@@ -129,6 +136,15 @@ class Hayami(Model):
 
         self.inputs_names = ["Inflow"]
         self.outputs_names = ["Q", "VR"]
+
+
+    def initialise(self, states=None, uhs=None):
+        super(Hayami, self).initialise(states, uhs)
+        self.states.Vr = 0
+
+    @property
+    def ord(self):
+        return self.params.uhs[0][1].ord
 
     def run(self):
         has_c_module("models_hydromodels")
@@ -166,7 +182,7 @@ class CalibrationHayami(Calibration):
         model = Hayami()
         params = model.params
 
-        cp = Vector(["tU", "talpha"],
+        cp = Vector(["eta", "zeta"],
                     mins=params.mins,
                     maxs=params.maxs,
                     defaults=params.defaults)
@@ -186,9 +202,13 @@ class CalibrationHayami(Calibration):
 
         # Build parameter library from
         # systematic exploration of parameter space
-        nn = int(math.sqrt(nparamslib))
-        uu, aa = np.meshgrid(np.linspace(0.1, 3, nn),
-                             np.linspace(0, 1, nn))
-        plib = np.column_stack([uu.ravel(), aa.ravel()])
+        nn = 10
+        L0 = model.config.length_ref
+        C = np.linspace(0.1, 10, nn)
+        D = np.logspace(2, 4, nn)
+        dt = model.config.timestep
+        eta = L0 / C / dt
+        zeta = C * L0 / 4 / D
 
-        self.paramslib = plib
+        ee, zz = np.meshgrid(eta, zeta)
+        self.paramslib = np.column_stack([ee.ravel(), zz.ravel()])

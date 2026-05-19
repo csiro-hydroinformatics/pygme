@@ -7,18 +7,20 @@ int c_hayami_get_maxuh() {
 
 int hayami_minmaxparams(int nparams, double * params)
 {
-        double p1, p2;
+        double pmin, pmax;
 
-        if(nparams<2)
+        if(nparams < HAYAMI_NPARAMS)
             return HAYAMI_ERROR + __LINE__;
 
-        p1 = params[0];
-        params[0] = p1 < 1e-2 ? 1e-2 :
-            p1 > 20 ? 20 : p1;
+        /* eta */
+        pmin = 1e-4;
+        pmax = 1e5;
+        params[0] = c_minmax(pmin, pmax, params[0]);
 
-        p2 = params[1];
-        params[1] = p2 < 0. ? 0. :
-            p2 > 1. ? 1. : p2;
+        /* zeta */
+        pmin = 1e-4;
+        pmax = 1e3;
+        params[1] = c_minmax(pmin, pmax, params[1]);
 
 	return 0;
 }
@@ -156,6 +158,7 @@ double integrate_hayami_kernel(double a, double b, double theta, double z)
 
 
 int c_uh_getuh_hayami(int nuhlengthmax,
+                      int niter,
                       double timestep,
                       double theta,
                       double z,
@@ -163,10 +166,12 @@ int c_uh_getuh_hayami(int nuhlengthmax,
                       double * uh)
 {
     int i, j;
-    int niter = 5;
     double u, suh;
     double t1, t2;
     double dt, a, b;
+
+    /* Number of subdivisions for integration */
+    niter = niter < 1 ? 1 : niter;
 
     double t0 = hayami_kernel_tmax(theta, z);
 
@@ -212,13 +217,16 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         if(u < 1e-10 && t2 > t0)
             break;
 
-        if(suh > 1)
+        if(suh >= 1)
             break;
     }
 
     /* NUH is not big enough */
-    if(1 - suh > UHEPS)
+    if(fabs(1 - suh) > UHEPS)
     {
+        /* set to nan if error is too large */
+        suh = suh > 1.2 || suh < 0.8 ? c_get_nan() : suh;
+
         *nuh = nuhlengthmax - 1;
         for(i = 0; i < nuhlengthmax - 1; i++)
             uh[i] /= suh;
@@ -252,6 +260,7 @@ int c_hayami_runtimestep(
 
     /* if lateral flow, use cumulative inflow
      * See Equation 49 in Moussa (1996)
+     * states[0] = cumulative flow from prior timesteps
      * */
     qsum = (states[0] + qin) * dt / theta;
     qconvol = qin - is_lateral * qsum;
@@ -271,7 +280,7 @@ int c_hayami_runtimestep(
     if(nuh > 1)
         vr += statesuh[nuh - 1] * dt;
 
-    /* States */
+    /* States -> cumulative flow */
     states[0] += qin;
 
     /* flow outputs */
@@ -308,13 +317,13 @@ int c_hayami_run(int nval,
     double dt, lateral, eta, theta;
 
     /* Check dimensions */
-    if(nparams < 2)
+    if(nparams < HAYAMI_NPARAMS)
         return HAYAMI_ERROR + __LINE__;
 
-    if(nconfig < 2)
+    if(nconfig < HAYAMI_NCONFIG)
         return HAYAMI_ERROR + __LINE__;
 
-    if(nstates < 1)
+    if(nstates < HAYAMI_NSTATES)
         return HAYAMI_ERROR + __LINE__;
 
     if(nuh > HAYAMI_MAXUH || nuh <= 0)
@@ -331,9 +340,8 @@ int c_hayami_run(int nval,
 
     /* Config data */
     dt = config[0];
-    dt = dt < 1 ? 1 : dt;
-
-    lateral = config[2];
+    dt = dt < 1. ? 1. : dt;
+    lateral = config[3];
 
     /* Check parameters */
     ierr = hayami_minmaxparams(nparams, params);

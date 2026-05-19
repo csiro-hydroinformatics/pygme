@@ -13,20 +13,20 @@
 /* Max number of uh -> 100 * 24 = 100 days at hourly timestep */
 #define HAYAMI_MAXUH 2400
 
-/* Number of inputs required by LAG ROUTE run */
-#define HAYAMI_NINPUTS 5
+/* Number of inputs required by HAYAMI run */
+#define HAYAMI_NINPUTS 1
 
-/* Number of params required by LAG ROUTE run */
-#define HAYAMI_NPARAMS 5
+/* Number of config required by HAYAMI run */
+#define HAYAMI_NCONFIG 4
 
-/* Number of states returned by LAG ROUTE run */
-#define HAYAMI_NSTATES 5
+/* Number of params required by HAYAMI run */
+#define HAYAMI_NPARAMS 2
 
-/* Number of outputs returned by LAG ROUTE run */
-#define HAYAMI_NOUTPUTS 10
+/* Number of states returned by HAYAMI run */
+#define HAYAMI_NSTATES 1
 
-/* Maximum argument to exponential in hayami kernel */
-#define HAYAMI_EXP_ARGMAX 100
+/* Number of outputs returned by HAYAMI run */
+#define HAYAMI_NOUTPUTS 2
 
 /* Minimum time in hayami kernel (sec) */
 #define HAYAMI_TMIN 1e-3
@@ -47,6 +47,7 @@ double integrate_hayami_kernel(double a, double b, double theta, double z);
 int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]);
 
 int c_uh_getuh_hayami(int nuhlengthmax,
+                      int niter,
                       double timestep,
                       double theta,
                       double z,

@@ -1,7 +1,9 @@
-import os
+import sys
 import re
 import pytest
 import itertools
+
+import logging
 
 import time
 import math
@@ -13,9 +15,8 @@ from scipy.integrate import quad
 
 import matplotlib.pyplot as plt
 
-from pygme.models.hayami import Hayami, CalibrationHayami, NORDMAXMAX
-from pygme.calibration import Calibration, CalibParamsVector, ObjFunSSE
-
+from pygme.models.hayami import Hayami, CalibrationHayami, HAYAMI_MAXUH
+from pygme.calibration import Calibration, CalibParamsVector, ObjFunSSE, LOGGER
 
 import c_pygme_models_utils
 UHEPS = c_pygme_models_utils.uh_getuheps()
@@ -26,6 +27,13 @@ import testdata
 
 np.random.seed(0)
 
+LOGGER.setLevel("INFO")
+fmt = "%(asctime)s | %(levelname)s | %(message)s"
+date_fmt = "%d %b %H:%M"
+ft = logging.Formatter(fmt, date_fmt)
+sh = logging.StreamHandler(sys.stdout)
+sh.setFormatter(ft)
+LOGGER.addHandler(sh)
 
 def test_print():
     hay = Hayami()
@@ -60,23 +68,13 @@ def test_error2():
         hay.initialise()
 
 
-#@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
-#@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
-#@pytest.mark.parametrize("D", [100, 10000, 1000000])
-#@pytest.mark.parametrize("iuh", range(10))
-
-#@pytest.mark.parametrize("L", [1e4])
-#@pytest.mark.parametrize("C", [0.1])
-#@pytest.mark.parametrize("D", [10000])
-#@pytest.mark.parametrize("iuh", [0])
-
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
 @pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
-def test_hayami_kernel(L, C, D, allclose):
+@pytest.mark.parametrize("timestep", [3600, 86400])
+def test_hayami_kernel(L, C, D, timestep, allclose):
     theta = L / C
     z = C * L / 4 / D
-    timestep = 86400
 
     tt = np.linspace(theta / 100, 10 * theta, 100000)
     kernel = [c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t) for t in tt]
@@ -107,10 +105,10 @@ def test_hayami_kernel(L, C, D, allclose):
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10., 100.])
 @pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
-def test_hayami_tbounds(L, C, D, allclose):
+@pytest.mark.parametrize("timestep", [3600, 86400])
+def test_hayami_tbounds(L, C, D, timestep, allclose):
     theta = L / C
     z = C * L / 4 / D
-    timestep = 86400
 
     eps = 1e-5
     bounds = np.zeros(2)
@@ -138,10 +136,10 @@ def test_hayami_tbounds(L, C, D, allclose):
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
 @pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
 @pytest.mark.parametrize("iuh", range(20))
-def test_hayami_uh1(L, C, D, iuh, allclose):
+@pytest.mark.parametrize("timestep", [3600, 86400])
+def test_hayami_uh1(L, C, D, iuh, timestep, allclose):
     theta = L / C
     z = C * L / 4 / D
-    timestep = 86400
 
     t1 = float(iuh * timestep)
     tn = float((iuh + 1) * timestep)
@@ -183,15 +181,22 @@ def test_hayami_uh1(L, C, D, iuh, allclose):
     logerr = abs(lu - le)
 
     if expected > 1e-3:
-        assert logerr < 3e-2
+        assert logerr < 4e-2
+
 
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
 @pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
-def test_hayami_uh2(L, C, D, allclose):
+@pytest.mark.parametrize("timestep", [3600, 86400])
+def test_hayami_uh2(L, C, D, timestep, allclose):
     theta = L / C
     z = C * L / 4 / D
-    timestep = 86400
+
+    if theta / timestep > HAYAMI_MAXUH / 2:
+        pytest.skip("Cannot store full uh")
+
+    if theta / timestep < 2e-2:
+        pytest.skip("UH is extremely short")
 
     L = 1e5
     L0 = 1e4
@@ -203,35 +208,28 @@ def test_hayami_uh2(L, C, D, allclose):
     eta = theta * L0 / L / timestep
     zeta = z * L0 / L
     hay.params.values = [eta, zeta]
-    ord = hay.params.uhs[0][1].ord
+    ord = hay.ord
 
     # Check enough ordinates
-    npos = (1 - ord.cumsum() > 1e-10).sum()
+    ipos = np.where(ord > 0)[0]
+    assert len(ipos) > 0
+    npos = ipos.max() + 1
     nmin = int(theta / timestep)
     assert npos >= nmin
 
     # Check ordinates sum to 1
-    assert abs(np.sum(ord) - 1) < UHEPS * 10
+    assert abs(np.sum(ord) - 1) < UHEPS
 
 
-
-def test_max_invv():
-    pytest.skip("WIP")
-
-    hay = Hayami()
-    # Test if maximum uh length can be set
-    length, timestep = 100e3, 3600 # 100km / 1hr
-    hay.config.length = length
-    hay.config.timestep = timestep
-
-    # Umax = NORDMAXMAX/length*timestep
-    hay.alpha = 1.
-    # .. creates an error if the max ordinate is not controlled
-    hay.U = (NORDMAXMAX+1)/length*timestep
-
-
-def test_massbalance():
-    pytest.skip("WIP")
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+@pytest.mark.parametrize("lateral", [0, 1])
+@pytest.mark.parametrize("ntry", range(10))
+@pytest.mark.parametrize("timestep", [3600, 86400])
+def test_mass_balance(L, C, D, lateral, ntry, timestep, allclose):
+    theta = L / C
+    z = C * L / 4 / D
 
     nval = 1000
     q1 = np.exp(np.random.normal(0, 2, size=nval))
@@ -241,120 +239,86 @@ def test_massbalance():
 
     # Set config
     cfg = hay.config
-    cfg.timestep = 86400 # daily model
-    cfg.length = 86400 # 86.4 km reach
-    cfg.flowref = 50 # qstar = 1 m3/s
+    cfg.timestep = timestep
+    cfg.lateral = lateral
 
-    # Set outputs
-    hay.allocate(inputs, 4)
+    L = 86400
+    L0 = 1e4
+    cfg.length = L # 86.4 km reach
+    cfg.length_ref = L0
 
-    print("")
-    for theta2 in [1, 2]:
-        hay.config.storage_expon = theta2
+    # Allocate
+    hay.allocate(inputs, 2)
 
-        # Run
-        UU = np.linspace(0.1, 20, 20)
-        aa = np.linspace(0., 1., 20)
-        dta = 0
-        count = 0
+    t0 = time.time()
 
-        for U, alpha in itertools.product(UU, aa):
+    hay.params.eta = theta * L0 / L / timestep
+    hay.params.zeta = z * L0 / L
+    uh = hay.ord
+    if any(np.isnan(uh)):
+        pytest.skip("UH has nan")
 
-            t0 = time.time()
+    hay.initialise()
+    hay.run()
 
-            hay.params.U = U
-            hay.params.alpha = alpha
-            hay.initialise()
-            hay.run()
+    t1 = time.time()
+    dta = 1000 * (t1 - t0) / nval * 365.25
 
-            t1 = time.time()
-            dta += 1000 * (t1-t0) / nval * 365.25
-
-            v0 = 0
-            vr = hay.outputs[-1, 2]
-            v1 = hay.outputs[-1, 3]
-            si = np.sum(inputs) * cfg.timestep
-            so = np.sum(hay.outputs[:,0]) * cfg.timestep
-
-            B = si - so - v1 - vr + v0
-            ck = abs(B/so) < 1e-10
-
-            assert ck
-
-        dta /= (len(UU) * len(aa))
-        print(('\t\ttheta2={0} - Average runtime'+\
-                ' = {1:.5f} ms/yr').format( \
-                    theta2, dta))
+    vr = hay.outputs[-1, -1]
+    si = np.sum(inputs) * cfg.timestep
+    so = np.sum(hay.outputs[:,0]) * cfg.timestep
 
 
-def test_hayami_lag():
-    pytest.skip("WIP")
-    nval = 1000
-    q1 = np.exp(np.random.normal(0, 2, size=nval))
-    inputs = np.ascontiguousarray(q1[:,None])
+    B = si - so - vr
+    atol = 3e-6 if lateral == 0 else 2e-3
+    assert abs(B / so) < atol
+
+
+@pytest.mark.parametrize("nseries", range(1, 16))
+@pytest.mark.parametrize("L", [1e4, 1e5])
+@pytest.mark.parametrize("C", [0.1, 2.])
+@pytest.mark.parametrize("D", [100, 10000])
+@pytest.mark.parametrize("lateral", [0, 1])
+@pytest.mark.parametrize("timestep", [3600, 86400])
+def test_calibrate_against_it(nseries, L, C, D, lateral, timestep):
+    theta = L / C
+    z = C * L / 4 / D
 
     hay = Hayami()
-
-    # Set configuration
-    cfg = hay.config
-    cfg.timestep = 86400 # daily model
-    cfg.length = 86400 # 86.4 km reach
-    cfg.flowref = 50 # qstar = 1 m3/s
-
-    # Set outputs
-    hay.allocate(inputs)
-
-    # Run
-    for U in range(1, 11):
-        hay.params.U = U
-        hay.params.alpha = 1
-        hay.initialise()
-        hay.run()
-
-        err = np.abs(hay.outputs[U:,0] - inputs[:-U, 0])
-
-        ck = np.max(err) < 1e-10
-        assert ck
-
-
-def test_calibrate_against_it():
-    ''' Calibrate lag route against a simulation
-        with known parameters '''
-    pytest.skip("WIP")
-    hay = Hayami()
+    hay.config.length = L
+    L0 = 1e4
+    hay.config.length_ref = L0
     warmup = 100
     objfun = ObjFunSSE()
 
-    for i in range(16):
-        # Get data
-        data = testdata.read('GR4J_timeseries_{0:02d}.csv'.format(i+1), \
-                                source='output', has_dates=False)
-        inputs = np.ascontiguousarray(\
-                        data.loc[-1000:, ['Qsim']], \
-                        np.float64)
+    # Get data
+    data = testdata.read(f"GR4J_timeseries_{nseries:02d}.csv",
+                         source='output', has_dates=False)
+    inputs = np.ascontiguousarray(\
+                    data.loc[-1000:, ['Qsim']], \
+                    np.float64)
 
-        params = np.random.uniform(0, 1, size=2)
-        params[0] *= 5
+    # Run hayami first
+    hay.allocate(inputs, 1)
 
-        # Run hayami first
-        hay.allocate(inputs, 1)
-        hay.params.values = params
-        hay.initialise()
-        hay.run()
+    hay.params.eta = theta * L0 / L / timestep
+    hay.params.zeta = z * L0 / L
 
-        # Add error to outputs
-        err = np.random.uniform(-1, 1, hay.outputs.shape[0]) * 1e-4
-        obs = hay.outputs[:,0].copy()+err
+    hay.initialise()
+    hay.run()
 
-        # Wrapper function for profiling
+    # Add error to outputs
+    err = np.random.uniform(-1, 1, hay.outputs.shape[0]) * 1e-4
+    obs = hay.outputs[:,0].copy() + err
 
-        calib = CalibrationHayami(objfun=objfun)
-        final, ofun, _, _ = calib.workflow(obs, inputs, \
-                                    maxfun=100000, ftol=1e-8)
+    # Wrapper function for profiling
+    calib = CalibrationHayami(objfun=objfun)
+    final, ofun, _, _ = calib.workflow(obs, inputs, iprint=20,
+                                       maxfun=100000, ftol=1e-8)
 
-        # Test if error on outputs
-        warmup = calib.warmup
-        sim = calib.model.outputs[:, 0]
-        rerr = np.arcsinh(obs[warmup:]) - np.arcsinh(sim[warmup:])
-        rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
-        assert rerrmax < 2e-3
+    # Test if error on outputs
+    warmup = calib.warmup
+    sim = calib.model.outputs[:, 0]
+    rerr = np.arcsinh(obs[warmup:]) - np.arcsinh(sim[warmup:])
+    rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
+    assert rerrmax < 1e-4

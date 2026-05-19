@@ -8,7 +8,7 @@ if has_c_module("models_utils"):
     import c_pygme_models_utils
     NORDMAXMAX = c_pygme_models_utils.uh_getnuhmaxlength()
 else:
-    NORDMAXMAX = 300
+    NORDMAXMAX = 3000
 
 UHNAMES = ["gr4j_ss1_daily", "gr4j_ss2_daily",
            "gr4j_ss1_hourly", "gr4j_ss2_hourly",

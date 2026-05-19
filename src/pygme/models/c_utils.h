@@ -30,6 +30,7 @@
 #define UTILS_PI 3.14159265358979
 
 /* utility functions */
+double c_get_nan();
 double c_minmax(double min,double max,double input);
 double c_min(double x, double x0);
 double c_max(double x, double x0);
