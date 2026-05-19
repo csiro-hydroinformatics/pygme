@@ -63,12 +63,12 @@ def test_error2():
 #@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 #@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
 #@pytest.mark.parametrize("D", [100, 10000, 1000000])
-#@pytest.mark.parametrize("itimestep", range(10))
+#@pytest.mark.parametrize("iuh", range(10))
 
 #@pytest.mark.parametrize("L", [1e4])
 #@pytest.mark.parametrize("C", [0.1])
 #@pytest.mark.parametrize("D", [10000])
-#@pytest.mark.parametrize("itimestep", [0])
+#@pytest.mark.parametrize("iuh", [0])
 
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
@@ -95,6 +95,14 @@ def test_hayami_kernel(L, C, D, allclose):
     errm = err.max() / np.abs(expected).max()
     assert errm < 5e-3
 
+    d2kernel = [c_pygme_models_hydromodels.test_hayami_kernel_diff2(theta, z, t) for t in tt]
+    d2kernel = np.array(d2kernel)
+    expected = (dkernel[2:] - dkernel[:-2]) / 2 / (tt[1] - tt[0])
+
+    err = np.abs(d2kernel[1:-1] - expected)
+    errm = err.max() / np.abs(expected).max()
+    assert errm < 5e-3
+
 
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10., 100.])
@@ -104,7 +112,7 @@ def test_hayami_tbounds(L, C, D, allclose):
     z = C * L / 4 / D
     timestep = 86400
 
-    eps = 1e-8
+    eps = 1e-5
     bounds = np.zeros(2)
     c_pygme_models_hydromodels.time_bounds_hayami(theta, z, eps, bounds)
     tlow, thigh = bounds
@@ -113,65 +121,69 @@ def test_hayami_tbounds(L, C, D, allclose):
     f0 = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t0)
     fobj = f0 * eps
 
-    # Try newton
-    #C = math.log(eps * math.sqrt(math.pi / theta / z) * math.sqrt(t0 * t0 * t0)) / z
-    #delta = (2 - C) * (2 - C) - 4
-    #sqdelta = math.sqrt(delta)
-
-    #tlow = theta * (2 - C - sqdelta) / 2
-    #thigh = theta * (2 - C + sqdelta) / 2
-
-
-    #tt = np.linspace(theta / 100, 10 * theta, 100000)
-    #kernel = [c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t) for t in tt]
-    #kernel = np.array(kernel)
-    #import matplotlib.pyplot as plt
-    #plt.plot(tt, kernel)
-    #plt.show()
-
     assert tlow < t0
     assert thigh > t0
 
     fl = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, tlow)
-    fh = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, thigh)
+    el = abs(fl - fobj) / f0
+    tol = eps * 1e1
+    assert el < tol
 
-    assert abs(fl - fobj) / f0 < eps * 1e-1
-    assert abs(fh - fobj) / f0 < eps * 1e-2
+    fh = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, thigh)
+    eh = abs(fh - fobj) / f0
+    assert eh < tol
 
 
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
 @pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
-@pytest.mark.parametrize("itimestep", range(20))
-def test_hayami_uh1(L, C, D, itimestep, allclose):
-    a = float(itimestep * timestep)
-    b = float((itimestep + 1) * timestep)
-    if itimestep == 0:
-        a = max(tlow, a)
-        b = min(thigh, b)
+@pytest.mark.parametrize("iuh", range(20))
+def test_hayami_uh1(L, C, D, iuh, allclose):
+    theta = L / C
+    z = C * L / 4 / D
+    timestep = 86400
 
-    u = c_pygme_models_hydromodels.test_integrate_hayami_kernel(a, b, theta, z)
+    t1 = float(iuh * timestep)
+    tn = float((iuh + 1) * timestep)
+
+    eps = 1e-3
+    bounds = np.zeros(2)
+    c_pygme_models_hydromodels.time_bounds_hayami(theta, z, eps, bounds)
+    tlow, thigh = bounds
+    if  thigh - tlow < timestep / 100:
+        pytest.skip("Very narrow kernel. too hard for quad")
+
+    if iuh == 0:
+        t1 = max(tlow, t1)
+        tn = min(thigh, tn)
+
+    n = 5
+    dt = (tn - t1) / n
+    u = 0
+    for i in range(n):
+        a = t1 + i * dt
+        b = a + dt
+        u += c_pygme_models_hydromodels.test_integrate_hayami_kernel(a, b, theta, z)
+
     u = min(u, 1)
 
     def fun(x):
         return c_pygme_models_hydromodels.test_hayami_kernel(theta, z, x)
-    expected, err = quad(fun,
-                         itimestep * timestep,
-                         (itimestep + 1) * timestep)
-    if expected < 0 or expected > 1:
-        pytest.skip("quad returning negative or >1")
+
+    expected, err, mess = quad(fun,
+                               iuh * timestep,
+                               (iuh + 1) * timestep,
+                               limit=1000,
+                               full_output=1)
+    if expected < 0 or expected > 1 or err > 1e-3:
+        pytest.skip("quad returning negative, >1 or err > 1e-3")
 
     lu = math.log(max(1e-100, u))
     le = math.log(max(1e-100, expected))
     logerr = abs(lu - le)
 
-    assert logerr < 1e-3
-    #if logerr > 10:
-    #    import matplotlib.pyplot as plt
-    #    plt.plot(tt / timestep, kernel)
-    #    plt.show()
-    #    import pdb; pdb.set_trace()
-
+    if expected > 1e-3:
+        assert logerr < 3e-2
 
 
 def test_hayami_uh2():

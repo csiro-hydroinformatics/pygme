@@ -30,17 +30,26 @@ double hayami_kernel(double theta, double z, double t) {
      * https://doi.org/10.1002/(SICI)1099-1085(199609)10:9%253C1209::AID-HYP380%253E3.0.CO;2-2
      */
     double u = t / theta;
-    double A = sqrt(z / theta / theta / UTILS_PI);
+    double A = sqrt(z / UTILS_PI) / theta;
     return A * exp(z * (2 - 1. / u - u)) / sqrt(u * u * u);
 }
 
 
 double hayami_kernel_diff(double theta, double z, double t) {
     double u = t / theta;
-    double A = sqrt(z / theta / theta / UTILS_PI);
-    double e = exp(z * (2 - 1. / u - u));
-    double u3 = u * u * u;
-    return - A  / theta * (z * (1. - 1. / u / u) * sqrt(u3) + 1.5 * sqrt(u)) * e / u3;
+    double k = hayami_kernel(theta, z, t);
+    return k  / theta * (z * (- 1. + 1. / u / u) - 1.5 / u);
+}
+
+
+double hayami_kernel_diff2(double theta, double z, double t) {
+    double u = t / theta;
+    double k = hayami_kernel(theta, z, t);
+    double z2 = z * z;
+    double u2 = u * u;
+    double u3 = u2 * u;
+    double u4 = u2 * u2;
+    return k  / theta / theta * (z2 + z2 / u4 - 5 * z / u3 + (15 - 8 * z2) / 4 / u2 + 3 * z / u);
 }
 
 
@@ -49,69 +58,71 @@ double hayami_kernel_tmax(double theta, double z) {
 }
 
 
+double hayami_kernel_halley(double theta, double z,
+                            double fobj, double rtol,
+                            double t) {
+    int iter, nitermax = 20;
+    double t0 = hayami_kernel_tmax(theta, z);
+
+    /* Bounds depend if initial t is below t0 or above */
+    double tmin = t < t0 ? t0 * 0.01 : t0 * 1.01;
+    double tmax = t < t0 ? t0 * 0.99 : 1e100;
+
+    double err, relerr, relerr_prev = 1e100;
+    double f, df, d2f;
+
+    /* Are we below t0 or above ? */
+    int below = t < t0;
+
+    t = t < tmin || isnan(t) ? tmin : t;
+
+    for(iter = 0; iter < nitermax; iter++) {
+        f = hayami_kernel(theta, z, t);
+
+        /* Early exit */
+        err = f - fobj;
+        relerr = fabs(err) / fobj;
+        if(relerr < rtol || relerr >= relerr_prev || isnan(f))
+            break;
+
+        /* Halley's method step */
+        df = hayami_kernel_diff(theta, z, t);
+        d2f = hayami_kernel_diff2(theta, z, t);
+        t -= err * df / (df * df - 0.5 * err * d2f);
+
+        /* Checks */
+        t = t < tmin ? tmin : t > tmax ? tmax : t;
+        relerr_prev = relerr;
+    }
+
+    return t;
+}
+
+
 int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]) {
-    int iter, nitermax;
     double tlow, thigh;
-    double flow, fhigh;
-    double dflow, dfhigh;
-    double atol, err, abserr, abserr_prev;
+    double t0, f0, df0, d2f0, fobj;
+    double a, b, c, sqD;
+    double rtol = 1e-3;
 
     /* This is the value of the kernel we seek: eps x max(kernel) */
-    double t0 = hayami_kernel_tmax(theta, z);
-    double f0 = hayami_kernel(theta, z, t0);
-    double fobj = f0 * eps;
+    t0 = hayami_kernel_tmax(theta, z);
+    f0 = hayami_kernel(theta, z, t0);
+    fobj = f0 * eps;
 
-    /* We approximate the kernel as
-     * K*(t) = sqrt(z theta / pi) exp(z * (2 - theta / t - t / theta) / sqrt(t0^3)
-     * where t0 is such that dK/dt = 0 (maximum of the kernel)
-     *
-     * We look for value of t such that K*(t) = eps, hence
-     * C = 2 - theta / t - t / theta
-     * where C = log(eps * sqrt(pi / theta / z) sqrt(t0^3)) / z
-     *
-     * Multiplying by t, we obtain:
-     * -1/theta t^2 + (2 - C) t - theta = 0
-     *
-     * Hence
-     * Delta = (2 - C)^2 - 4
-     * t = (2 - C ± sqrt(Delta)) theta / 2
-     */
-    double C = log(fobj * sqrt(UTILS_PI / theta / z) * sqrt(t0 * t0 * t0)) / z;
-    double delta = (2 - C) * (2 - C) - 4;
-    double sqdelta = sqrt(delta);
+    /* Approximate bounds with taylor series at t=t0 */
+    df0 = hayami_kernel_diff(theta, z, t0);
+    d2f0 = hayami_kernel_diff2(theta, z, t0);
+    a = d2f0 / 2;
+    b = df0 - t0 * d2f0;
+    c = f0 - df0 * t0 + d2f0 * t0 * t0 / 2;
+    sqD = sqrt(b * b - 4 * a * c);
+    tlow = (-b + sqD) / 2 / a;
+    thigh = (-b - sqD) / 2 / a;
 
-    tlow = theta * (2 - C - sqdelta) / 2;
-    thigh = theta * (2 - C + sqdelta) / 2;
-
-    /* Newton iteration */
-    nitermax = 10;
-    atol = fobj * 1e-10;
-    abserr_prev = 1e100;
-    for(iter = 0; iter < nitermax; iter++) {
-        flow = hayami_kernel(theta, z, tlow);
-        err = flow - fobj;
-        abserr = abs(err);
-        if(abserr < atol || abserr > abserr_prev)
-            break;
-        dflow = hayami_kernel_diff(theta, z, tlow);
-        tlow -= err / dflow;
-        abserr_prev = abserr;
-    }
-
-    abserr_prev = 1e100;
-    for(iter = 0; iter < nitermax; iter++) {
-        fhigh = hayami_kernel(theta, z, thigh);
-        err = fhigh - fobj;
-        abserr = abs(err);
-        if(abserr < atol || abserr > abserr_prev)
-            break;
-        dfhigh = hayami_kernel_diff(theta, z, thigh);
-        thigh -= err / dfhigh;
-        abserr_prev = abserr;
-    }
-
-    tbounds[0] = tlow;
-    tbounds[1] = thigh;
+    /* Halley's iteration */
+    tbounds[0] = hayami_kernel_halley(theta, z, fobj, rtol, tlow);
+    tbounds[1] = hayami_kernel_halley(theta, z, fobj, rtol, thigh);
 
     return 0;
 }
@@ -152,12 +163,14 @@ int c_uh_getuh_hayami(int nuhlengthmax,
                       double * uh)
 {
     int i, j;
+    int niter = 5;
     double u, suh;
-    double t0, t1;
+    double t1, t2;
+    double dt, a, b;
 
-    double tmax = hayami_kernel_tmax(theta, z);
+    double t0 = hayami_kernel_tmax(theta, z);
 
-    double eps = 1e-10;
+    double eps = 1e-5;
     double tbounds[2];
     hayami_kernel_tbounds(theta, z, eps, tbounds);
     double tlow = tbounds[0];
@@ -174,21 +187,27 @@ int c_uh_getuh_hayami(int nuhlengthmax,
             break;
 
         /* timestep time bounds */
-        t0 = timestep * (double)i;
-        t1 = t0 + timestep;
+        t1 = timestep * (double)i;
+        t2 = t0 + timestep;
 
-        /* Check bounds */
+        /* Check bounds if kernel maximum is in interval */
         if(i == 0) {
-            t0 = t0 < tlow ? tlow : t0;
-            t1 = t1 > thigh ? thigh : t1;
+            t1 = t1 < tlow ? tlow : t1;
+            t2 = t2 > thigh ? thigh : t2;
         }
 
         /* Compute */
-        u = integrate_hayami_kernel(t0, t1, theta, z);
+        dt = (t2 - t1) / (double) niter;
+        u = 0;
+        for(j = 0; j < niter; j++) {
+            a = t1 + (double)j * dt;
+            b = a + dt;
+            u += integrate_hayami_kernel(a, b, theta, z);
+        }
         u = u > 1. ? 1. : u;
 
         /* Stop if we have passed to biggest part of kernel */
-        if(u < eps && t1 > tmax)
+        if(u < eps && t1 > t0)
             break;
 
         uh[i] = u;
@@ -204,7 +223,7 @@ int c_uh_getuh_hayami(int nuhlengthmax,
     }
 
     /* Small correction of first ordinate to remove any bias */
-    //uh[0] += 1 - suh;
+    uh[0] += 1 - suh;
 
     return 0;
 }

@@ -127,6 +127,8 @@ cdef extern from 'c_hayami.h':
 
     double hayami_kernel_diff(double theta, double z, double t);
 
+    double hayami_kernel_diff2(double theta, double z, double t);
+
     double integrate_hayami_kernel(double a, double b, double theta, double z);
 
     int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]);
@@ -507,6 +509,10 @@ def test_hayami_kernel(double theta, double z, double t):
 
 def test_hayami_kernel_diff(double theta, double z, double t):
     return hayami_kernel_diff(theta, z, t)
+
+
+def test_hayami_kernel_diff2(double theta, double z, double t):
+    return hayami_kernel_diff2(theta, z, t)
 
 
 def test_integrate_hayami_kernel(double a, double b, double theta, double z):

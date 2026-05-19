@@ -38,6 +38,8 @@ double hayami_kernel(double theta, double z, double t);
 
 double hayami_kernel_diff(double theta, double z, double t);
 
+double hayami_kernel_diff2(double theta, double z, double t);
+
 double hayami_kernel_tmax(double theta, double z);
 
 double integrate_hayami_kernel(double a, double b, double theta, double z);
