@@ -31,8 +31,8 @@ class HayamiUH(UH):
         return self._config
 
     def set_uh(self, theta, z):
-        theta = self.theta
-        z = self.z
+        self._theta = theta
+        self._z = z
 
         # Populate the uh ordinates
         ierr = c_pygme_models_hydromodels.uh_getuh_hayami(self.nordmax,
@@ -77,10 +77,15 @@ class HayamiParamsVector(ParamsVector):
 
     def _set_values(self):
         eta, zeta = self.values
-        L0 = self.config.length_ref
-        L = self.config.length
-        theta = eta * self.config.timestep * L / L0
+
+        config = self._hayami_uh.config
+        L0 = config.length_ref
+        L = config.length
+        timestep = config.timestep
+
+        theta = eta * timestep * L / L0
         z = zeta * L / L0
+
         self._hayami_uh.set_uh(theta, z)
         super()._set_values()
 

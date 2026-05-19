@@ -185,23 +185,34 @@ def test_hayami_uh1(L, C, D, iuh, allclose):
     if expected > 1e-3:
         assert logerr < 3e-2
 
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+def test_hayami_uh2(L, C, D, allclose):
+    theta = L / C
+    z = C * L / 4 / D
+    timestep = 86400
 
-def test_hayami_uh2():
-    pytest.skip("WIP")
+    L = 1e5
+    L0 = 1e4
     hay = Hayami()
-    hay.config.L = 10e4
+    hay.config.length = L
+    hay.config.length_ref = L0
+    hay.config.timestep = timestep
 
-    ee = np.linspace(0, 10, 20)
-    zz = np.linspace(0, 1, 20)
+    eta = theta * L0 / L / timestep
+    zeta = z * L0 / L
+    hay.params.values = [eta, zeta]
+    ord = hay.params.uhs[0][1].ord
 
-    tt = [1.5]
-    zz = [2.5]
+    # Check enough ordinates
+    npos = (1 - ord.cumsum() > 1e-10).sum()
+    nmin = int(theta / timestep)
+    assert npos >= nmin
 
-    for theta, z in itertools.product(tt, zz):
-        hay.params.values = [theta, z]
-        ord = hay.params.uhs[0][1].ord
-        ck = abs(np.sum(ord) - 1) < UHEPS
-        assert ck
+    # Check ordinates sum to 1
+    assert abs(np.sum(ord) - 1) < UHEPS * 10
+
 
 
 def test_max_invv():

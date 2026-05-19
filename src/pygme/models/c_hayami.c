@@ -188,7 +188,7 @@ int c_uh_getuh_hayami(int nuhlengthmax,
 
         /* timestep time bounds */
         t1 = timestep * (double)i;
-        t2 = t0 + timestep;
+        t2 = t1 + timestep;
 
         /* Check bounds if kernel maximum is in interval */
         if(i == 0) {
@@ -206,12 +206,14 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         }
         u = u > 1. ? 1. : u;
 
-        /* Stop if we have passed to biggest part of kernel */
-        if(u < eps && t1 > t0)
-            break;
-
         uh[i] = u;
         suh += u;
+
+        if(u < 1e-10 && t2 > t0)
+            break;
+
+        if(suh > 1)
+            break;
     }
 
     /* NUH is not big enough */
@@ -221,9 +223,6 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         for(i = 0; i < nuhlengthmax - 1; i++)
             uh[i] /= suh;
     }
-
-    /* Small correction of first ordinate to remove any bias */
-    uh[0] += 1 - suh;
 
     return 0;
 }
