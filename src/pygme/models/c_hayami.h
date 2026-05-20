@@ -10,6 +10,9 @@
 #include "c_utils.h"
 #include "c_uh.h"
 
+/* Threshold on UH computation. Higher than other UH to avoid long tails */
+#define HAYAMI_UHEPS 1e-4
+
 /* Max number of uh -> 100 * 24 = 100 days at hourly timestep */
 #define HAYAMI_MAXUH 2400
 
@@ -23,7 +26,7 @@
 #define HAYAMI_NPARAMS 2
 
 /* Number of states returned by HAYAMI run */
-#define HAYAMI_NSTATES 1
+#define HAYAMI_NSTATES 2
 
 /* Number of outputs returned by HAYAMI run */
 #define HAYAMI_NOUTPUTS 2
@@ -33,6 +36,27 @@
 
 
 int c_hayami_get_maxuh();
+double c_hayami_get_uheps();
+
+double c_hayami_compute_theta(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+double c_hayami_compute_z(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta);
+
+double c_hayami_compute_C(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta);
+
+double c_hayami_compute_D(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta);
 
 double hayami_kernel(double theta, double z, double t);
 

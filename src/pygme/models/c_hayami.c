@@ -1,9 +1,49 @@
 #include "c_hayami.h"
 
+double c_hayami_get_uheps() {
+    return HAYAMI_UHEPS;
+}
+
 int c_hayami_get_maxuh() {
     return HAYAMI_MAXUH;
 }
 
+/* Hayami parameters,
+ * See Moussa (1996), Equation 10
+ */
+double c_hayami_compute_theta(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta) {
+    /* Assumes eta is counted in days
+     * and corresponds to length_ref */
+    return eta * 86400. * length / length_ref;
+}
+
+double c_hayami_compute_z(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta) {
+    /* Assumes zeta corresponds to length_ref */
+    return zeta * length / length_ref;
+}
+
+double c_hayami_compute_C(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta) {
+    double theta = c_hayami_compute_theta(length_ref, length, eta, zeta);
+    return length / theta;
+}
+
+double c_hayami_compute_D(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta) {
+    double C = c_hayami_compute_C(length_ref, length, eta, zeta);
+    double z = c_hayami_compute_z(length_ref, length, eta, zeta);
+    return C * length / 4 / z;
+}
 
 int hayami_minmaxparams(int nparams, double * params)
 {
@@ -12,12 +52,12 @@ int hayami_minmaxparams(int nparams, double * params)
         if(nparams < HAYAMI_NPARAMS)
             return HAYAMI_ERROR + __LINE__;
 
-        /* eta */
+        /* eta (days) */
         pmin = 1e-4;
-        pmax = 1e5;
+        pmax = 1e2;
         params[0] = c_minmax(pmin, pmax, params[0]);
 
-        /* zeta */
+        /* zeta (dimless) */
         pmin = 1e-4;
         pmax = 1e3;
         params[1] = c_minmax(pmin, pmax, params[1]);
@@ -175,7 +215,7 @@ int c_uh_getuh_hayami(int nuhlengthmax,
 
     double t0 = hayami_kernel_tmax(theta, z);
 
-    double eps = 1e-5;
+    double eps = 1e-3;
     double tbounds[2];
     hayami_kernel_tbounds(theta, z, eps, tbounds);
     double tlow = tbounds[0];
@@ -184,13 +224,9 @@ int c_uh_getuh_hayami(int nuhlengthmax,
     /* UH ordinates */
     *nuh = 0;
     suh = 0;
+
     for(i = 0; i < nuhlengthmax - 1; i++)
     {
-        if(suh < 1 - UHEPS)
-            *nuh += 1;
-        else
-            break;
-
         /* timestep time bounds */
         t1 = timestep * (double)i;
         t2 = t1 + timestep;
@@ -213,22 +249,24 @@ int c_uh_getuh_hayami(int nuhlengthmax,
 
         uh[i] = u;
         suh += u;
+        *nuh += 1;
 
-        if(u < 1e-10 && t2 > t0)
+        /* Break loop if we have reached accumulated
+         * ordinates close to 1. Also break loop if we
+         * passed the peak of the kernel and we get very
+         * low uh ordinates.
+         */
+        if(suh > 1 - HAYAMI_UHEPS || (t1 > t0 && u < HAYAMI_UHEPS))
             break;
-
-        if(suh >= 1)
-            break;
-    }
+   }
 
     /* NUH is not big enough */
-    if(fabs(1 - suh) > UHEPS)
+    if(fabs(1 - suh) > HAYAMI_UHEPS)
     {
         /* set to nan if error is too large */
         suh = suh > 1.2 || suh < 0.8 ? c_get_nan() : suh;
 
-        *nuh = nuhlengthmax - 1;
-        for(i = 0; i < nuhlengthmax - 1; i++)
+        for(i = 0; i < *nuh - 1; i++)
             uh[i] /= suh;
     }
 
@@ -249,8 +287,8 @@ int c_hayami_runtimestep(
 {
     int k, ierr = 0;
     double is_lateral = lateral > 0 ? 1. : 0.;
-    double qin, qsum, qconvol, qout;
-    double vr;
+    double qin, phi, qconvol;
+    double vr0, vr;
 
     /* Parameters */
 
@@ -261,31 +299,29 @@ int c_hayami_runtimestep(
     /* if lateral flow, use cumulative inflow
      * See Equation 49 in Moussa (1996)
      * states[0] = cumulative flow from prior timesteps
+     * Here, we divide the cumulative flow by theta
+     * to compute the Phi function from Moussa (1996).
      * */
-    qsum = (states[0] + qin) * dt / theta;
-    qconvol = qin - is_lateral * qsum;
+    phi = (states[0] + qin) * dt / theta;
+    qconvol = qin - is_lateral * phi;
 
     /* Hayami uh */
-    vr = 0;
     for (k = 0; k < nuh - 1; k++)
-    {
         statesuh[k] = statesuh[1 + k] + uh[k] * qconvol;
 
-        /* Volume in transit in the river reach */
-        if(k > 0)
-            vr += statesuh[k] * dt;
-    }
     statesuh[nuh - 1] = uh[nuh - 1] * qconvol;
-
-    if(nuh > 1)
-        vr += statesuh[nuh - 1] * dt;
-
-    /* States -> cumulative flow */
-    states[0] += qin;
 
     /* flow outputs */
     /* See Equation 49 in Moussa (1996) */
-    outputs[0] = statesuh[0] + is_lateral * qsum;
+    outputs[0] = statesuh[0] + is_lateral * phi;
+
+    /* Transiting volume */
+    vr0 = states[1];
+    vr = (qin - outputs[0]) * dt + vr0;
+
+    /* States -> cumulative flow and stored volume */
+    states[0] += qin;
+    states[1] = vr;
 
     /* Storage outputs */
     if(noutputs > 1)
@@ -314,7 +350,8 @@ int c_hayami_run(int nval,
         double * outputs)
 {
     int ierr=0, i;
-    double dt, lateral, eta, theta;
+    double dt, lateral, eta, theta, zeta;
+    double length, length_ref;
 
     /* Check dimensions */
     if(nparams < HAYAMI_NPARAMS)
@@ -340,7 +377,8 @@ int c_hayami_run(int nval,
 
     /* Config data */
     dt = config[0];
-    dt = dt < 1. ? 1. : dt;
+    length_ref = config[1];
+    length = config[2];
     lateral = config[3];
 
     /* Check parameters */
@@ -349,7 +387,8 @@ int c_hayami_run(int nval,
     /* theta parameter is obtained by multiplying eta by timestep
      * duration */
     eta = params[0];
-    theta = eta * dt;
+    zeta = params[1];
+    theta = c_hayami_compute_theta(length_ref, length, eta, zeta);
 
     /* Run timeseries */
     for(i = start; i <= end; i++)

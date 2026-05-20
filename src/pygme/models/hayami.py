@@ -9,7 +9,7 @@ if has_c_module("models_hydromodels"):
     import c_pygme_models_hydromodels
 
 HAYAMI_MAXUH = c_pygme_models_hydromodels.hayami_get_maxuh()
-
+HAYAMI_UHEPS = c_pygme_models_hydromodels.hayami_get_uheps()
 
 # Transformation functions for hayami parameters
 def hayami_trans2true(x):
@@ -20,12 +20,32 @@ def hayami_true2trans(x):
     return x
 
 
+# Hayami kernel function
+def hayami_kernel(theta, z, t=None):
+    if t is None:
+        eps = 1e-3
+        bounds = np.zeros(2)
+        c_pygme_models_hydromodels.time_bounds_hayami(theta, z, eps, bounds)
+        tlow, thigh = bounds
+        t = np.linspace(tlow, thigh, 1000)
+
+    theta = np.float64(theta)
+    z = np.float64(z)
+    t = np.array(t, dtype=np.float64)
+    out = np.empty((t.shape[0], 4), dtype=np.float64)
+    c_pygme_models_hydromodels.hayami_kernel_vect(theta, z, t, out)
+    return out
+
+
 class HayamiUH(UH):
-    def __init__(self, config, niter=10, nordmax=HAYAMI_MAXUH):
+    def __init__(self, config, niter=6, nordmax=HAYAMI_MAXUH):
         super(HayamiUH, self).__init__("lag", nordmax=nordmax)
         self._theta = config.timestep
         self._z = 2.5
         self._config = config
+
+        # Number of sub-timestep iterations
+        # to compute hayami kernel
         self._niter = niter
 
     @property
@@ -81,6 +101,10 @@ class HayamiParamsVector(ParamsVector):
     def __init__(self, params, config, checkvalues=None):
         super(HayamiParamsVector, self).__init__(params)
         self._hayami_uh = HayamiUH(config)
+        self._theta = None
+        self._z = None
+        self._C = None
+        self._D = None
 
     def _set_values(self):
         eta, zeta = self.values
@@ -88,17 +112,40 @@ class HayamiParamsVector(ParamsVector):
         config = self._hayami_uh.config
         L0 = config.length_ref
         L = config.length
-        timestep = config.timestep
-
-        theta = eta * timestep * L / L0
-        z = zeta * L / L0
-
-        self._hayami_uh.set_uh(theta, z)
+        self._theta = c_pygme_models_hydromodels.hayami_compute_theta(L0, L,
+                                                                      eta,
+                                                                      zeta)
+        self._z = c_pygme_models_hydromodels.hayami_compute_z(L0, L,
+                                                              eta,
+                                                              zeta)
+        self._C = c_pygme_models_hydromodels.hayami_compute_C(L0, L,
+                                                              eta,
+                                                              zeta)
+        self._D = c_pygme_models_hydromodels.hayami_compute_D(L0, L,
+                                                              eta,
+                                                              zeta)
+        self._hayami_uh.set_uh(self._theta, self._z)
         super()._set_values()
 
     @property
     def nuh(self):
         return 0
+
+    @property
+    def theta(self):
+        return self._theta
+
+    @property
+    def z(self):
+        return self._z
+
+    @property
+    def C(self):
+        return self._C
+
+    @property
+    def D(self):
+        return self._D
 
     @property
     def uhs(self):
@@ -115,10 +162,12 @@ class Hayami(Model):
         config = Vector(["timestep", "length_ref", "length",
                          "lateral"],
                         defaults=[86400, 1e4, 1e4, 0],
-                        mins=[1, 1, 0, 0],
+                        mins=[1, 1, 1, 0],
                         maxs=[np.inf, np.inf, np.inf, 1])
 
         # params vector
+        # eta is measured in days and corresponds to length_ref
+        # zeta is dimless and corresponds to length_ref
         vect = Vector(["eta", "zeta"],
                       defaults=[1., 1.],
                       mins=[1e-4, 1e-4],
@@ -126,7 +175,7 @@ class Hayami(Model):
         params = HayamiParamsVector(vect, config)
 
         # State vector
-        states = Vector(["Vr"])
+        states = Vector(["Qsum", "Vr"])
 
         # Model
         super(Hayami, self).__init__("Hayami",
@@ -140,7 +189,24 @@ class Hayami(Model):
 
     def initialise(self, states=None, uhs=None):
         super(Hayami, self).initialise(states, uhs)
+        self.states.Qsum = 0
         self.states.Vr = 0
+
+    @property
+    def theta(self):
+        return self.params.theta
+
+    @property
+    def z(self):
+        return self.params.z
+
+    @property
+    def C(self):
+        return self.params.C
+
+    @property
+    def D(self):
+        return self.params.D
 
     @property
     def ord(self):
@@ -203,12 +269,7 @@ class CalibrationHayami(Calibration):
         # Build parameter library from
         # systematic exploration of parameter space
         nn = 10
-        L0 = model.config.length_ref
-        C = np.linspace(0.1, 10, nn)
-        D = np.logspace(2, 4, nn)
-        dt = model.config.timestep
-        eta = L0 / C / dt
-        zeta = C * L0 / 4 / D
-
+        eta = np.linspace(0.1, 10, nn)
+        zeta = np.linspace(0.1, 10, nn)
         ee, zz = np.meshgrid(eta, zeta)
         self.paramslib = np.column_stack([ee.ravel(), zz.ravel()])

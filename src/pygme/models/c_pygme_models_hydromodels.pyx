@@ -122,6 +122,27 @@ cdef extern from 'c_hbv.h':
 
 cdef extern from 'c_hayami.h':
     int c_hayami_get_maxuh()
+    double c_hayami_get_uheps();
+
+    double c_hayami_compute_theta(double length_ref,
+                                  double length,
+                                  double eta,
+                                  double zeta);
+
+    double c_hayami_compute_z(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+    double c_hayami_compute_C(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+    double c_hayami_compute_D(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
 
     double hayami_kernel(double theta, double z, double t);
 
@@ -503,6 +524,8 @@ def hbv_run(int start, int end,
 def hayami_get_maxuh():
         return c_hayami_get_maxuh()
 
+def hayami_get_uheps():
+    return c_hayami_get_uheps()
 
 def test_hayami_kernel(double theta, double z, double t):
     return hayami_kernel(theta, z, t)
@@ -520,6 +543,29 @@ def test_integrate_hayami_kernel(double a, double b, double theta, double z):
     return integrate_hayami_kernel(a, b, theta, z)
 
 
+def hayami_kernel_vect(double theta, double z,
+                       np.ndarray[double, ndim=1, mode='c'] t not None,
+                       np.ndarray[double, ndim=2, mode='c'] out not None):
+    cdef int i
+    cdef int nval = t.shape[0]
+    cdef double tval
+
+    if out.shape[0] != nval:
+        raise ValueError("out.shape[0] != t.shape[0]")
+
+    if out.shape[1] != 4:
+        raise ValueError("out.shape[1] != 3")
+
+    for i in range(nval):
+        tval = t[i]
+        out[i, 0] = tval
+        out[i, 1] = hayami_kernel(theta, z, tval)
+        out[i, 2] = hayami_kernel_diff(theta, z, tval)
+        out[i, 3] = hayami_kernel_diff2(theta, z, tval)
+
+    return 0
+
+
 def time_bounds_hayami(double theta, double z, double eps,
                     np.ndarray[double, ndim=1, mode='c'] tbounds not None):
     cdef int ierr
@@ -529,6 +575,23 @@ def time_bounds_hayami(double theta, double z, double eps,
     ierr = hayami_kernel_tbounds(theta, z, eps,
                                  <double*> np.PyArray_DATA(tbounds))
     return ierr
+
+
+def hayami_compute_theta(double length_ref, double length,
+                         double eta, double zeta):
+    return c_hayami_compute_theta(length_ref, length, eta, zeta)
+
+def hayami_compute_z(double length_ref, double length,
+                     double eta, double zeta):
+    return c_hayami_compute_z(length_ref, length, eta, zeta)
+
+def hayami_compute_C(double length_ref, double length,
+                    double eta, double zeta):
+    return c_hayami_compute_C(length_ref, length, eta, zeta)
+
+def hayami_compute_D(double length_ref, double length,
+                     double eta, double zeta):
+    return c_hayami_compute_D(length_ref, length, eta, zeta)
 
 
 def uh_getuh_hayami(int nuhlengthmax, int niter, double timestep,
