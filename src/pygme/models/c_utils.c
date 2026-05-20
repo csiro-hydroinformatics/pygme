@@ -1,5 +1,12 @@
 #include "c_utils.h"
 
+double c_get_nan() {
+    /* Defines two zero variables to make sure zero/zero != 1 (gcc compile) */
+    static double zero1 = 0.;
+    static double zero2 = 0.;
+    return zero1 / zero2;
+}
+
 
 double c_minmax(double min, double max, double input)
 {

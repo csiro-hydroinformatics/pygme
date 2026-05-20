@@ -21,6 +21,7 @@
 #define IHACRES_ERROR 26000
 
 #define LAGROUTE_ERROR 30000
+#define HAYAMI_ERROR 31000
 
 #define KNNDAILY_ERROR 40000
 
@@ -29,6 +30,7 @@
 #define UTILS_PI 3.14159265358979
 
 /* utility functions */
+double c_get_nan();
 double c_minmax(double min,double max,double input);
 double c_min(double x, double x0);
 double c_max(double x, double x0);

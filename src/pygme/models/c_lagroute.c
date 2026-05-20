@@ -1,12 +1,4 @@
-#include <math.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-
 #include "c_lagroute.h"
-#include "c_uh.h"
-#include "c_utils.h"
-
 
 int lagroute_minmaxparams(int nparams, double * params)
 {
@@ -46,7 +38,7 @@ int c_lagroute_runtimestep(int nparams,
 
     /* input */
     q1 = inputs[0];
-    q1 = q1 < 0 ? q1 : q1;
+    q1 = q1 < 0 ? 0 : q1;
 
     /* states */
     v0 = states[0];

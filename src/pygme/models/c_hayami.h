@@ -1,0 +1,97 @@
+#ifndef __HAYAMI__
+#define __HAYAMI__
+
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#include "c_utils.h"
+#include "c_uh.h"
+
+/* Threshold on UH computation. Higher than other UH to avoid long tails */
+#define HAYAMI_UHEPS 1e-4
+
+/* Max number of uh -> 100 * 24 = 100 days at hourly timestep */
+#define HAYAMI_MAXUH 2400
+
+/* Number of inputs required by HAYAMI run */
+#define HAYAMI_NINPUTS 1
+
+/* Number of config required by HAYAMI run */
+#define HAYAMI_NCONFIG 4
+
+/* Number of params required by HAYAMI run */
+#define HAYAMI_NPARAMS 2
+
+/* Number of states returned by HAYAMI run */
+#define HAYAMI_NSTATES 2
+
+/* Number of outputs returned by HAYAMI run */
+#define HAYAMI_NOUTPUTS 2
+
+/* Minimum time in hayami kernel (sec) */
+#define HAYAMI_TMIN 1e-3
+
+
+int c_hayami_get_maxuh();
+double c_hayami_get_uheps();
+
+double c_hayami_compute_theta(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+double c_hayami_compute_z(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta);
+
+double c_hayami_compute_C(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta);
+
+double c_hayami_compute_D(double length_ref,
+                          double length,
+                          double eta,
+                          double zeta);
+
+double hayami_kernel(double theta, double z, double t);
+
+double hayami_kernel_diff(double theta, double z, double t);
+
+double hayami_kernel_diff2(double theta, double z, double t);
+
+double hayami_kernel_tmax(double theta, double z);
+
+double integrate_hayami_kernel(double a, double b, double theta, double z);
+
+int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]);
+
+int c_uh_getuh_hayami(int nuhlengthmax,
+                      int niter,
+                      double timestep,
+                      double theta,
+                      double z,
+                      int * nuh,
+                      double * uh);
+
+int c_hayami_run(int nval,
+        int nparams,
+        int nuh,
+        int ninputs,
+        int nconfig,
+        int nstates,
+        int noutputs,
+        int start, int end,
+        double * config,
+        double * params,
+        double * uh,
+        double * inputs,
+        double * statesuh,
+        double * states,
+        double * outputs);
+
+#endif

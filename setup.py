@@ -34,7 +34,8 @@ else:
                 "src/pygme/models/c_sac15.c",
                 "src/pygme/models/c_wapaba.c",
                 "src/pygme/models/c_ihacres.c",
-                "src/pygme/models/c_hbv.c"
+                "src/pygme/models/c_hbv.c",
+                "src/pygme/models/c_hayami.c"
             ],
             include_dirs=[numpy.get_include()]),
     ]

@@ -120,6 +120,65 @@ cdef extern from 'c_hbv.h':
         double * outputs)
 
 
+cdef extern from 'c_hayami.h':
+    int c_hayami_get_maxuh()
+    double c_hayami_get_uheps();
+
+    double c_hayami_compute_theta(double length_ref,
+                                  double length,
+                                  double eta,
+                                  double zeta);
+
+    double c_hayami_compute_z(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+    double c_hayami_compute_C(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+    double c_hayami_compute_D(double length_ref,
+                              double length,
+                              double eta,
+                              double zeta);
+
+    double hayami_kernel(double theta, double z, double t);
+
+    double hayami_kernel_diff(double theta, double z, double t);
+
+    double hayami_kernel_diff2(double theta, double z, double t);
+
+    double integrate_hayami_kernel(double a, double b, double theta, double z);
+
+    int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]);
+
+    int c_uh_getuh_hayami(int nuhlengthmax,
+                          int niter,
+                          double timestep,
+                          double theta,
+                          double z,
+                          int * nuh,
+                          double * uh);
+
+    int c_hayami_run(int nval,
+            int nparams,
+            int nuh,
+            int ninputs,
+            int nconfig,
+            int nstates,
+            int noutputs,
+            int start, int end,
+            double * config,
+            double * params,
+            double * uh,
+            double * inputs,
+            double * statesuh,
+            double * states,
+            double * outputs);
+
+
 def __cinit__(self):
     pass
 
@@ -459,5 +518,138 @@ def hbv_run(int start, int end,
                      <double*> np.PyArray_DATA(inputs),
                      <double*> np.PyArray_DATA(statesini),
                      <double*> np.PyArray_DATA(outputs))
+    return ierr
+
+
+def hayami_get_maxuh():
+        return c_hayami_get_maxuh()
+
+def hayami_get_uheps():
+    return c_hayami_get_uheps()
+
+def test_hayami_kernel(double theta, double z, double t):
+    return hayami_kernel(theta, z, t)
+
+
+def test_hayami_kernel_diff(double theta, double z, double t):
+    return hayami_kernel_diff(theta, z, t)
+
+
+def test_hayami_kernel_diff2(double theta, double z, double t):
+    return hayami_kernel_diff2(theta, z, t)
+
+
+def test_integrate_hayami_kernel(double a, double b, double theta, double z):
+    return integrate_hayami_kernel(a, b, theta, z)
+
+
+def hayami_kernel_vect(double theta, double z,
+                       np.ndarray[double, ndim=1, mode='c'] t not None,
+                       np.ndarray[double, ndim=2, mode='c'] out not None):
+    cdef int i
+    cdef int nval = t.shape[0]
+    cdef double tval
+
+    if out.shape[0] != nval:
+        raise ValueError("out.shape[0] != t.shape[0]")
+
+    if out.shape[1] != 4:
+        raise ValueError("out.shape[1] != 3")
+
+    for i in range(nval):
+        tval = t[i]
+        out[i, 0] = tval
+        out[i, 1] = hayami_kernel(theta, z, tval)
+        out[i, 2] = hayami_kernel_diff(theta, z, tval)
+        out[i, 3] = hayami_kernel_diff2(theta, z, tval)
+
+    return 0
+
+
+def time_bounds_hayami(double theta, double z, double eps,
+                    np.ndarray[double, ndim=1, mode='c'] tbounds not None):
+    cdef int ierr
+    if tbounds.shape[0] != 2:
+        raise ValueError("tbounds.shape[0] != 2")
+
+    ierr = hayami_kernel_tbounds(theta, z, eps,
+                                 <double*> np.PyArray_DATA(tbounds))
+    return ierr
+
+
+def hayami_compute_theta(double length_ref, double length,
+                         double eta, double zeta):
+    return c_hayami_compute_theta(length_ref, length, eta, zeta)
+
+def hayami_compute_z(double length_ref, double length,
+                     double eta, double zeta):
+    return c_hayami_compute_z(length_ref, length, eta, zeta)
+
+def hayami_compute_C(double length_ref, double length,
+                    double eta, double zeta):
+    return c_hayami_compute_C(length_ref, length, eta, zeta)
+
+def hayami_compute_D(double length_ref, double length,
+                     double eta, double zeta):
+    return c_hayami_compute_D(length_ref, length, eta, zeta)
+
+
+def uh_getuh_hayami(int nuhlengthmax, int niter, double timestep,
+                    double theta, double z,
+                    np.ndarray[int, ndim=1, mode='c'] nuh not None,
+                    np.ndarray[double, ndim=1, mode='c'] uh not None):
+
+    cdef int ierr
+
+    if uh.shape[0] != nuhlengthmax:
+        raise ValueError("uh.shape[0] != nuhlengthmnax")
+
+    ierr = c_uh_getuh_hayami(nuhlengthmax, niter,
+                             timestep, theta, z,
+                             <int*> np.PyArray_DATA(nuh),
+                             <double*> np.PyArray_DATA(uh))
+    return ierr
+
+
+def hayami_run(int nuh, int start, int end,
+               np.ndarray[double, ndim=1, mode='c'] config not None,
+               np.ndarray[double, ndim=1, mode='c'] params not None,
+               np.ndarray[double, ndim=1, mode='c'] uh not None,
+               np.ndarray[double, ndim=2, mode='c'] inputs not None,
+               np.ndarray[double, ndim=1, mode='c'] statesuh not None,
+               np.ndarray[double, ndim=1, mode='c'] states not None,
+               np.ndarray[double, ndim=2, mode='c'] outputs not None):
+
+    cdef int ierr
+
+    # check dimensions
+    if states.shape[0] < 1:
+        raise ValueError('states.shape[0] < 1')
+
+    if inputs.shape[0] != outputs.shape[0]:
+        raise ValueError('inputs.shape[0] != outputs.shape[0]')
+
+    if inputs.shape[1] != 1:
+        raise ValueError('inputs.shape[1] != 1')
+
+    if uh.shape[0] < nuh:
+        raise ValueError('uh.shape[0] < nuh')
+
+    # Run model
+    ierr = c_hayami_run(inputs.shape[0],
+                        params.shape[0],
+                        nuh,
+                        inputs.shape[1],
+                        config.shape[1],
+                        states.shape[0],
+                        outputs.shape[1],
+                        start, end,
+                        <double*> np.PyArray_DATA(config),
+                        <double*> np.PyArray_DATA(params),
+                        <double*> np.PyArray_DATA(uh),
+                        <double*> np.PyArray_DATA(inputs),
+                        <double*> np.PyArray_DATA(statesuh),
+                        <double*> np.PyArray_DATA(states),
+                        <double*> np.PyArray_DATA(outputs))
     return ierr
 
