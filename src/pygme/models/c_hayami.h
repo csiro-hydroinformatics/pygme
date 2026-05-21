@@ -20,7 +20,7 @@
 #define HAYAMI_NINPUTS 1
 
 /* Number of config required by HAYAMI run */
-#define HAYAMI_NCONFIG 4
+#define HAYAMI_NCONFIG 3
 
 /* Number of params required by HAYAMI run */
 #define HAYAMI_NPARAMS 2
@@ -38,25 +38,8 @@
 int c_hayami_get_maxuh();
 double c_hayami_get_uheps();
 
-double c_hayami_compute_theta(double length_ref,
-                              double length,
-                              double eta,
-                              double zeta);
-
-double c_hayami_compute_z(double length_ref,
-                          double length,
-                          double eta,
-                          double zeta);
-
-double c_hayami_compute_C(double length_ref,
-                          double length,
-                          double eta,
-                          double zeta);
-
-double c_hayami_compute_D(double length_ref,
-                          double length,
-                          double eta,
-                          double zeta);
+double c_hayami_compute_theta(double length, double C, double Z);
+double c_hayami_compute_D(double length, double C, double Z);
 
 double hayami_kernel(double theta, double z, double t);
 

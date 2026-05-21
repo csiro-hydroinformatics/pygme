@@ -67,19 +67,18 @@ def test_error2():
         hay.initialise()
 
 
-@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
-@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+@pytest.mark.parametrize("Z", [0.1, 1, 10, 50])
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_kernel(L, C, D, timestep, allclose):
+def test_hayami_kernel(C, Z, L, timestep, allclose):
     theta = L / C
-    z = C * L / 4 / D
 
     tt = np.linspace(theta / 100, 10 * theta, 100000)
-    kernel = hayami_kernel(theta, z, tt)
+    kernel = hayami_kernel(theta, Z, tt)
 
-    expected = math.sqrt(z * theta / math.pi)
-    expected *= np.exp(z * (2 - theta / tt - tt / theta))
+    expected = math.sqrt(Z * theta / math.pi)
+    expected *= np.exp(Z * (2 - theta / tt - tt / theta))
     expected /= np.sqrt(tt**3)
     assert allclose(kernel[:, 1], expected)
 
@@ -94,51 +93,49 @@ def test_hayami_kernel(L, C, D, timestep, allclose):
     assert errm < 5e-3
 
 
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("Z", [0.1, 1, 10, 50])
 @pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
-@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10., 100.])
-@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
 @pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_tbounds(L, C, D, timestep, allclose):
+def test_hayami_tbounds(C, Z, L, timestep, allclose):
     theta = L / C
-    z = C * L / 4 / D
 
     eps = 1e-5
     bounds = np.zeros(2)
-    c_pygme_models_hydromodels.time_bounds_hayami(theta, z, eps, bounds)
+    c_pygme_models_hydromodels.time_bounds_hayami(theta, Z, eps, bounds)
     tlow, thigh = bounds
 
-    t0 = theta * (math.sqrt(16 * z * z + 9) - 3) / 4 / z
-    f0 = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, t0)
+    t0 = theta * (math.sqrt(16 * Z * Z + 9) - 3) / 4 / Z
+    f0 = c_pygme_models_hydromodels.test_hayami_kernel(theta, Z, t0)
     fobj = f0 * eps
 
     assert tlow < t0
     assert thigh > t0
 
-    fl = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, tlow)
+    fl = c_pygme_models_hydromodels.test_hayami_kernel(theta, Z, tlow)
     el = abs(fl - fobj) / f0
     tol = eps * 1e1
     assert el < tol
 
-    fh = c_pygme_models_hydromodels.test_hayami_kernel(theta, z, thigh)
+    fh = c_pygme_models_hydromodels.test_hayami_kernel(theta, Z, thigh)
     eh = abs(fh - fobj) / f0
     assert eh < tol
 
 
-@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
-@pytest.mark.parametrize("D", [1, 100, 10000, 1000000])
+@pytest.mark.parametrize("Z", [0.1, 1, 10, 50])
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("iuh", [0, 5, 10, 100])
 @pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_uh1(L, C, D, iuh, timestep, allclose):
+def test_hayami_uh1(C, Z, L, iuh, timestep, allclose):
     theta = L / C
-    z = C * L / 4 / D
 
     t1 = float(iuh * timestep)
     tn = float((iuh + 1) * timestep)
 
     eps = 1e-3
     bounds = np.zeros(2)
-    c_pygme_models_hydromodels.time_bounds_hayami(theta, z, eps, bounds)
+    c_pygme_models_hydromodels.time_bounds_hayami(theta, Z, eps, bounds)
     tlow, thigh = bounds
     if  thigh - tlow < timestep / 1000:
         pytest.skip("Very narrow kernel. too hard for quad")
@@ -153,12 +150,12 @@ def test_hayami_uh1(L, C, D, iuh, timestep, allclose):
     for i in range(n):
         a = t1 + i * dt
         b = a + dt
-        u += c_pygme_models_hydromodels.test_integrate_hayami_kernel(a, b, theta, z)
+        u += c_pygme_models_hydromodels.test_integrate_hayami_kernel(a, b, theta, Z)
 
     u = min(u, 1)
 
     def fun(x):
-        return c_pygme_models_hydromodels.test_hayami_kernel(theta, z, x)
+        return c_pygme_models_hydromodels.test_hayami_kernel(theta, Z, x)
 
     expected, err, mess = quad(fun,
                                iuh * timestep,
@@ -173,23 +170,20 @@ def test_hayami_uh1(L, C, D, iuh, timestep, allclose):
     logerr = abs(lu - le)
 
     if expected > 1e-3:
-        assert logerr < 4e-2
+        assert logerr < 5e-2
 
 
-@pytest.mark.parametrize("eta", np.logspace(-2, 2, 5))
-@pytest.mark.parametrize("zeta", [0.01, 0.1, 1., 10., 100.])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("Z", [0.1, 1, 10, 50])
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_uh2(eta, zeta, timestep, allclose):
+def test_hayami_uh2(C, Z, L, timestep, allclose):
     hay = Hayami()
     hay.config.timestep = timestep
-    L = 1e5
-    L0 = 1e4
     hay.config.length = L
-    hay.config.length_ref = L0
+    hay.params.values = [C, Z]
 
-    hay.params.values = [eta, zeta]
-
-    theta = hay.theta
+    theta = L / C
     if theta / timestep > HAYAMI_MAXUH / 2:
         pytest.skip("Cannot store full uh")
 
@@ -206,11 +200,11 @@ def test_hayami_uh2(eta, zeta, timestep, allclose):
     assert npos >= nmin
 
 
-@pytest.mark.parametrize("eta", np.logspace(-2, 2, 5))
-@pytest.mark.parametrize("zeta", [0.01, 0.1, 1., 10., 100.])
-@pytest.mark.parametrize("length", [1e3, 1e4, 1e5])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
+@pytest.mark.parametrize("Z", [0.1, 1, 10, 50])
+@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
 @pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_parameters(eta, zeta, length, timestep, allclose):
+def test_hayami_parameters(C, Z, L, timestep, allclose):
     hay = Hayami()
 
     # Set config

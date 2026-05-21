@@ -123,26 +123,8 @@ cdef extern from 'c_hbv.h':
 cdef extern from 'c_hayami.h':
     int c_hayami_get_maxuh()
     double c_hayami_get_uheps();
-
-    double c_hayami_compute_theta(double length_ref,
-                                  double length,
-                                  double eta,
-                                  double zeta);
-
-    double c_hayami_compute_z(double length_ref,
-                              double length,
-                              double eta,
-                              double zeta);
-
-    double c_hayami_compute_C(double length_ref,
-                              double length,
-                              double eta,
-                              double zeta);
-
-    double c_hayami_compute_D(double length_ref,
-                              double length,
-                              double eta,
-                              double zeta);
+    double c_hayami_compute_theta(double length, double C, double Z);
+    double c_hayami_compute_D(double length, double C, double Z);
 
     double hayami_kernel(double theta, double z, double t);
 
@@ -577,21 +559,11 @@ def time_bounds_hayami(double theta, double z, double eps,
     return ierr
 
 
-def hayami_compute_theta(double length_ref, double length,
-                         double eta, double zeta):
-    return c_hayami_compute_theta(length_ref, length, eta, zeta)
+def hayami_compute_theta(double length, double C, double Z):
+    return c_hayami_compute_theta(length, C, Z)
 
-def hayami_compute_z(double length_ref, double length,
-                     double eta, double zeta):
-    return c_hayami_compute_z(length_ref, length, eta, zeta)
-
-def hayami_compute_C(double length_ref, double length,
-                    double eta, double zeta):
-    return c_hayami_compute_C(length_ref, length, eta, zeta)
-
-def hayami_compute_D(double length_ref, double length,
-                     double eta, double zeta):
-    return c_hayami_compute_D(length_ref, length, eta, zeta)
+def hayami_compute_D(double length, double C, double Z):
+    return c_hayami_compute_D(length, C, Z)
 
 
 def uh_getuh_hayami(int nuhlengthmax, int niter, double timestep,
