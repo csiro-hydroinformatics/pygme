@@ -11,38 +11,12 @@ int c_hayami_get_maxuh() {
 /* Hayami parameters,
  * See Moussa (1996), Equation 10
  */
-double c_hayami_compute_theta(double length_ref,
-                              double length,
-                              double eta,
-                              double zeta) {
-    /* Assumes eta is counted in days
-     * and corresponds to length_ref */
-    return eta * 86400. * length / length_ref;
+double c_hayami_compute_theta(double length, double C, double Z) {
+    return length  / C;
 }
 
-double c_hayami_compute_z(double length_ref,
-                          double length,
-                          double eta,
-                          double zeta) {
-    /* Assumes zeta corresponds to length_ref */
-    return zeta * length / length_ref;
-}
-
-double c_hayami_compute_C(double length_ref,
-                          double length,
-                          double eta,
-                          double zeta) {
-    double theta = c_hayami_compute_theta(length_ref, length, eta, zeta);
-    return length / theta;
-}
-
-double c_hayami_compute_D(double length_ref,
-                          double length,
-                          double eta,
-                          double zeta) {
-    double C = c_hayami_compute_C(length_ref, length, eta, zeta);
-    double z = c_hayami_compute_z(length_ref, length, eta, zeta);
-    return C * length / 4 / z;
+double c_hayami_compute_D(double length, double C, double Z) {
+    return C * length / 4 / Z;
 }
 
 int hayami_minmaxparams(int nparams, double * params)
@@ -53,58 +27,59 @@ int hayami_minmaxparams(int nparams, double * params)
             return HAYAMI_ERROR + __LINE__;
 
         /* eta (days) */
-        pmin = 1e-4;
+        pmin = 1e-2;
         pmax = 1e2;
         params[0] = c_minmax(pmin, pmax, params[0]);
 
         /* zeta (dimless) */
-        pmin = 1e-4;
-        pmax = 1e3;
+        pmin = 1e-2;
+        pmax = 1e2;
         params[1] = c_minmax(pmin, pmax, params[1]);
 
 	return 0;
 }
 
 
-double hayami_kernel(double theta, double z, double t) {
+double hayami_kernel(double theta, double Z, double t) {
     /*
      * See Moussa, R. (1996).
      * https://doi.org/10.1002/(SICI)1099-1085(199609)10:9%253C1209::AID-HYP380%253E3.0.CO;2-2
      */
     double u = t / theta;
-    double A = sqrt(z / UTILS_PI) / theta;
-    return A * exp(z * (2 - 1. / u - u)) / sqrt(u * u * u);
+    double A = sqrt(Z / UTILS_PI) / theta;
+    return A * exp(Z * (2 - 1. / u - u)) / sqrt(u * u * u);
 }
 
 
-double hayami_kernel_diff(double theta, double z, double t) {
+double hayami_kernel_diff(double theta, double Z, double t) {
     double u = t / theta;
-    double k = hayami_kernel(theta, z, t);
-    return k  / theta * (z * (- 1. + 1. / u / u) - 1.5 / u);
+    double k = hayami_kernel(theta, Z, t);
+    return k  / theta * (Z * (- 1. + 1. / u / u) - 1.5 / u);
 }
 
 
-double hayami_kernel_diff2(double theta, double z, double t) {
+double hayami_kernel_diff2(double theta, double Z, double t) {
     double u = t / theta;
-    double k = hayami_kernel(theta, z, t);
-    double z2 = z * z;
+    double k = hayami_kernel(theta, Z, t);
+    double Z2 = Z * Z;
     double u2 = u * u;
     double u3 = u2 * u;
     double u4 = u2 * u2;
-    return k  / theta / theta * (z2 + z2 / u4 - 5 * z / u3 + (15 - 8 * z2) / 4 / u2 + 3 * z / u);
+    return k  / theta / theta * (Z2 + Z2 / u4 - 5 * Z / u3 + (15 - 8 * Z2) / 4 / u2 + 3 * Z / u);
 }
 
 
-double hayami_kernel_tmax(double theta, double z) {
-    return theta * (sqrt(16 * z * z + 9) - 3) / 4 / z;
+double hayami_kernel_tmax(double theta, double Z) {
+    return theta * (sqrt(16 * Z * Z + 9) - 3) / 4 / Z;
 }
 
-
-double hayami_kernel_halley(double theta, double z,
+/* Finds the time when the kernel = fobj starting from t
+ * using Halley's method */
+double hayami_kernel_halley(double theta, double Z,
                             double fobj, double rtol,
                             double t) {
     int iter, nitermax = 20;
-    double t0 = hayami_kernel_tmax(theta, z);
+    double t0 = hayami_kernel_tmax(theta, Z);
 
     /* Bounds depend if initial t is below t0 or above */
     double tmin = t < t0 ? t0 * 0.01 : t0 * 1.01;
@@ -119,7 +94,7 @@ double hayami_kernel_halley(double theta, double z,
     t = t < tmin || isnan(t) ? tmin : t;
 
     for(iter = 0; iter < nitermax; iter++) {
-        f = hayami_kernel(theta, z, t);
+        f = hayami_kernel(theta, Z, t);
 
         /* Early exit */
         err = f - fobj;
@@ -128,8 +103,8 @@ double hayami_kernel_halley(double theta, double z,
             break;
 
         /* Halley's method step */
-        df = hayami_kernel_diff(theta, z, t);
-        d2f = hayami_kernel_diff2(theta, z, t);
+        df = hayami_kernel_diff(theta, Z, t);
+        d2f = hayami_kernel_diff2(theta, Z, t);
         t -= err * df / (df * df - 0.5 * err * d2f);
 
         /* Checks */
@@ -140,21 +115,23 @@ double hayami_kernel_halley(double theta, double z,
     return t;
 }
 
-
-int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2]) {
+/* Compute two times before and after the kernel peak where
+ * f = fpeak * eps
+ */
+int hayami_kernel_tbounds(double theta, double Z, double eps, double tbounds[2]) {
     double tlow, thigh;
     double t0, f0, df0, d2f0, fobj;
     double a, b, c, sqD;
     double rtol = 1e-3;
 
     /* This is the value of the kernel we seek: eps x max(kernel) */
-    t0 = hayami_kernel_tmax(theta, z);
-    f0 = hayami_kernel(theta, z, t0);
+    t0 = hayami_kernel_tmax(theta, Z);
+    f0 = hayami_kernel(theta, Z, t0);
     fobj = f0 * eps;
 
     /* Approximate bounds with taylor series at t=t0 */
-    df0 = hayami_kernel_diff(theta, z, t0);
-    d2f0 = hayami_kernel_diff2(theta, z, t0);
+    df0 = hayami_kernel_diff(theta, Z, t0);
+    d2f0 = hayami_kernel_diff2(theta, Z, t0);
     a = d2f0 / 2;
     b = df0 - t0 * d2f0;
     c = f0 - df0 * t0 + d2f0 * t0 * t0 / 2;
@@ -163,14 +140,14 @@ int hayami_kernel_tbounds(double theta, double z, double eps, double tbounds[2])
     thigh = (-b - sqD) / 2 / a;
 
     /* Halley's iteration */
-    tbounds[0] = hayami_kernel_halley(theta, z, fobj, rtol, tlow);
-    tbounds[1] = hayami_kernel_halley(theta, z, fobj, rtol, thigh);
+    tbounds[0] = hayami_kernel_halley(theta, Z, fobj, rtol, tlow);
+    tbounds[1] = hayami_kernel_halley(theta, Z, fobj, rtol, thigh);
 
     return 0;
 }
 
 
-double integrate_hayami_kernel(double a, double b, double theta, double z)
+double integrate_hayami_kernel(double a, double b, double theta, double Z)
 {
     if(b <= a)
         return 0;
@@ -191,7 +168,7 @@ double integrate_hayami_kernel(double a, double b, double theta, double z)
     /* 10 pt Gaussian Quadrature */
     for (int j = 0; j < 5; j++) {
         double dx = rg * x[j];
-        s += w[j] * (hayami_kernel(theta, z, mid + dx) + hayami_kernel(theta, z, mid - dx));
+        s += w[j] * (hayami_kernel(theta, Z, mid + dx) + hayami_kernel(theta, Z, mid - dx));
     }
     return s *= rg;
 }
@@ -201,7 +178,7 @@ int c_uh_getuh_hayami(int nuhlengthmax,
                       int niter,
                       double timestep,
                       double theta,
-                      double z,
+                      double Z,
                       int * nuh,
                       double * uh)
 {
@@ -213,11 +190,13 @@ int c_uh_getuh_hayami(int nuhlengthmax,
     /* Number of subdivisions for integration */
     niter = niter < 1 ? 1 : niter;
 
-    double t0 = hayami_kernel_tmax(theta, z);
+    double t0 = hayami_kernel_tmax(theta, Z);
+    double f0 = hayami_kernel(theta, Z, t0);
+    double u0 = f0 * timestep;
 
     double eps = 1e-3;
     double tbounds[2];
-    hayami_kernel_tbounds(theta, z, eps, tbounds);
+    hayami_kernel_tbounds(theta, Z, eps, tbounds);
     double tlow = tbounds[0];
     double thigh = tbounds[1];
 
@@ -237,13 +216,13 @@ int c_uh_getuh_hayami(int nuhlengthmax,
             t2 = t2 > thigh ? thigh : t2;
         }
 
-        /* Compute */
+        /* Integrate kernel over sub-intervals */
         dt = (t2 - t1) / (double) niter;
         u = 0;
         for(j = 0; j < niter; j++) {
             a = t1 + (double)j * dt;
             b = a + dt;
-            u += integrate_hayami_kernel(a, b, theta, z);
+            u += integrate_hayami_kernel(a, b, theta, Z);
         }
         u = u > 1. ? 1. : u;
 
@@ -254,11 +233,14 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         /* Break loop if we have reached accumulated
          * ordinates close to 1. Also break loop if we
          * passed the peak of the kernel and we get very
-         * low uh ordinates.
+         * low uh ordinates compared to a reference value
+         * computed at the peak. This is to cut the
+         * long tail of the kernel and avoid to slow
+         * down convolution later on.
          */
-        if(suh > 1 - HAYAMI_UHEPS || (t1 > t0 && u < HAYAMI_UHEPS))
+        if(suh > 1 - HAYAMI_UHEPS || (t1 > t0 && u < u0 * 1e-4))
             break;
-   }
+    }
 
     /* NUH is not big enough */
     if(fabs(1 - suh) > HAYAMI_UHEPS)
@@ -287,40 +269,55 @@ int c_hayami_runtimestep(
 {
     int k, ierr = 0;
     double is_lateral = lateral > 0 ? 1. : 0.;
-    double qin, phi, qconvol;
+    double qin, qcum, phi, qconvol;
     double vr0, vr;
-
-    /* Parameters */
 
     /* input */
     qin = inputs[0];
+    if (isnan(qin))
+        return HAYAMI_ERROR + __LINE__;
     qin = qin < 0 ? 0. : qin;
+    qcum = states[0] + qin;
 
-    /* if lateral flow, use cumulative inflow
-     * See Equation 49 in Moussa (1996)
-     * states[0] = cumulative flow from prior timesteps
-     * Here, we divide the cumulative flow by theta
-     * to compute the Phi function from Moussa (1996).
-     * */
-    phi = (states[0] + qin) * dt / theta;
-    qconvol = qin - is_lateral * phi;
+    /* Short cut the process if uh[0]≈1 */
+    if(uh[0] > 1 - HAYAMI_UHEPS) {
+        statesuh[0] = qin;
+        for (k = 1; k < nuh; k++)
+            statesuh[k] = 0;
 
-    /* Hayami uh */
-    for (k = 0; k < nuh - 1; k++)
-        statesuh[k] = statesuh[1 + k] + uh[k] * qconvol;
+        outputs[0] = qin;
+    }
+    else {
+        /* if lateral flow, use cumulative inflow
+         * See Equation 49 in Moussa (1996)
+         * states[0] = cumulative flow from prior timesteps
+         * Here, we divide the cumulative flow by theta
+         * to compute the Phi function from Moussa (1996).
+         */
+        phi = qcum * dt / theta;
 
-    statesuh[nuh - 1] = uh[nuh - 1] * qconvol;
+        /* The flow that is convoluted is either qin
+         * for inflow propagation or -phi for lateral inflows
+         */
+        qconvol = (1. - is_lateral) * qin - is_lateral * phi;
 
-    /* flow outputs */
-    /* See Equation 49 in Moussa (1996) */
-    outputs[0] = statesuh[0] + is_lateral * phi;
+        /* Hayami uh */
+        for (k = 0; k < nuh - 1; k++)
+            statesuh[k] = statesuh[1 + k] + uh[k] * qconvol;
+
+        statesuh[nuh - 1] = uh[nuh - 1] * qconvol;
+
+        /* flow outputs */
+        /* See Equation 49 in Moussa (1996) */
+        outputs[0] = statesuh[0] + is_lateral * phi;
+    }
 
     /* Transiting volume */
     vr0 = states[1];
     vr = (qin - outputs[0]) * dt + vr0;
 
     /* States -> cumulative flow and stored volume */
-    states[0] += qin;
+    states[0] = qcum;
     states[1] = vr;
 
     /* Storage outputs */
@@ -350,8 +347,8 @@ int c_hayami_run(int nval,
         double * outputs)
 {
     int ierr=0, i;
-    double dt, lateral, eta, theta, zeta;
-    double length, length_ref;
+    double dt, lateral, C, Z, theta;
+    double length;
 
     /* Check dimensions */
     if(nparams < HAYAMI_NPARAMS)
@@ -377,18 +374,17 @@ int c_hayami_run(int nval,
 
     /* Config data */
     dt = config[0];
-    length_ref = config[1];
-    length = config[2];
-    lateral = config[3];
+    length = config[1];
+    lateral = config[2];
 
     /* Check parameters */
-    ierr = hayami_minmaxparams(nparams, params);
+    hayami_minmaxparams(nparams, params);
+    C = params[0];
+    Z = params[1];
+    theta = c_hayami_compute_theta(length, C, Z);
 
-    /* theta parameter is obtained by multiplying eta by timestep
-     * duration */
-    eta = params[0];
-    zeta = params[1];
-    theta = c_hayami_compute_theta(length_ref, length, eta, zeta);
+    /* makes sure cumulative flow is zero and stored volume */
+    states[0] = 0.;
 
     /* Run timeseries */
     for(i = start; i <= end; i++)
