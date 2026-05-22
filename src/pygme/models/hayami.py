@@ -20,12 +20,12 @@ def hayami_true2trans(x):
     return x
 
 
-def hayami_compute_theta(C, Z, L):
-    return c_pygme_models_hydromodels.hayami_compute_theta(C, Z, L)
+def hayami_compute_theta(L, C, Z):
+    return c_pygme_models_hydromodels.hayami_compute_theta(L, C, Z)
 
 
-def hayami_compute_D(C, Z, L):
-    return c_pygme_models_hydromodels.hayami_compute_D(C, Z, L)
+def hayami_compute_D(L, C, Z):
+    return c_pygme_models_hydromodels.hayami_compute_D(L, C, Z)
 
 
 # Hayami kernel function
@@ -66,7 +66,7 @@ class HayamiUH(UH):
 
     def set_uh(self, C, Z):
         L = self.config.length
-        theta = hayami_compute_theta(C, Z, L)
+        theta = hayami_compute_theta(L, C, Z)
         self._theta = theta
         self._Z = Z
 
@@ -77,7 +77,7 @@ class HayamiUH(UH):
                                                           theta, Z,
                                                           self._nord, self._ord)
         if ierr > 0:
-            errmsg = f"When setting theta={theta:0.3f} and z={z:0.3f}"\
+            errmsg = f"When setting theta={theta:0.3f} and Z={Z:0.3f}"\
                      +" for Hayami UH, "\
                      + f"c_pygme_models_hydromodels.uh_getuh_hayami returns {ierr}"
             raise ValueError(errmsg)
@@ -114,10 +114,7 @@ class HayamiParamsVector(ParamsVector):
 
     def _set_values(self):
         C, Z = self.values
-        config = self._hayami_uh.config
-        L = config.length
-        theta = c_pygme_models_hydromodels.hayami_compute_theta(C, Z, L)
-        self._hayami_uh.set_uh(theta, Z)
+        self._hayami_uh.set_uh(C, Z)
         super()._set_values()
 
     @property
@@ -143,10 +140,10 @@ class Hayami(Model):
                         maxs=[np.inf, np.inf, 1])
 
         # params vector
-        # eta is measured in days and corresponds to length_ref
-        # zeta is dimless and corresponds to length_ref
+        # C [m/s] -> celerity
+        # Z [dimless] -> shape
         vect = Vector(["C", "Z"],
-                      defaults=[1., 1.],
+                      defaults=[1., 2.5],
                       mins=[1e-3, 1e-3],
                       maxs=[1e2, 1e2])
         params = HayamiParamsVector(vect, config)

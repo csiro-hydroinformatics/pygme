@@ -73,6 +73,8 @@ double hayami_kernel_tmax(double theta, double Z) {
     return theta * (sqrt(16 * Z * Z + 9) - 3) / 4 / Z;
 }
 
+/* Finds the time when the kernel = fobj starting from t
+ * using Halley's method */
 double hayami_kernel_halley(double theta, double Z,
                             double fobj, double rtol,
                             double t) {
@@ -113,7 +115,9 @@ double hayami_kernel_halley(double theta, double Z,
     return t;
 }
 
-
+/* Compute two times before and after the kernel peak where
+ * f = fpeak * eps
+ */
 int hayami_kernel_tbounds(double theta, double Z, double eps, double tbounds[2]) {
     double tlow, thigh;
     double t0, f0, df0, d2f0, fobj;
@@ -187,6 +191,8 @@ int c_uh_getuh_hayami(int nuhlengthmax,
     niter = niter < 1 ? 1 : niter;
 
     double t0 = hayami_kernel_tmax(theta, Z);
+    double f0 = hayami_kernel(theta, Z, t0);
+    double u0 = f0 * timestep;
 
     double eps = 1e-3;
     double tbounds[2];
@@ -210,7 +216,7 @@ int c_uh_getuh_hayami(int nuhlengthmax,
             t2 = t2 > thigh ? thigh : t2;
         }
 
-        /* Compute */
+        /* Integrate kernel over sub-intervals */
         dt = (t2 - t1) / (double) niter;
         u = 0;
         for(j = 0; j < niter; j++) {
@@ -227,11 +233,14 @@ int c_uh_getuh_hayami(int nuhlengthmax,
         /* Break loop if we have reached accumulated
          * ordinates close to 1. Also break loop if we
          * passed the peak of the kernel and we get very
-         * low uh ordinates.
+         * low uh ordinates compared to a reference value
+         * computed at the peak. This is to cut the
+         * long tail of the kernel and avoid to slow
+         * down convolution later on.
          */
-        if(suh > 1 - HAYAMI_UHEPS || (t1 > t0 && u < HAYAMI_UHEPS))
+        if(suh > 1 - HAYAMI_UHEPS || (t1 > t0 && u < u0 * 1e-4))
             break;
-   }
+    }
 
     /* NUH is not big enough */
     if(fabs(1 - suh) > HAYAMI_UHEPS)
@@ -260,40 +269,55 @@ int c_hayami_runtimestep(
 {
     int k, ierr = 0;
     double is_lateral = lateral > 0 ? 1. : 0.;
-    double qin, phi, qconvol;
+    double qin, qcum, phi, qconvol;
     double vr0, vr;
-
-    /* Parameters */
 
     /* input */
     qin = inputs[0];
+    if (isnan(qin))
+        return HAYAMI_ERROR + __LINE__;
     qin = qin < 0 ? 0. : qin;
+    qcum = states[0] + qin;
 
-    /* if lateral flow, use cumulative inflow
-     * See Equation 49 in Moussa (1996)
-     * states[0] = cumulative flow from prior timesteps
-     * Here, we divide the cumulative flow by theta
-     * to compute the Phi function from Moussa (1996).
-     * */
-    phi = (states[0] + qin) * dt / theta;
-    qconvol = qin - is_lateral * phi;
+    /* Short cut the process if uh[0]≈1 */
+    if(uh[0] > 1 - HAYAMI_UHEPS) {
+        statesuh[0] = qin;
+        for (k = 1; k < nuh; k++)
+            statesuh[k] = 0;
 
-    /* Hayami uh */
-    for (k = 0; k < nuh - 1; k++)
-        statesuh[k] = statesuh[1 + k] + uh[k] * qconvol;
+        outputs[0] = qin;
+    }
+    else {
+        /* if lateral flow, use cumulative inflow
+         * See Equation 49 in Moussa (1996)
+         * states[0] = cumulative flow from prior timesteps
+         * Here, we divide the cumulative flow by theta
+         * to compute the Phi function from Moussa (1996).
+         */
+        phi = qcum * dt / theta;
 
-    statesuh[nuh - 1] = uh[nuh - 1] * qconvol;
+        /* The flow that is convoluted is either qin
+         * for inflow propagation or -phi for lateral inflows
+         */
+        qconvol = (1. - is_lateral) * qin - is_lateral * phi;
 
-    /* flow outputs */
-    /* See Equation 49 in Moussa (1996) */
-    outputs[0] = statesuh[0] + is_lateral * phi;
+        /* Hayami uh */
+        for (k = 0; k < nuh - 1; k++)
+            statesuh[k] = statesuh[1 + k] + uh[k] * qconvol;
+
+        statesuh[nuh - 1] = uh[nuh - 1] * qconvol;
+
+        /* flow outputs */
+        /* See Equation 49 in Moussa (1996) */
+        outputs[0] = statesuh[0] + is_lateral * phi;
+    }
 
     /* Transiting volume */
     vr0 = states[1];
     vr = (qin - outputs[0]) * dt + vr0;
 
     /* States -> cumulative flow and stored volume */
-    states[0] += qin;
+    states[0] = qcum;
     states[1] = vr;
 
     /* Storage outputs */
@@ -323,8 +347,8 @@ int c_hayami_run(int nval,
         double * outputs)
 {
     int ierr=0, i;
-    double dt, lateral, eta, theta, zeta;
-    double length, length_ref;
+    double dt, lateral, C, Z, theta;
+    double length;
 
     /* Check dimensions */
     if(nparams < HAYAMI_NPARAMS)
@@ -350,14 +374,17 @@ int c_hayami_run(int nval,
 
     /* Config data */
     dt = config[0];
+    length = config[1];
     lateral = config[2];
 
     /* Check parameters */
-    ierr = hayami_minmaxparams(nparams, params);
+    hayami_minmaxparams(nparams, params);
+    C = params[0];
+    Z = params[1];
+    theta = c_hayami_compute_theta(length, C, Z);
 
-    /* theta parameter is obtained by multiplying eta by timestep
-     * duration */
-    theta = params[0];
+    /* makes sure cumulative flow is zero and stored volume */
+    states[0] = 0.;
 
     /* Run timeseries */
     for(i = start; i <= end; i++)

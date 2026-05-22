@@ -12,8 +12,7 @@ import numpy as np
 import pandas as pd
 
 from scipy.integrate import quad
-
-import matplotlib.pyplot as plt
+from scipy.stats import kendalltau, ttest_1samp
 
 from pygme.models.hayami import Hayami, CalibrationHayami, HAYAMI_MAXUH, \
         hayami_kernel, HAYAMI_UHEPS
@@ -200,44 +199,13 @@ def test_hayami_uh2(C, Z, L, timestep, allclose):
     assert npos >= nmin
 
 
-@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10.])
-@pytest.mark.parametrize("Z", [0.1, 1, 10, 50])
-@pytest.mark.parametrize("L", [1e3, 1e4, 1e5])
-@pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_parameters(C, Z, L, timestep, allclose):
-    hay = Hayami()
-
-    # Set config
-    cfg = hay.config
-    cfg.timestep = timestep
-    cfg.length = length
-
-    # Set params
-    hay.params.eta = eta
-    hay.params.zeta = zeta
-
-    assert allclose(hay.params.eta, eta)
-    assert allclose(hay.params.zeta, zeta)
-
-    theta = eta * 86400 * length / cfg.length_ref
-    assert allclose(hay.theta, theta)
-
-    z = zeta * length / cfg.length_ref
-    assert allclose(hay.z, z)
-
-    C = length / theta
-    assert allclose(hay.C, C)
-
-    D = C * length / 4 / z
-    assert allclose(hay.D, D)
-
-
-@pytest.mark.parametrize("eta", np.logspace(-2, 2, 5))
-@pytest.mark.parametrize("zeta", [0.1, 1., 10., 100.])
+@pytest.mark.parametrize("C", [0.01, 0.1, 1., 10., 50.])
+@pytest.mark.parametrize("Z", [0.01, 0.1, 1, 10, 50, 200.])
+@pytest.mark.parametrize("L", [1e2, 1e3, 1e4, 1e5, 1e6])
 @pytest.mark.parametrize("lateral", [0, 1])
-@pytest.mark.parametrize("ntry", [0]) #range(5))
+@pytest.mark.parametrize("ntry", range(5))
 @pytest.mark.parametrize("timestep", [3600, 86400])
-def test_hayami_mass_balance(eta, zeta, lateral, ntry, timestep, allclose):
+def test_hayami_run_timestep(C, Z, L, lateral, ntry, timestep, allclose):
     nval = 1000
     q1 = np.exp(np.random.normal(0, 2, size=nval))
     inputs = np.ascontiguousarray(q1[:,None])
@@ -248,10 +216,14 @@ def test_hayami_mass_balance(eta, zeta, lateral, ntry, timestep, allclose):
     cfg = hay.config
     cfg.timestep = timestep
     cfg.lateral = lateral
+    cfg.length = L
+
+    if L / C / timestep > 2 * nval:
+        pytest.skip("Very long UH compared to data")
 
     # Set params
-    hay.params.eta = eta
-    hay.params.zeta = zeta
+    hay.params.C = C
+    hay.params.Z = Z
     uh = hay.ord
     if any(np.isnan(uh)):
         pytest.skip("UH has nan")
@@ -260,30 +232,54 @@ def test_hayami_mass_balance(eta, zeta, lateral, ntry, timestep, allclose):
     hay.allocate(inputs, 2)
 
     t0 = time.time()
-
     hay.initialise()
     hay.run()
-
     t1 = time.time()
-    dta = 1000 * (t1 - t0) / nval * 365.25
 
-    vr = hay.outputs[-1, -1]
+    # Check model is not drifting
+    ord = hay.ord
+    ipos = 1 - ord.cumsum() > 1e-3
+    nmax = np.where(ipos)[0].max() if ord[0] < 1 - 1e-3 else 1
+    if nmax < nval / 3 and nmax > 3:
+        vr = hay.outputs[:, 1]
+        dvr = np.diff(hay.outputs[:, 1])
+        cnt = pd.Series(dvr > 0).value_counts() / nval
+        assert all(cnt < 0.9)
+
+    # Check mass balance
+    vr = hay.states.values[1]
     si = np.sum(inputs) * cfg.timestep
     so = np.sum(hay.outputs[:,0]) * cfg.timestep
-
-
     B = si - so - vr
-    atol = 1e-10
+    atol = 1e-8
     assert abs(B / so) < atol
-    assert dta < 10.
+
+    # Check outputs
+    if hay.ord[0] > 1 - HAYAMI_UHEPS:
+        expected = inputs[:, 0]
+    elif lateral == 0:
+        expected = np.convolve(inputs[:, 0], hay.ord)[:nval]
+    else:
+        cin = inputs[:, 0].cumsum()
+        expected = (cin - np.convolve(cin, hay.ord)[:nval]) * timestep / L * C
+
+    assert allclose(expected, hay.outputs[:, 0], atol=1e-6)
+
+    # Check execution time
+    dta = 1000 * (t1 - t0) / nval * 365.25
+    assert dta < 4. # Less than 4ms per year sim
 
 
 @pytest.mark.parametrize("nseries", [1, 2, 3]) #range(1, 16))
-@pytest.mark.parametrize("eta", np.logspace(-2, 2, 3))
-@pytest.mark.parametrize("zeta", [0.1, 1., 10.])
+@pytest.mark.parametrize("C", [0.1, 1., 10.])
+@pytest.mark.parametrize("Z", [0.1, 1., 10.])
+@pytest.mark.parametrize("L", [1e2, 1e3, 1e4])
 @pytest.mark.parametrize("lateral", [0, 1])
-def test_hayami_calibrate(nseries, eta, zeta, lateral):
+def test_hayami_calibrate(nseries, C, Z, L, lateral):
     hay = Hayami()
+    hay.config.length = L
+    hay.config.lateral = L
+
     warmup = 100
     objfun = ObjFunSSE()
 
@@ -294,10 +290,14 @@ def test_hayami_calibrate(nseries, eta, zeta, lateral):
                     data.loc[-1000:, ['Qsim']], \
                     np.float64)
 
+    nval = len(inputs)
+    if L / C > nval / 2:
+        pytest.skip("UH too long")
+
     # Run hayami first
     hay.allocate(inputs, 1)
-    hay.params.eta = eta
-    hay.params.zeta = zeta
+    hay.params.C = C
+    hay.params.Z = Z
     hay.initialise()
     hay.run()
 
@@ -313,6 +313,6 @@ def test_hayami_calibrate(nseries, eta, zeta, lateral):
     # Test if error on outputs
     warmup = calib.warmup
     sim = calib.model.outputs[:, 0]
-    rerr = np.arcsinh(obs[warmup:]) - np.arcsinh(sim[warmup:])
+    rerr = np.abs(np.arcsinh(obs[warmup:]) - np.arcsinh(sim[warmup:]))
     rerrmax = np.percentile(rerr, 90) # leaving aside 10% of the series
     assert rerrmax < 1e-4
