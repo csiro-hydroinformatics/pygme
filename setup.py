@@ -29,6 +29,7 @@ else:
                 "src/pygme/models/c_uh.c",
                 "src/pygme/models/c_lagroute.c",
                 "src/pygme/models/c_gr2m.c",
+                "src/pygme/models/c_gr2mdiff.c",
                 "src/pygme/models/c_gr4j.c",
                 "src/pygme/models/c_gr6j.c",
                 "src/pygme/models/c_sac15.c",
