@@ -24,7 +24,7 @@
 
 /* Number of outputs returned by GR2MDIFF run */
 #define GR2MDIFF_NOUTPUTS 12
-#define GR2MDIFF_NDOUTPUTS 1
+#define GR2MDIFF_NDOUTPUTS 2
 
 #define GR2MDIFF_NDOT 2
 

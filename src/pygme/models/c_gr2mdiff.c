@@ -1,69 +1,5 @@
 #include "c_gr2mdiff.h"
 
-dn_double dn_init(double val) {
-    dn_double dn;
-    dn.val = val;
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = 0.;
-    return dn;
-}
-
-dn_double dn_add(dn_double dn1, dn_double dn2) {
-    dn_double dn;
-    dn.val = dn1.val + dn2.val;
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = dn1.dot[i] + dn2.dot[i];
-    return dn;
-}
-
-dn_double dn_prod(dn_double dn1, dn_double dn2) {
-    dn_double dn;
-    dn.val = dn1.val * dn2.val;
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = dn1.dot[i] * dn2.val + dn1.val * dn2.dot[i];
-    return dn;
-}
-
-dn_double dn_div(dn_double dn1, dn_double dn2) {
-    dn_double dn;
-    dn.val = dn1.val / dn2.val;
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = (dn1.dot[i] - dn2.dot[i] * dn.val) / dn2.val;
-    return dn;
-}
-
-dn_double dn_tanh(dn_double dn1) {
-    dn_double dn;
-    dn.val = tanh(dn1.val);
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = dn1.dot[i] * (1 + dn.val * dn.val);
-    return dn;
-}
-
-dn_double dn_intpow(dn_double dn1, int n) {
-    dn_double dn;
-    double val = 1.;
-    /* val power n-1 to be used later in derivative */
-    for(int k = 0; k < n - 1; k ++ )
-        val *= dn1.val;
-
-    dn.val = val * dn1.val;
-
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = (n - 1) * dn1.dot[i] * val;
-    return dn;
-}
-
-
-dn_double dn_cbrt(dn_double dn1) {
-    dn_double dn;
-    dn.val = cbrt(dn1.val);
-    for(int i = 0; i < GR2MDIFF_NDOT; i ++ )
-        dn.dot[i] = 1./3. * dn1.dot[i] / (dn1.val * dn1.val);
-    return dn;
-}
-
-
 int c_gr2mdiff_runtimestep(int nconfig, int nparams, int ninputs,
         int nstates, int noutputs,
 	    double * config,
@@ -71,25 +7,29 @@ int c_gr2mdiff_runtimestep(int nconfig, int nparams, int ninputs,
 	    double * dparams,
         double * inputs,
         double * states,
+        double * dstates,
         double * outputs,
         double * doutputs)
 {
     int ierr=0;
 
     /* parameters */
-    double Scapacity = params[0];
-    double IGFcoef = params[1];
-    double Rcapacity = config[0];
+    dn_double Scapacity = dn_init(params[0]);
+    Scapacity.dot[0] = dparams[0]
+
+    dn_double IGFcoef = dn_init(params[1]);
+    IGFcoef.dot[1] = dparams[1]
+
+    dn_double Rcapacity = dn_init(config[0]);
 
     /* model variables */
-    double P, E, WS;
-    double Sr, S, R, S1, S2, PHI, PSI, P1, P2, P3;
-    double R1, R2, F, Q, AE;
-    double dQ;
+    dn_double P, E, WS;
+    dn_double Sr, S, R, S1, S2, PHI, PSI, P1, P2, P3;
+    dn_double R1, R2, F, Q, AE;
 
     /* inputs */
-    P = inputs[0] < 0 ? 0 : inputs[0];
-    E = inputs[1] < 0 ? 0 : inputs[1];
+    P.val = inputs[0] < 0 ? 0 : inputs[0];
+    E.val = inputs[1] < 0 ? 0 : inputs[1];
 
     S = c_minmax(0, params[0], states[0]);
     R = states[1];
@@ -128,12 +68,13 @@ int c_gr2mdiff_runtimestep(int nconfig, int nparams, int ninputs,
     R = R2-Q;
 
     /* states */
-    states[0] = S;
-    states[1] = R;
+    states[0] = S.val;
+    states[1] = R.val;
 
     /* output */
-    outputs[0] = Q;
-    doutputs[0] = dQ;
+    outputs[0] = Q.val;
+    doutputs[0] = Q.dot[0];
+    doutputs[1] = Q.dot[1];
 
     if(noutputs>1)
         outputs[1] = S;
@@ -209,6 +150,7 @@ int c_gr2mdiff_run(int nval,
     double * dparams,
     double * inputs,
     double * statesini,
+    double * dstatesini,
     double * outputs,
     double * doutputs)
 {
@@ -255,6 +197,7 @@ int c_gr2mdiff_run(int nval,
     		    dparams,
                 &(inputs[ninputs*i]),
                 statesini,
+                dstatesini,
                 &(outputs[noutputs*i]),
                 &(doutputs[ndoutputs*i]));
 
