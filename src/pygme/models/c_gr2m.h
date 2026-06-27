@@ -24,6 +24,8 @@
 /* Number of outputs returned by GR2M run */
 #define GR2M_NOUTPUTS 12
 
+int gr2m_minmaxparams(int nparams, double * params);
+
 int c_gr2m_run(int nval, int nconfig, int nparams, int ninputs,
     int nstates, int noutputs,
     int start, int  end,

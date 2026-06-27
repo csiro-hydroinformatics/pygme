@@ -32,8 +32,9 @@ jobs:
 
       - name: Run tests
         run: |
+          set -e
           uv run --locked pytest --ignore=src/pygme --ignore=src/hydrodiy --doctest-modules src
-          uv run --locked pytest --ignore=src/pygme --ignore=src/hydrodiy --cov=pygme --cov-report=xml --cov-report=html -cov-report=missing-term tests
+          uv run --locked pytest --ignore=src/pygme --ignore=src/hydrodiy --cov=pygme --cov-report=xml --cov-report=html --cov-report=missing-term tests
       
       - name: Parse coverage report and create badge
         run: |
